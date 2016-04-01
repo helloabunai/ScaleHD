@@ -1,0 +1,7 @@
+<config data_dir="/Users/alastairm/Desktop/GCT/RawData/" reference_file="/Users/alastairm/Desktop/GCT/Reference/CAG200_CCG20.fas" output_dir="/Users/alastairm/Desktop/Data/GCT/Output/VZA4/">
+  <instance_flags quality_control="False" sequence_alignment="False" genotype_prediction="True"/>
+  <dmplex_flags demultiplex_data="False" paired_read="True" barcode_file="/Users/alastairm/Desktop/GCT/barcode.txt" max_mismatch="0"/>
+  <trim_flags trim_data="False" trim_type="Quality" quality_threshold="25" adapter_flag="-a" adapter="ATAT"/>
+  <alignment_flags paired_read="True" mismatch_cost="2" gap_cost="3" delete_cost="3" max_align="1" similar_score="0.9" length_frac="0.9"/>
+  <prediction_flags sample_flag="True"/>
+</config>

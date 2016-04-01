@@ -1,0 +1,57 @@
+<!--DTD configuration Defines the format for the XML file which provides command argument input.
+
+Molecular Cell & Systems Biology
+University of Glasgow, Scotland
+Author : Alastair Maxwell
+Date   : god damn it -->
+
+<!--Comment:
+
+This file sets out the rules for which any configuration settings specified by the end user (in ArgumentConfig.xml) should adhere to. I.E. This file specifies a format of input for the program.
+The Config Element deals with specifying any required sub-configs (elements), and direct input (e.g. specifying aligned read directories). GTF_EXEC stores settings which determine what functions the application should execute.-->
+
+
+<!-- CONFIG ELEMENT -->
+<!ELEMENT config          (instance_flags, dmplex_flags, trim_flags, alignment_flags, prediction_flags)>
+<!ATTLIST config          data_dir CDATA #REQUIRED>
+<!ATTLIST config		  reference_file CDATA #REQUIRED>
+<!ATTLIST config          output_dir CDATA #REQUIRED>
+
+<!-- INSTANCE_FLAGS ELEMENT -->
+<!ELEMENT instance_flags (#PCDATA)>
+<!ATTLIST instance_flags quality_control CDATA #REQUIRED>
+<!ATTLIST instance_flags sequence_alignment CDATA #REQUIRED>
+<!ATTLIST instance_flags genotype_prediction CDATA #REQUIRED>
+
+<!-- DMPLEX_FLAGS ELEMENT -->
+<!ELEMENT dmplex_flags (#PCDATA)>
+<!ATTLIST dmplex_flags demultiplex_data CDATA #REQUIRED>
+<!ATTLIST dmplex_flags paired_read CDATA #REQUIRED>
+<!ATTLIST dmplex_flags barcode_file CDATA #REQUIRED>
+<!ATTLIST dmplex_flags max_mismatch CDATA #IMPLIED>
+
+<!-- TRIM_FLAGS ELEMENT -->
+<!ELEMENT trim_flags (#PCDATA)>
+<!ATTLIST trim_flags trim_data CDATA #REQUIRED>
+<!ATTLIST trim_flags trim_type CDATA #REQUIRED>
+<!ATTLIST trim_flags quality_threshold CDATA #IMPLIED>
+<!ATTLIST trim_flags adapter_flag CDATA #IMPLIED>
+<!ATTLIST trim_flags adapter CDATA #IMPLIED>
+
+<!-- ALIGNMENT_FLAGS ELEMENT -->
+<!ELEMENT alignment_flags (#PCDATA)>
+<!ATTLIST alignment_flags paired_read CDATA #REQUIRED>
+<!ATTLIST alignment_flags mismatch_cost CDATA #IMPLIED>
+<!ATTLIST alignment_flags gap_cost CDATA #IMPLIED>
+<!ATTLIST alignment_flags delete_cost CDATA #IMPLIED>
+<!ATTLIST alignment_flags max_align CDATA #IMPLIED>
+<!ATTLIST alignment_flags similar_score CDATA #IMPLIED>
+<!ATTLIST alignment_flags length_frac CDATA #IMPLIED>
+
+<!-- PREDICTION_FLAGS ELEMENT -->
+<!ELEMENT prediction_flags (#PCDATA)>
+<!ATTLIST prediction_flags sample_flag CDATA #REQUIRED>
+
+
+
+

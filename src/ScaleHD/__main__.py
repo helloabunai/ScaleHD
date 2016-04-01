@@ -1,2 +1,2 @@
-from sherpa import BaseCamp
-BaseCamp()
+from sherpa import main
+main()
