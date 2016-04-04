@@ -1,1 +1,2 @@
-__author__ = 'alastairm'
+__all__ = ['quality_control.py']
+from quality_control import SeqQC

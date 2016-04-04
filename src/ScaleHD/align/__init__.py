@@ -1,1 +1,2 @@
-__author__ = 'alastairm'
+__all__ = ['alignment.py']
+from alignment import SeqAlign

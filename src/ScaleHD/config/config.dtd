@@ -15,7 +15,6 @@ The Config Element deals with specifying any required sub-configs (elements), an
 <!ELEMENT config          (instance_flags, dmplex_flags, trim_flags, alignment_flags, prediction_flags)>
 <!ATTLIST config          data_dir CDATA #REQUIRED>
 <!ATTLIST config		  reference_file CDATA #REQUIRED>
-<!ATTLIST config          output_dir CDATA #REQUIRED>
 
 <!-- INSTANCE_FLAGS ELEMENT -->
 <!ELEMENT instance_flags (#PCDATA)>
@@ -26,7 +25,6 @@ The Config Element deals with specifying any required sub-configs (elements), an
 <!-- DMPLEX_FLAGS ELEMENT -->
 <!ELEMENT dmplex_flags (#PCDATA)>
 <!ATTLIST dmplex_flags demultiplex_data CDATA #REQUIRED>
-<!ATTLIST dmplex_flags paired_read CDATA #REQUIRED>
 <!ATTLIST dmplex_flags barcode_file CDATA #REQUIRED>
 <!ATTLIST dmplex_flags max_mismatch CDATA #IMPLIED>
 
@@ -40,13 +38,12 @@ The Config Element deals with specifying any required sub-configs (elements), an
 
 <!-- ALIGNMENT_FLAGS ELEMENT -->
 <!ELEMENT alignment_flags (#PCDATA)>
-<!ATTLIST alignment_flags paired_read CDATA #REQUIRED>
-<!ATTLIST alignment_flags mismatch_cost CDATA #IMPLIED>
-<!ATTLIST alignment_flags gap_cost CDATA #IMPLIED>
-<!ATTLIST alignment_flags delete_cost CDATA #IMPLIED>
-<!ATTLIST alignment_flags max_align CDATA #IMPLIED>
-<!ATTLIST alignment_flags similar_score CDATA #IMPLIED>
-<!ATTLIST alignment_flags length_frac CDATA #IMPLIED>
+<!ATTLIST alignment_flags extension_threshold CDATA #REQUIRED>
+<!ATTLIST alignment_flags seed_size CDATA #REQUIRED>
+<!ATTLIST alignment_flags align_mismatch CDATA #REQUIRED>
+<!ATTLIST alignment_flags substr_length CDATA #REQUIRED>
+<!ATTLIST alignment_flags substr_interval_start CDATA #REQUIRED>
+<!ATTLIST alignment_flags substr_interval_end CDATA #REQUIRED>
 
 <!-- PREDICTION_FLAGS ELEMENT -->
 <!ELEMENT prediction_flags (#PCDATA)>

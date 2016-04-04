@@ -10,7 +10,9 @@ from multiprocessing import cpu_count
 ## Backend junk
 from backpack import ConfigReader
 from backpack import Colour as clr
+from backpack import initialise_libraries
 from backpack import sanitise_inputs
+from backpack import sanitise_outputs
 
 ##
 ## Package stages
@@ -53,11 +55,13 @@ class BaseCamp:
 			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'ScaleHD: Automated DNA micro-satellite genotyping.'))
 			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'alastair.maxwell@glasgow.ac.uk'))
 		else:
-			log.basicConfig(format='%(message)s', level=log.NOTSET)
+			log.basicConfig(format='%(message)s')
 
 		##
-		## Check inputs
+		## Check inputs, generate outputs
+		initialise_libraries()
 		sanitise_inputs(self.args)
+		self.instance_rundir = sanitise_outputs(self.args.output)
 
 		##
 		## Set up config dictionary of all params.
@@ -69,9 +73,23 @@ class BaseCamp:
 			self.configfile = self.args.config[0]
 			self.instance_params = ConfigReader(script_path, self.configfile)
 
+		##
+		## Depending on input mode, direct flow of functions
+		## -i == single file, pass to class
+		## -b == multiple files, loop files to class
+		## -c == config, do as config parsed flags
+		if self.args.input:
+			predict.SeqPredict(self.args.input[0])
+		if self.args.batch:
+			for sam_file in self.args.batch[0]:
+				predict.SeqPredict(sam_file)
+		if self.args.config:
+			self.instance_workflow()
 
 	@staticmethod
 	def set_params():
+
+		##todo default params for gtype only
 
 		param_dict = {'a':'',
 					  'b':'',
@@ -79,9 +97,41 @@ class BaseCamp:
 
 		return param_dict
 
+	def instance_workflow(self):
 
+		##
+		## Config generics
+		instance_inputdata = self.instance_params.config_dict['@data_dir']
 
+		##
+		## Stage 1: QC and subflags
+		seq_qc_flag = self.instance_params.config_dict['instance_flags']['@quality_control']
+		seq_qc_dmpx = self.instance_params.config_dict['dmplex_flags']['@demultiplex_data']
+		seq_qc_trim = self.instance_params.config_dict['trim_flags']['@trim_data']
 
+		if seq_qc_flag:
+			if seq_qc.SeqQC(instance_inputdata, self.instance_rundir, 'valid'):
+				if seq_qc_dmpx:
+					seq_qc.SeqQC(instance_inputdata, self.instance_rundir, 'dmpx')
+				if seq_qc_trim:
+					seq_qc.SeqQC(instance_inputdata, self.instance_rundir, 'trim')
+				else:
+					log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Flow: SeqQC=True, yet neither Trim/Demultiplex=True.'))
+					sys.exit(2)
+
+		##
+		## Stage 2: Alignment flags
+		alignment_flag = self.instance_params.config_dict['instance_flags']['@sequence_alignment']
+
+		if alignment_flag == 'True':
+			print 'alignment true'
+
+		##
+		## Stage 3: Genotyping flags
+		genotyping_flag = self.instance_params.config_dict['instance_flags']['@genotype_prediction']
+
+		if genotyping_flag == 'True':
+			print 'genotyping true'
 
 
 

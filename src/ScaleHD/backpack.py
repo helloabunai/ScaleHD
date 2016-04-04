@@ -1,8 +1,11 @@
 import string
 import os
 import sys
+import glob
+import datetime
+import subprocess
 import logging as log
-from multiprocessing import cpu_count
+import numpy as np
 from collections import defaultdict
 from xml.etree import cElementTree
 from lxml import etree
@@ -126,182 +129,127 @@ class ConfigReader(object):
 		Method which validates the configuration file's contents.
 		If all pass, guarantees that the settings dictionary is full of valid settings!
 		"""
-
-		invalid_flags = {}
+		trigger = False
 
 		##
-		## Main configuration settings
-		rawdata_dir = self.config_dict['@rawdata_directory']
-		if not os.path.exists(rawdata_dir):
-			invalid_flags['RawDataDirectory'] =  'User specified raw data directory is non existent!'
+		## Main configuration instance settings
 
-		rfnc_dir = self.config_dict['@rfnc_directory']
-		if not rfnc_dir:
-			pass
+		data_directory = self.config_dict['@data_dir']
+		if not os.path.exists(data_directory):
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__', Colour.end, 'XML Config: Specified data directory could not be found.'))
+			trigger = True
+		for fqfile in glob.glob(os.path.join(data_directory, '*')):
+			if not (fqfile.endswith('.fq') or fqfile.endswith('.fastq')):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Non FastQ data detected in specified input directory.'))
+				trigger = True
+		reference_directory = self.config_dict['@reference_file']
+		if not os.path.isfile(reference_directory):
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified reference file could not be found.'))
+			trigger = True
+		if not (reference_directory.endswith('.fa') or reference_directory.endswith('.fas')):
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified reference file is not an fa/fas file.'))
+			trigger = True
+
+		##
+		## Instance flag settings
+
+		sequence_qc_flag = self.config_dict['instance_flags']['@quality_control']
+		if not (sequence_qc_flag == 'True' or sequence_qc_flag == 'False'):
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Sequence Quality control flag is not set to True/False.'))
+			trigger = True
+		alignment_flag = self.config_dict['instance_flags']['@sequence_alignment']
+		if not (alignment_flag == 'True' or alignment_flag == 'False'):
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Sequence Alignment flag is not set to True/False.'))
+			trigger = True
+		genotype_flag = self.config_dict['instance_flags']['@genotype_prediction']
+		if not (genotype_flag == 'True' or genotype_flag == 'False'):
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Genotype Prediction control flag is not True/False.'))
+			trigger = True
+
+		##
+		## Demultiplexing flag settings
+		if sequence_qc_flag:
+			demultiplex_flag = self.config_dict['dmplex_flags']['@demultiplex_data']
+			if not (demultiplex_flag == 'True' or demultiplex_flag == 'False'):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Demultiplexing flag is not True/False.'))
+				trigger = True
+			barcode_file = self.config_dict['dmplex_flags']['@barcode_file']
+			if not os.path.isfile(barcode_file):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified barcode file could not be found.'))
+				trigger = True
+			demultiplex_mismatch = self.config_dict['dmplex_flags']['@max_mismatch']
+			if not demultiplex_mismatch.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified barcode mismatch integer is invalid.'))
+				trigger = True
+
+		##
+		## Trimming flag settings
+		if sequence_qc_flag:
+			trimming_flag = self.config_dict['trim_flags']['@trim_data']
+			if not (trimming_flag == 'True' or trimming_flag == 'False'):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Trimming flag is not True/False.'))
+				trigger = True
+			trimming_type = self.config_dict['trim_flags']['@trim_type']
+			if not (trimming_type == 'Quality' or trimming_type	== 'Adapter'):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'XML Config: Trimming type is not Quality/Adapter.'))
+				trigger = True
+			quality_threshold = self.config_dict['trim_flags']['@quality_threshold']
+			if not quality_threshold.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified quality threshold integer is invalid.'))
+				trigger = True
+			elif not int(quality_threshold) in range(0,38):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified quality threshold integer out of range (0-38).'))
+				trigger = True
+			trim_adapters = ['-a','-g','a$','-g^','-b']
+			adapter_flag = self.config_dict['trim_flags']['@adapter_flag']
+			if not (adapter_flag in trim_adapters):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified trimming adapter not valid selection.'))
+				trigger = True
+			trim_adapter_base = ['A','G','C','T']
+			adapter_sequence = self.config_dict['trim_flags']['@adapter']
+			for charbase in adapter_sequence:
+				if charbase not in trim_adapter_base:
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Invalid character detected in adapter sequence.'))
+					trigger = True
+
+		##
+		## Alignment flag settings
+		if alignment_flag:
+			extension_threshold = self.config_dict['alignment_flags']['@extension_threshold']
+			if not extension_threshold.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified extension threshold integer is invalid.'))
+				trigger = True
+			seed_size = self.config_dict['alignment_flags']['@seed_size']
+			if not seed_size.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified seed size integer is invalid.'))
+				trigger = True
+			align_mismatch = self.config_dict['alignment_flags']['@align_mismatch']
+			if not align_mismatch.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified align mismatch integer is invalid.'))
+				trigger = True
+			substring_interval_start = self.config_dict['alignment_flags']['@substr_interval_start']
+			if not int(substring_interval_start) in range(0,2):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Seed Substring Interval (start) integer is out of range (0,1).'))
+				trigger = True
+			substring_interval_end = self.config_dict['alignment_flags']['@substr_interval_end']
+			if float(substring_interval_end) in np.arange(0.5,2.55,0.05):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Seed Substring Interval (end) float is out of range (0.50, 2.50).'))
+				trigger = True
+
+		##
+		## Genotype prediction flag settings
+		if genotype_flag:
+			sample_flag = self.config_dict['prediction_flags']['@sample_flag']
+			if not (sample_flag == 'True' or sample_flag == 'False'):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'XML Config: Specified sample_flag is not True/False.'))
+				trigger = True
+
+		if trigger:
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Failure, exiting.'))
+			sys.exit(2)
 		else:
-			if not os.path.isfile(rfnc_dir):
-				invalid_flags['ReferenceDirectory'] = 'User specified reference file doesn\'t exist!'
+			log.info('{}{}{}{}'.format(Colour.green, 'shd__ ', Colour.end, 'XML Config: Successful parsing!'))
 
-		outp_dir = self.config_dict['@outp_directory']
-		if not os.path.exists(outp_dir):
-			os.makedirs(outp_dir)
-
-		##
-		## System_init settings
-		disease_flag = self.config_dict['system_init']['@disease_flag']
-		if not (disease_flag == 'DM1' or disease_flag == 'HD'):
-			invalid_flags['DiseaseFlag'] = 'User specified disease_flag invalid! (valid: DM1, HD)'
-
-		treatment_stage = self.config_dict['system_init']['@treatment_stage']
-		if not (treatment_stage == 'True' or treatment_stage == 'False'):
-			invalid_flags['TreatmentStage'] = 'User specified treatment_stage flag invalid! (valid: True, False)'
-
-		alignment_stage = self.config_dict['system_init']['@alignment_stage']
-		if not (alignment_stage == 'True' or alignment_stage == 'False'):
-			invalid_flags['AlignmentStage'] = 'User specified alignment_stage flag invalid! (valid: True, False)'
-
-		genotypes_stage = self.config_dict['system_init']['@genotypes_stage']
-		if not (genotypes_stage == 'True' or genotypes_stage == 'False'):
-			invalid_flags['GenotypesStage'] = 'User specified genotypes_stage flag invalid! (valid: True, False)'
-
-
-		##
-		## dmpx_exec settings (demultiplexing)
-		dmpx_data = self.config_dict['dmpx_exec']['@dmpx_data']
-		if not (dmpx_data == 'True' or dmpx_data == 'False'):
-			invalid_flags['DMPXData'] = 'User specified dmpx_data flag is not valid! (valid: True, False)'
-
-		dmpx_paired = self.config_dict['dmpx_exec']['@paired_read']
-		if not (dmpx_paired == 'True' or dmpx_paired == 'False'):
-			invalid_flags['DMPXPairedRead'] = 'User specified (dmpx) paired_read flag is not valid! (valid: True, False)'
-
-		dmpx_barcode = self.config_dict['dmpx_exec']['@barcode_file']
-		if not os.path.isfile(dmpx_barcode):
-			invalid_flags['DMPXBarcodeFile'] = 'User specified barcode_file flag is not a valid file! Check directory/filename!'
-
-		dmpx_maxmismatch = self.config_dict['dmpx_exec']['@max_mismatch']
-		if dmpx_maxmismatch is '' or None:
-			pass
-		else:
-			if not dmpx_maxmismatch.isdigit():
-				invalid_flags['DMPXMaxMismatch'] = 'User specified max_mismatch flag is not an integer!'
-			if int(dmpx_maxmismatch) not in range(0,20):
-				invalid_flags['DMPXMaxMismatch'] = 'User specified max_mismatch flag is out of range! (0-20)'
-
-		##
-		## Trim_exec settings (Quality/Adapter trimming)
-		trim_data = self.config_dict['trim_exec']['@trim_data']
-		if not (trim_data == 'True' or trim_data == 'False'):
-			invalid_flags['TrimData'] = 'User specified trim_data flag is not valid! (valid: True, False)'
-
-		valid_trim = ['Adapter', 'Quality', 'Both', '']
-		trim_flag = self.config_dict['trim_exec']['@trim_type']
-		if not (trim_flag in valid_trim):
-			invalid_flags['TrimFlag'] = 'User specified trim_flag invalid! (valid: Adapter, Quality, Both)'
-
-		quality_flag = self.config_dict['trim_exec']['@quality_threshold']
-		if not quality_flag.isdigit():
-			invalid_flags['QualityFlag'] = 'User specified quality_threshold is not an integer!'
-		elif not int(quality_flag) in range(0,38):
-			invalid_flags['QualityFlag'] = 'User specified quality threshold outside of range(0, 38)'
-
-		valid_adapter = ['-a', '-g', '-a$', '-g^', '-b', '']
-		adapter_flag = self.config_dict['trim_exec']['@adapter_flag']
-		if not (adapter_flag in valid_adapter):
-			invalid_flags['AdapterFlag'] = 'User specified adapter_flag invalid! (valid: -a, -g, -a$, -g^, -b)'
-
-		valid_base = ['A','G','C','T', '']
-		adapter_seq = self.config_dict['trim_exec']['@adapter']
-		for charbase in adapter_seq:
-			if charbase not in valid_base:
-				invalid_flags['AdapterSequence'] = 'User specified adapter is invalid (bases not ATGC)'
-
-		##
-		## Gen_ref settings (Reference Generator)
-		generate_ref = self.config_dict['genref_exec']['@generate_ref']
-		if not (generate_ref == 'True' or generate_ref == 'False'):
-			invalid_flags['GenerateReference'] = 'User specified generate_ref flag is not valid! (valid: True, False)'
-
-		fiveprime = self.config_dict['genref_exec']['@fiveprime']
-		for charbase in fiveprime:
-			if charbase not in valid_base:
-				invalid_flags['FivePrime'] = 'User specified fiveprime flag is not \'ATGC\''
-
-		min_cag = self.config_dict['genref_exec']['@min_cag']
-		if not min_cag.isdigit():
-			invalid_flags['MinCAG'] = 'User specified min_cag flag is not an integer!'
-
-		max_cag = self.config_dict['genref_exec']['@max_cag']
-		if not max_cag.isdigit():
-			invalid_flags['MaxCAG'] = 'User specified max_cag flag is not an integer!'
-
-		intervening = self.config_dict['genref_exec']['@intervening']
-		for charbase in intervening:
-			if charbase not in valid_base:
-				invalid_flags['Intervening'] = 'User specified intervening flag is not \'ATGC\''
-
-		min_ccg = self.config_dict['genref_exec']['@min_ccg']
-		if not min_ccg.isdigit():
-			invalid_flags['MinCCG'] = 'User specified min_ccg flag is not an integer!'
-
-		max_ccg = self.config_dict['genref_exec']['@max_ccg']
-		if not max_ccg.isdigit():
-			invalid_flags['MaxCCG'] = 'User specified max_ccg flag is not an integer!'
-
-		threeprime = self.config_dict['genref_exec']['@threeprime']
-		for charbase in threeprime:
-			if charbase not in valid_base:
-				invalid_flags['ThreePrime'] = 'User specified threeprime flag is not \'ATGC\''
-
-		##
-		## CLCMap_exec settings (CLC Alignment)
-		cpu_threads = self.config_dict['clcmap_exec']['@cpu_threads']
-		if not cpu_threads.isdigit():
-			invalid_flags['CPUThreads'] = 'User specified cpu_threads flag is not an integer!'
-		elif int(cpu_threads) == 0 or int(cpu_threads) > cpu_count():
-			invalid_flags['CPUThreads'] = 'User specified cpu_threads flag outside of range (1-' + str(cpu_count()) + ')!'
-
-		paired_read = self.config_dict['clcmap_exec']['@paired_read']
-		if not (paired_read == 'True' or paired_read == 'False'):
-			invalid_flags['PairedRead'] = 'User specified paired_read flag is not valid! (valid: True, False)'
-
-		mismatch_cost = self.config_dict['clcmap_exec']['@mismatch_cost']
-		if not mismatch_cost.isdigit():
-			invalid_flags['MismatchCost'] = 'User specified mismatch_cost flag is not an integer!'
-		elif int(mismatch_cost) not in range(1,4):
-			invalid_flags['MismatchCost'] = 'User specified mistmatch_cost flag is out of bounds! (valid: 1-3)'
-
-		gap_cost = self.config_dict['clcmap_exec']['@gap_cost']
-		if not gap_cost.isdigit():
-			invalid_flags['GapCost'] = 'User specified gap_cost flag is not an integer!'
-		elif int(gap_cost) not in range(1,4):
-			invalid_flags['GapCost'] = 'User specified gap_cost flag is out of bounds! (valid: 1-3)'
-
-		delete_cost = self.config_dict['clcmap_exec']['@delete_cost']
-		if not delete_cost.isdigit():
-			invalid_flags['DeleteCost'] = 'User specified delete_cost flag is not an integer!'
-		elif int(delete_cost) not in range(1,4):
-			invalid_flags['DeleteCost'] = 'User specified delete_cost flag is out of bounds! (valid: 1-3)'
-
-		max_align = self.config_dict['clcmap_exec']['@max_align']
-		if not max_align.isdigit():
-			invalid_flags['MaxAlign'] = 'User specified max_align flag is not an integer!'
-
-		similar_score = self.config_dict['clcmap_exec']['@similar_score']
-		if not float(similar_score):
-			invalid_flags['SimilarityScore'] = 'User specified similiar_score flag is not a decimal integer (float)!'
-
-		length_frac = self.config_dict['clcmap_exec']['@length_frac']
-		if not float(length_frac):
-			invalid_flags['LengthFraction'] = 'User specified length_frac flag is not a decimal integer (float)!'
-
-		if len(invalid_flags) > 0:
-			errors = ''
-			for key in invalid_flags:
-				errors += invalid_flags[key] + '\n'
-			errors = errors.rstrip()
-			errstr = str(errors)
-			log.error(errstr)
 
 def parse_boolean(boolean_value):
 
@@ -337,23 +285,29 @@ def sanitise_inputs(parsed_arguments):
 
 	if parsed_arguments.input:
 		if not filesystem_exists_check(parsed_arguments.input[0]):
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'Specified input file could not be found.'))
 			sys.exit(2)
 		for samfile in parsed_arguments.input:
 			if not check_input_files('.sam',samfile):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'Specified input file is not a SAM file.'))
 				sys.exit(2)
 
 	if parsed_arguments.batch:
 		if not filesystem_exists_check(parsed_arguments.batch[0]):
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'Specified batch folder could not be found.'))
 			sys.exit(2)
 		for samfile in parsed_arguments.batch:
 			if not check_input_files('.sam',samfile):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'Specified batch folder contains non SAM files.'))
 				sys.exit(2)
 
 	if parsed_arguments.config:
 		if not filesystem_exists_check(parsed_arguments.config[0]):
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'Specified config file could not be found.'))
 			sys.exit(2)
 		for xmlfile in parsed_arguments.config:
 			if not check_input_files('.xml',xmlfile):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'Specified config file is not an XML file.'))
 				sys.exit(2)
 
 def filesystem_exists_check(path, raise_exception=True):
@@ -377,3 +331,65 @@ def check_input_files(input_format, input_file, raise_exception=True):
 	if raise_exception:
 		log.error('{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Unrecognised file format found in -i/-b/-c path.'))
 	return False
+
+def initialise_libraries():
+
+	trigger = False
+
+	##
+	## Check for cutadapt
+	which_cutadapt = subprocess.Popen(['which', 'cutadapt'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+	cutadapt_dir = which_cutadapt.communicate()[0]
+	which_cutadapt.wait()
+	if not 'cutadapt' in cutadapt_dir:
+		log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Missing library: Cutadapt. Not installed or not on $PATH.'))
+		trigger = True
+
+	##
+	## Check for sabre
+	which_sabre = subprocess.Popen(['which', 'sabre'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+	sabre_dir = which_sabre.communicate()[0]
+	which_sabre.wait()
+	if not 'sabre' in sabre_dir:
+		log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Missing library: Sabre. Not installed or not on $PATH.'))
+		trigger = True
+
+	##
+	## Check for bowtie2
+	which_bowtie = subprocess.Popen(['which', 'bowtie2'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+	bowtie_dir = which_bowtie.communicate()[0]
+	which_bowtie.wait()
+	if not 'bowtie2' in bowtie_dir:
+		log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Missing library: Bowtie2. Not installed or not on $PATH.'))
+		trigger = True
+
+	##
+	## Pass error
+	if trigger:
+		log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Cannot progress without all third party libraries. Exiting.'))
+		sys.exit(2)
+	else:
+		log.info('{}{}{}{}'.format(Colour.green, 'shd__ ', Colour.end, 'All libraries present. Assume OK!'))
+
+def sanitise_outputs(output_argument):
+
+	output_root = output_argument[0]
+
+	## Ensures root output is a real directory
+	## Generates folder name based on date (for run ident)
+	date = datetime.date.today().strftime('%d-%m-%Y')
+	time = datetime.datetime.now().strftime('%H%M%S')
+	today = date + '-' + time
+
+	## If the user specified root doesn't exist, make it
+	## Then make the run directory for datetime
+	if not os.path.exists(output_root):
+		log.info('{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Creating output root... '))
+		os.mkdir(output_root)
+	run_dir = output_root + '/ScaleHDRun_' + today
+	log.info('{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Creating instance run directory.. '))
+	os.mkdir(run_dir)
+
+	## Inform user it's all gonna be okaaaayyyy
+	log.info('{}{}{}{}'.format(Colour.green, 'shd__ ', Colour.end, 'Output directories OK!'))
+	return run_dir
