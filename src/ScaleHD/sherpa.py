@@ -12,6 +12,7 @@ from backpack import ConfigReader
 from backpack import Colour as clr
 from backpack import initialise_libraries
 from backpack import sanitise_inputs
+from backpack import extract_data
 from backpack import sanitise_outputs
 
 ##
@@ -53,7 +54,7 @@ class BaseCamp:
 		if self.args.verbose:
 			log.basicConfig(format='%(message)s', level=log.DEBUG)
 			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'ScaleHD: Automated DNA micro-satellite genotyping.'))
-			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'alastair.maxwell@glasgow.ac.uk'))
+			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'alastair.maxwell@glasgow.ac.uk\n'))
 		else:
 			log.basicConfig(format='%(message)s')
 
@@ -102,6 +103,11 @@ class BaseCamp:
 		##
 		## Config generics
 		instance_inputdata = self.instance_params.config_dict['@data_dir']
+		processed_files = []
+
+		##
+		## Pre-stage: check for compressed data, extract
+		extract_data(instance_inputdata)
 
 		##
 		## Stage 1: QC and subflags
@@ -109,15 +115,20 @@ class BaseCamp:
 		seq_qc_dmpx = self.instance_params.config_dict['dmplex_flags']['@demultiplex_data']
 		seq_qc_trim = self.instance_params.config_dict['trim_flags']['@trim_data']
 
-		if seq_qc_flag:
-			if seq_qc.SeqQC(instance_inputdata, self.instance_rundir, 'valid'):
-				if seq_qc_dmpx:
-					seq_qc.SeqQC(instance_inputdata, self.instance_rundir, 'dmpx')
-				if seq_qc_trim:
-					seq_qc.SeqQC(instance_inputdata, self.instance_rundir, 'trim')
+		if seq_qc_flag == 'True':
+			if seq_qc.SeqQC(instance_inputdata, self.instance_rundir, 'valid', self.instance_params):
+				if seq_qc_dmpx == 'True':
+					log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising demulitplexing.'))
+					seq_qc.SeqQC(instance_inputdata, self.instance_rundir, 'dmpx', self.instance_params)
+					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Demultiplexing complete!'))
+				if seq_qc_trim == 'True':
+					log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising trimming.'))
+					seq_qc.SeqQC(instance_inputdata, self.instance_rundir, 'trim', self.instance_params)
+					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Trimming complete!'))
 				else:
 					log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Flow: SeqQC=True, yet neither Trim/Demultiplex=True.'))
 					sys.exit(2)
+			processed_files = seq_qc.SeqQC.getProcessedFiles()
 
 		##
 		## Stage 2: Alignment flags

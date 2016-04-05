@@ -27,7 +27,7 @@ class Colour:
 	end = '\033[0m'
 
 class ScaleHDException:
-	def __init__(self, err_str):
+	def __init__(self):
 		pass
 
 class ConfigReader(object):
@@ -139,8 +139,8 @@ class ConfigReader(object):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__', Colour.end, 'XML Config: Specified data directory could not be found.'))
 			trigger = True
 		for fqfile in glob.glob(os.path.join(data_directory, '*')):
-			if not (fqfile.endswith('.fq') or fqfile.endswith('.fastq')):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Non FastQ data detected in specified input directory.'))
+			if not (fqfile.endswith('.fq') or fqfile.endswith('.fastq') or fqfile.endswith('.fq.gz') or fqfile.endswith('.fastq.gz')):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Non FastQ/GZ data detected in specified input directory.'))
 				trigger = True
 		reference_directory = self.config_dict['@reference_file']
 		if not os.path.isfile(reference_directory):
@@ -190,17 +190,17 @@ class ConfigReader(object):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Trimming flag is not True/False.'))
 				trigger = True
 			trimming_type = self.config_dict['trim_flags']['@trim_type']
-			if not (trimming_type == 'Quality' or trimming_type	== 'Adapter'):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'XML Config: Trimming type is not Quality/Adapter.'))
+			if not (trimming_type == 'Quality' or trimming_type	== 'Adapter' or trimming_type == 'Both'):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'XML Config: Trimming type is not Quality/Adapter/Both.'))
 				trigger = True
 			quality_threshold = self.config_dict['trim_flags']['@quality_threshold']
 			if not quality_threshold.isdigit():
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified quality threshold integer is invalid.'))
 				trigger = True
-			elif not int(quality_threshold) in range(0,38):
+			elif not int(quality_threshold) in range(0,39):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified quality threshold integer out of range (0-38).'))
 				trigger = True
-			trim_adapters = ['-a','-g','a$','-g^','-b']
+			trim_adapters = ['-a','-g','-a$','-g^','-b']
 			adapter_flag = self.config_dict['trim_flags']['@adapter_flag']
 			if not (adapter_flag in trim_adapters):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified trimming adapter not valid selection.'))
@@ -248,7 +248,7 @@ class ConfigReader(object):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Failure, exiting.'))
 			sys.exit(2)
 		else:
-			log.info('{}{}{}{}'.format(Colour.green, 'shd__ ', Colour.end, 'XML Config: Successful parsing!'))
+			log.info('{}{}{}{}'.format(Colour.green, 'shd__ ', Colour.end, 'XML Config: Parsing parameters successful!'))
 
 
 def parse_boolean(boolean_value):
@@ -310,6 +310,22 @@ def sanitise_inputs(parsed_arguments):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'Specified config file is not an XML file.'))
 				sys.exit(2)
 
+def extract_data(input_data_directory):
+
+	extraction_trigger = False
+
+	target_files = glob.glob(os.path.join(input_data_directory, '*'))
+	for extract_target in target_files:
+		if extract_target.lower().endswith(('.fq.gz', '.fastq.gz')):
+			extraction_trigger = True
+			unzipd = subprocess.Popen(['gzip', '-q', '-f', '-d', extract_target], stderr=subprocess.PIPE)
+			unzipd.wait()
+		else:
+			pass
+
+	if extraction_trigger:
+		log.info('{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Detected compressed input data. Extracted!'))
+
 def filesystem_exists_check(path, raise_exception=True):
 
 	"""
@@ -337,31 +353,24 @@ def initialise_libraries():
 	trigger = False
 
 	##
-	## Check for cutadapt
-	which_cutadapt = subprocess.Popen(['which', 'cutadapt'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-	cutadapt_dir = which_cutadapt.communicate()[0]
-	which_cutadapt.wait()
-	if not 'cutadapt' in cutadapt_dir:
-		log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Missing library: Cutadapt. Not installed or not on $PATH.'))
-		trigger = True
+	## Subfunction for recycling code
+	## Calls UNIX which for checking binaries present
+	def which(library):
+		library_subprocess = subprocess.Popen(['which', library], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		library_directory = library_subprocess.communicate()
+		library_subprocess.wait()
+		if not library in library_directory[0]:
+			log.error('{}{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Missing library: ', library, '. Not installed or not on $PATH'))
+			raise ScaleHDException
 
-	##
-	## Check for sabre
-	which_sabre = subprocess.Popen(['which', 'sabre'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-	sabre_dir = which_sabre.communicate()[0]
-	which_sabre.wait()
-	if not 'sabre' in sabre_dir:
-		log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Missing library: Sabre. Not installed or not on $PATH.'))
-		trigger = True
-
-	##
-	## Check for bowtie2
-	which_bowtie = subprocess.Popen(['which', 'bowtie2'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-	bowtie_dir = which_bowtie.communicate()[0]
-	which_bowtie.wait()
-	if not 'bowtie2' in bowtie_dir:
-		log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Missing library: Bowtie2. Not installed or not on $PATH.'))
-		trigger = True
+	try:which('FastQC')
+	except ScaleHDException: trigger=True
+	try:which('cutadapt')
+	except ScaleHDException: trigger=True
+	try:which('sabre')
+	except ScaleHDException: trigger=True
+	try:which('bowtie2')
+	except ScaleHDException: trigger=True
 
 	##
 	## Pass error
@@ -369,7 +378,7 @@ def initialise_libraries():
 		log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Cannot progress without all third party libraries. Exiting.'))
 		sys.exit(2)
 	else:
-		log.info('{}{}{}{}'.format(Colour.green, 'shd__ ', Colour.end, 'All libraries present. Assume OK!'))
+		log.info('{}{}{}{}'.format(Colour.green, 'shd__ ', Colour.end, 'All libraries present. Assuming OK!'))
 
 def sanitise_outputs(output_argument):
 
