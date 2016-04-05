@@ -6,6 +6,9 @@ import datetime
 import subprocess
 import logging as log
 import numpy as np
+import time
+from multiprocessing import Process, Event
+from progress.spinner import Spinner
 from collections import defaultdict
 from xml.etree import cElementTree
 from lxml import etree
@@ -227,6 +230,9 @@ class ConfigReader(object):
 			if not align_mismatch.isdigit():
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified align mismatch integer is invalid.'))
 				trigger = True
+			if not int(align_mismatch) in range(0,2):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Align Mismatch integer is out of range (0,1).'))
+				trigger = True
 			substring_interval_start = self.config_dict['alignment_flags']['@substr_interval_start']
 			if not int(substring_interval_start) in range(0,2):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Seed Substring Interval (start) integer is out of range (0,1).'))
@@ -250,6 +256,33 @@ class ConfigReader(object):
 		else:
 			log.info('{}{}{}{}'.format(Colour.green, 'shd__ ', Colour.end, 'XML Config: Parsing parameters successful!'))
 
+class SpinThread(Process):
+
+	def __init__(self, threadident):
+
+		super(SpinThread, self).__init__()
+		self.spinner = Spinner(threadident)
+		self._stop = Event()
+
+	def run(self):
+
+		while True:
+			try:
+				time.sleep(0.10)
+			except KeyboardInterrupt:
+				print '\n'
+				sys.exit(2)
+			self.spinner.next()
+
+		while True:
+			if self._stop.is_set:
+				break
+
+	def stop(self):
+		self._stop.set()
+
+	def stopped(self):
+		return self._stop.isSet()
 
 def parse_boolean(boolean_value):
 
@@ -360,7 +393,7 @@ def initialise_libraries():
 		library_directory = library_subprocess.communicate()
 		library_subprocess.wait()
 		if not library in library_directory[0]:
-			log.error('{}{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Missing library: ', library, '. Not installed or not on $PATH'))
+			log.critical('{}{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Missing library: ', library, '. Not installed or not on $PATH'))
 			raise ScaleHDException
 
 	try:which('FastQC')
@@ -370,6 +403,10 @@ def initialise_libraries():
 	try:which('sabre')
 	except ScaleHDException: trigger=True
 	try:which('bowtie2')
+	except ScaleHDException: trigger=True
+	try:which('bowtie2-build')
+	except ScaleHDException: trigger=True
+	try:which('samtools')
 	except ScaleHDException: trigger=True
 
 	##

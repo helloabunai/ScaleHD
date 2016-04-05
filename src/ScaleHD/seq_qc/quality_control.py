@@ -9,7 +9,9 @@ import logging as log
 ##
 ## Backend junk
 from ..backpack import Colour as clr
+from multiprocessing import cpu_count
 
+THREADS = str(cpu_count())
 processed_files = []
 
 class SeqQC:
@@ -22,6 +24,7 @@ class SeqQC:
 
 		if stage.lower()=='valid':
 			self.verify_input()
+			self.execute_fastQC()
 		if stage.lower()=='dmpx':
 			self.execute_demultiplex()
 		if stage.lower()=='trim':
@@ -34,6 +37,17 @@ class SeqQC:
 		if raise_exception:
 			log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'I/O: Non-FQ/FastQ file found in input directory.'))
 		return False
+
+	def execute_fastQC(self):
+		for fqfile in glob.glob(os.path.join(self.input_data, '*')):
+			sample_root = fqfile.split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
+			sample_outdir = os.path.join(self.instance_rundir, sample_root, 'SeqQC')
+			if not os.path.exists(sample_outdir): os.makedirs(sample_outdir)
+			fastqc_outdir = os.path.join(sample_outdir, 'FastQC')
+			if not os.path.exists(fastqc_outdir): os.makedirs(fastqc_outdir)
+
+			fastqc_process = subprocess.Popen(['fastqc','-q','--extract','-t', THREADS, '-o', fastqc_outdir, fqfile])
+			fastqc_process.wait()
 
 	def execute_demultiplex(self):
 		##TODO this would be first, but do later
@@ -72,7 +86,6 @@ class SeqQC:
 					trimmed_name = sample_root + '_trimmed.fastq'
 					sample_outdir = os.path.join(self.instance_rundir, sample_root, 'SeqQC')
 					trimmed_outdir = os.path.join(sample_outdir,trimmed_name)
-					if not os.path.exists(sample_outdir): os.makedirs(sample_outdir)
 					quality_threshold = self.instance_params.config_dict['trim_flags']['@quality_threshold']
 
 					argument_list = ['-q', quality_threshold, fqfile, '-o', trimmed_outdir]
@@ -85,7 +98,6 @@ class SeqQC:
 					trimmed_name = sample_root + '_trimmed.fastq'
 					sample_outdir = os.path.join(self.instance_rundir, sample_root, 'SeqQC')
 					trimmed_outdir = os.path.join(sample_outdir,trimmed_name)
-					if not os.path.exists(sample_outdir): os.makedirs(sample_outdir)
 					adapter_anchor = self.instance_params.config_dict['trim_flags']['@adapter_flag']
 					adapter_string = self.instance_params.config_dict['trim_flags']['@adapter']
 
@@ -104,7 +116,6 @@ class SeqQC:
 					trimmed_name = sample_root + '_trimmed.fastq'
 					sample_outdir = os.path.join(self.instance_rundir, sample_root, 'SeqQC')
 					trimmed_outdir = os.path.join(sample_outdir,trimmed_name)
-					if not os.path.exists(sample_outdir): os.makedirs(sample_outdir)
 
 					quality_threshold = self.instance_params.config_dict['trim_flags']['@quality_threshold']
 					adapter_anchor = self.instance_params.config_dict['trim_flags']['@adapter_flag']
@@ -120,7 +131,7 @@ class SeqQC:
 					processed_files.append(trimmed_outdir)
 
 		if self.trimming_errors == 'True':
-			log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Trimming errors occurred. Check trimming report!'))
+			log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Trimming errors occurred. Check logging report!'))
 			sys.exit(2)
 
 	@staticmethod

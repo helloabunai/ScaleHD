@@ -4,12 +4,15 @@ import sys
 import argparse
 import pkg_resources
 import logging as log
+import glob
+import time
 from multiprocessing import cpu_count
 
 ##
 ## Backend junk
 from backpack import ConfigReader
 from backpack import Colour as clr
+from backpack import SpinThread
 from backpack import initialise_libraries
 from backpack import sanitise_inputs
 from backpack import extract_data
@@ -116,6 +119,7 @@ class BaseCamp:
 		seq_qc_trim = self.instance_params.config_dict['trim_flags']['@trim_data']
 
 		if seq_qc_flag == 'True':
+			log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,'Executing sequence quality control workflow..'))
 			if seq_qc.SeqQC(instance_inputdata, self.instance_rundir, 'valid', self.instance_params):
 				if seq_qc_dmpx == 'True':
 					log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising demulitplexing.'))
@@ -129,20 +133,31 @@ class BaseCamp:
 					log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Flow: SeqQC=True, yet neither Trim/Demultiplex=True.'))
 					sys.exit(2)
 			processed_files = seq_qc.SeqQC.getProcessedFiles()
+		else:
+			## When files are dmpx/trimmed, saved to diff dir and returned in list
+			## If no processing done in SeqQC, just loop over input and add files to list anyway
+			## Continue to Align stage with these
+			for unprocessed_fqfile in glob.glob(os.path.join(instance_inputdata, '*')):
+				processed_files.append(unprocessed_fqfile)
 
 		##
 		## Stage 2: Alignment flags
 		alignment_flag = self.instance_params.config_dict['instance_flags']['@sequence_alignment']
-
 		if alignment_flag == 'True':
-			print 'alignment true'
+			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Executing sequence alignment workflow..'))
+			AlignProgress = SpinThread('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Running.. '))
+			AlignProgress.start()
+			align.SeqAlign(processed_files, self.instance_rundir, self.instance_params)
+			AlignProgress.terminate()
+			log.info('{}{}{}{}{}'.format('\n', clr.green, 'shd__ ', clr.end, 'Sequence alignment complete!'))
 
 		##
 		## Stage 3: Genotyping flags
 		genotyping_flag = self.instance_params.config_dict['instance_flags']['@genotype_prediction']
 
 		if genotyping_flag == 'True':
-			print 'genotyping true'
+			log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Genotyping not implemented.'))
+			sys.exit(2)
 
 
 
