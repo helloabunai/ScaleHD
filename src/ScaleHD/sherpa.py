@@ -5,14 +5,12 @@ import argparse
 import pkg_resources
 import logging as log
 import glob
-import time
 from multiprocessing import cpu_count
 
 ##
 ## Backend junk
 from backpack import ConfigReader
 from backpack import Colour as clr
-from backpack import SpinThread
 from backpack import initialise_libraries
 from backpack import sanitise_inputs
 from backpack import extract_data
@@ -22,6 +20,7 @@ from backpack import sanitise_outputs
 ## Package stages
 from . import seq_qc
 from . import align
+from .align.alignment import get_repeat_distributions
 from . import predict
 
 ##
@@ -37,8 +36,8 @@ class BaseCamp:
 
 		##
 		## Package data
-		self.hdgenerics_dat = pkg_resources.resource_filename(__name__, 'train/placeholder.csv')
-		self.hdgenerics_rst = pkg_resources.resource_filename(__name__, 'train/placeholder.rst')
+		self.hdgenerics_dat = pkg_resources.resource_filename(__name__, 'train/hd_generic_model.csv')
+		self.hdgenerics_rst = pkg_resources.resource_filename(__name__, 'train/hd_generic_model.rst')
 
 		##
 		## Argument parser from CLI
@@ -63,7 +62,6 @@ class BaseCamp:
 
 		##
 		## Check inputs, generate outputs
-		initialise_libraries()
 		sanitise_inputs(self.args)
 		self.instance_rundir = sanitise_outputs(self.args.output)
 
@@ -72,34 +70,56 @@ class BaseCamp:
 		## if -c used, read from XML. Else, use 'defaults' in set_params().
 		script_path = os.path.dirname(__file__)
 		if not self.args.config:
-			self.instance_params = self.set_params()
+			self.instance_params = self.set_prediction_params()
 		else:
 			self.configfile = self.args.config[0]
 			self.instance_params = ConfigReader(script_path, self.configfile)
+
+		##
+		## Check third party libraries before continuing
+		initialise_libraries(self.instance_params)
 
 		##
 		## Depending on input mode, direct flow of functions
 		## -i == single file, pass to class
 		## -b == multiple files, loop files to class
 		## -c == config, do as config parsed flags
-		if self.args.input:
-			predict.SeqPredict(self.args.input[0])
-		if self.args.batch:
-			for sam_file in self.args.batch[0]:
-				predict.SeqPredict(sam_file)
+		if self.args.input or self.args.batch:
+			self.sam_workflow()
 		if self.args.config:
 			self.instance_workflow()
 
 	@staticmethod
-	def set_params():
+	def set_prediction_params():
 
-		##todo default params for gtype only
-
-		param_dict = {'a':'',
-					  'b':'',
-					  'c':'',}
-
+		param_dict = {'quality_control':'False',
+					  'sequence_alignment':'False',
+					  'genotype_prediction':'True',
+					  'decision_function_shape':'ovr',
+					  'probability_estimate':'True',
+					  'max_iteration':'-1',}
 		return param_dict
+
+	def sam_workflow(self):
+
+		##
+		## Build list of sam_files
+		sam_files = []
+		if self.args.input:
+			sam_files.append(self.args.input[0])
+		if self.args.batch:
+			for target_sam in glob.glob(os.path.join(self.args.batch[0], '*')):
+				sam_files.append(target_sam)
+
+		##
+		## For cases where the user has specified input with -i/-b instead of -c
+		## Some CLI feedback if verbose mode is on
+		genotyping_flag = self.instance_params['genotype_prediction']
+		if genotyping_flag == 'True':
+			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Executing genotype prediction workflow..'))
+			predict.SeqPredict(self.instance_rundir, self.instance_params, self.hdgenerics_dat, self.hdgenerics_rst, assembly_files=sam_files)
+			log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Genotype prediction workflow complete!'))
+			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Pipeline complete. Goodbye!'))
 
 	def instance_workflow(self):
 
@@ -107,6 +127,7 @@ class BaseCamp:
 		## Config generics
 		instance_inputdata = self.instance_params.config_dict['@data_dir']
 		processed_files = []
+		distribution_files = []
 
 		##
 		## Pre-stage: check for compressed data, extract
@@ -133,6 +154,7 @@ class BaseCamp:
 					log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Flow: SeqQC=True, yet neither Trim/Demultiplex=True.'))
 					sys.exit(2)
 			processed_files = seq_qc.SeqQC.getProcessedFiles()
+			log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Sequence quality control workflow complete!\n'))
 		else:
 			## When files are dmpx/trimmed, saved to diff dir and returned in list
 			## If no processing done in SeqQC, just loop over input and add files to list anyway
@@ -145,42 +167,23 @@ class BaseCamp:
 		alignment_flag = self.instance_params.config_dict['instance_flags']['@sequence_alignment']
 		if alignment_flag == 'True':
 			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Executing sequence alignment workflow..'))
-			AlignProgress = SpinThread('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Running.. '))
-			AlignProgress.start()
-			align.SeqAlign(processed_files, self.instance_rundir, self.instance_params)
-			AlignProgress.terminate()
-			log.info('{}{}{}{}{}'.format('\n', clr.green, 'shd__ ', clr.end, 'Sequence alignment complete!'))
+			align.SeqAlign(self.args, processed_files, self.instance_rundir, self.instance_params)
+			distribution_files = get_repeat_distributions()
+			log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence alignment workflow complete!\n'))
 
 		##
 		## Stage 3: Genotyping flags
 		genotyping_flag = self.instance_params.config_dict['instance_flags']['@genotype_prediction']
 
 		if genotyping_flag == 'True':
-			log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Genotyping not implemented.'))
-			sys.exit(2)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Executing genotype prediction workflow..'))
+			predict.SeqPredict(self.instance_rundir, self.instance_params, self.hdgenerics_dat, self.hdgenerics_rst, distribution_files=distribution_files)
+			log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Genotype prediction workflow complete!'))
+			log.info('\n{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Pipeline complete. Goodbye!'))
 
 def main():
-	BaseCamp()
+	try:
+		BaseCamp()
+	except KeyboardInterrupt:
+		log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Fatal: Keyboard Interrupt detected. Exiting.'))
+		sys.exit(2)

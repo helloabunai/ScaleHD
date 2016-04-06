@@ -6,9 +6,6 @@ import datetime
 import subprocess
 import logging as log
 import numpy as np
-import time
-from multiprocessing import Process, Event
-from progress.spinner import Spinner
 from collections import defaultdict
 from xml.etree import cElementTree
 from lxml import etree
@@ -169,55 +166,61 @@ class ConfigReader(object):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Genotype Prediction control flag is not True/False.'))
 			trigger = True
 
+		if sequence_qc_flag == 'True' and alignment_flag == 'False':
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Quality control selected, but not alignment. Invalid selection.'))
+			trigger = True
+
 		##
 		## Demultiplexing flag settings
-		if sequence_qc_flag:
+		if sequence_qc_flag == 'True':
 			demultiplex_flag = self.config_dict['dmplex_flags']['@demultiplex_data']
 			if not (demultiplex_flag == 'True' or demultiplex_flag == 'False'):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Demultiplexing flag is not True/False.'))
 				trigger = True
-			barcode_file = self.config_dict['dmplex_flags']['@barcode_file']
-			if not os.path.isfile(barcode_file):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified barcode file could not be found.'))
-				trigger = True
-			demultiplex_mismatch = self.config_dict['dmplex_flags']['@max_mismatch']
-			if not demultiplex_mismatch.isdigit():
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified barcode mismatch integer is invalid.'))
-				trigger = True
+			if demultiplex_flag == 'True':
+				barcode_file = self.config_dict['dmplex_flags']['@barcode_file']
+				if not os.path.isfile(barcode_file):
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified barcode file could not be found.'))
+					trigger = True
+				demultiplex_mismatch = self.config_dict['dmplex_flags']['@max_mismatch']
+				if not demultiplex_mismatch.isdigit():
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified barcode mismatch integer is invalid.'))
+					trigger = True
 
 		##
 		## Trimming flag settings
-		if sequence_qc_flag:
+		if sequence_qc_flag == 'True':
 			trimming_flag = self.config_dict['trim_flags']['@trim_data']
 			if not (trimming_flag == 'True' or trimming_flag == 'False'):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Trimming flag is not True/False.'))
 				trigger = True
-			trimming_type = self.config_dict['trim_flags']['@trim_type']
-			if not (trimming_type == 'Quality' or trimming_type	== 'Adapter' or trimming_type == 'Both'):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'XML Config: Trimming type is not Quality/Adapter/Both.'))
-				trigger = True
-			quality_threshold = self.config_dict['trim_flags']['@quality_threshold']
-			if not quality_threshold.isdigit():
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified quality threshold integer is invalid.'))
-				trigger = True
-			elif not int(quality_threshold) in range(0,39):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified quality threshold integer out of range (0-38).'))
-				trigger = True
-			trim_adapters = ['-a','-g','-a$','-g^','-b']
-			adapter_flag = self.config_dict['trim_flags']['@adapter_flag']
-			if not (adapter_flag in trim_adapters):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified trimming adapter not valid selection.'))
-				trigger = True
-			trim_adapter_base = ['A','G','C','T']
-			adapter_sequence = self.config_dict['trim_flags']['@adapter']
-			for charbase in adapter_sequence:
-				if charbase not in trim_adapter_base:
-					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Invalid character detected in adapter sequence.'))
+			if trimming_flag == 'True':
+				trimming_type = self.config_dict['trim_flags']['@trim_type']
+				if not (trimming_type == 'Quality' or trimming_type	== 'Adapter' or trimming_type == 'Both'):
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'XML Config: Trimming type is not Quality/Adapter/Both.'))
 					trigger = True
+				quality_threshold = self.config_dict['trim_flags']['@quality_threshold']
+				if not quality_threshold.isdigit():
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified quality threshold integer is invalid.'))
+					trigger = True
+				elif not int(quality_threshold) in range(0,39):
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified quality threshold integer out of range (0-38).'))
+					trigger = True
+				trim_adapters = ['-a','-g','-a$','-g^','-b']
+				adapter_flag = self.config_dict['trim_flags']['@adapter_flag']
+				if not (adapter_flag in trim_adapters):
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified trimming adapter not valid selection.'))
+					trigger = True
+				trim_adapter_base = ['A','G','C','T']
+				adapter_sequence = self.config_dict['trim_flags']['@adapter']
+				for charbase in adapter_sequence:
+					if charbase not in trim_adapter_base:
+						log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Invalid character detected in adapter sequence.'))
+						trigger = True
 
 		##
 		## Alignment flag settings
-		if alignment_flag:
+		if alignment_flag == 'True':
 			extension_threshold = self.config_dict['alignment_flags']['@extension_threshold']
 			if not extension_threshold.isdigit():
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified extension threshold integer is invalid.'))
@@ -233,6 +236,13 @@ class ConfigReader(object):
 			if not int(align_mismatch) in range(0,2):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Align Mismatch integer is out of range (0,1).'))
 				trigger = True
+			substring_length = self.config_dict['alignment_flags']['@substr_length']
+			if not substring_length.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified substring length integer is invalid.'))
+				trigger=True
+			if not int(substring_length) in range(3, 33):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Substring length integer out of range (3,32).'))
+				trigger=True
 			substring_interval_start = self.config_dict['alignment_flags']['@substr_interval_start']
 			if not int(substring_interval_start) in range(0,2):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Seed Substring Interval (start) integer is out of range (0,1).'))
@@ -244,45 +254,29 @@ class ConfigReader(object):
 
 		##
 		## Genotype prediction flag settings
-		if genotype_flag:
-			sample_flag = self.config_dict['prediction_flags']['@sample_flag']
-			if not (sample_flag == 'True' or sample_flag == 'False'):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'XML Config: Specified sample_flag is not True/False.'))
+		if genotype_flag == 'True':
+			decision_function_shape = self.config_dict['prediction_flags']['@decision_function_shape']
+			if not (decision_function_shape == 'ovr' or decision_function_shape == 'ovo'):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Decision Function shape is invalid (\"ovr\"/\"ovo\").'))
 				trigger = True
+			probability_estimate = self.config_dict['prediction_flags']['@probablity_estimate']
+			if not (probability_estimate == 'True' or probability_estimate == 'False'):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Probability estimate is not True/False.'))
+				trigger = True
+			max_iteration = self.config_dict['prediction_flags']['@max_iteration']
+			try: int(max_iteration)
+			except ValueError:
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: SVM Max iteration integer is invalid.'))
+				trigger = True
+			if not int(max_iteration) in range(-1, 100001):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: SVM Max iteration integer is out of range (-1, 100000).'))
+				trigger	= True
 
 		if trigger:
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Failure, exiting.'))
 			sys.exit(2)
 		else:
 			log.info('{}{}{}{}'.format(Colour.green, 'shd__ ', Colour.end, 'XML Config: Parsing parameters successful!'))
-
-class SpinThread(Process):
-
-	def __init__(self, threadident):
-
-		super(SpinThread, self).__init__()
-		self.spinner = Spinner(threadident)
-		self._stop = Event()
-
-	def run(self):
-
-		while True:
-			try:
-				time.sleep(0.10)
-			except KeyboardInterrupt:
-				print '\n'
-				sys.exit(2)
-			self.spinner.next()
-
-		while True:
-			if self._stop.is_set:
-				break
-
-	def stop(self):
-		self._stop.set()
-
-	def stopped(self):
-		return self._stop.isSet()
 
 def parse_boolean(boolean_value):
 
@@ -318,29 +312,29 @@ def sanitise_inputs(parsed_arguments):
 
 	if parsed_arguments.input:
 		if not filesystem_exists_check(parsed_arguments.input[0]):
-			log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'Specified input file could not be found.'))
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified input file could not be found.'))
 			sys.exit(2)
 		for samfile in parsed_arguments.input:
 			if not check_input_files('.sam',samfile):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'Specified input file is not a SAM file.'))
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified input file is not a SAM file.'))
 				sys.exit(2)
 
 	if parsed_arguments.batch:
 		if not filesystem_exists_check(parsed_arguments.batch[0]):
-			log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'Specified batch folder could not be found.'))
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified batch folder could not be found.'))
 			sys.exit(2)
-		for samfile in parsed_arguments.batch:
+		for samfile in glob.glob(os.path.join(parsed_arguments.batch[0], '*')):
 			if not check_input_files('.sam',samfile):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'Specified batch folder contains non SAM files.'))
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified batch folder contains non SAM files.'))
 				sys.exit(2)
 
 	if parsed_arguments.config:
 		if not filesystem_exists_check(parsed_arguments.config[0]):
-			log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'Specified config file could not be found.'))
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified config file could not be found.'))
 			sys.exit(2)
 		for xmlfile in parsed_arguments.config:
 			if not check_input_files('.xml',xmlfile):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'Specified config file is not an XML file.'))
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified config file is not an XML file.'))
 				sys.exit(2)
 
 def extract_data(input_data_directory):
@@ -381,7 +375,7 @@ def check_input_files(input_format, input_file, raise_exception=True):
 		log.error('{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Unrecognised file format found in -i/-b/-c path.'))
 	return False
 
-def initialise_libraries():
+def initialise_libraries(instance_params):
 
 	trigger = False
 
@@ -396,26 +390,44 @@ def initialise_libraries():
 			log.critical('{}{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Missing library: ', library, '. Not installed or not on $PATH'))
 			raise ScaleHDException
 
-	try:which('FastQC')
-	except ScaleHDException: trigger=True
-	try:which('cutadapt')
-	except ScaleHDException: trigger=True
-	try:which('sabre')
-	except ScaleHDException: trigger=True
-	try:which('bowtie2')
-	except ScaleHDException: trigger=True
-	try:which('bowtie2-build')
-	except ScaleHDException: trigger=True
-	try:which('samtools')
-	except ScaleHDException: trigger=True
+	##
+	## To determine which binaries to check for
+	## AttributeError in the situation where instance_params origin differs
+	## try for -c style, except AttributeError for -i/-b style
+	try:
+		quality_control = instance_params.config_dict['instance_flags']['@quality_control']
+		alignment = instance_params.config_dict['instance_flags']['@sequence_alignment']
+		genotyping = instance_params.config_dict['instance_flags']['@genotype_prediction']
+	except AttributeError:
+		quality_control = instance_params['quality_control']
+		alignment = instance_params['sequence_alignment']
+		genotyping = instance_params['genotype_prediction']
+
+	if quality_control:
+		try:which('FastQC')
+		except ScaleHDException: trigger=True
+		try:which('cutadapt')
+		except ScaleHDException: trigger=True
+		try:which('sabre')
+		except ScaleHDException: trigger=True
+	if alignment:
+		try:which('bowtie2')
+		except ScaleHDException: trigger=True
+		try:which('bowtie2-build')
+		except ScaleHDException: trigger=True
+		try:which('samtools')
+		except ScaleHDException: trigger=True
+	if genotyping:
+		try:which('samtools')
+		except ScaleHDException: trigger=True
 
 	##
 	## Pass error
 	if trigger:
-		log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Cannot progress without all third party libraries. Exiting.'))
+		log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Cannot progress without required third party libraries. Exiting.'))
 		sys.exit(2)
 	else:
-		log.info('{}{}{}{}'.format(Colour.green, 'shd__ ', Colour.end, 'All libraries present. Assuming OK!'))
+		log.info('{}{}{}{}'.format(Colour.green, 'shd__ ', Colour.end, 'All required libraries present. Assuming OK!\n'))
 
 def sanitise_outputs(output_argument):
 
@@ -424,8 +436,8 @@ def sanitise_outputs(output_argument):
 	## Ensures root output is a real directory
 	## Generates folder name based on date (for run ident)
 	date = datetime.date.today().strftime('%d-%m-%Y')
-	time = datetime.datetime.now().strftime('%H%M%S')
-	today = date + '-' + time
+	walltime = datetime.datetime.now().strftime('%H%M%S')
+	today = date + '-' + walltime
 
 	## If the user specified root doesn't exist, make it
 	## Then make the run directory for datetime

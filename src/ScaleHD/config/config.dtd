@@ -47,7 +47,9 @@ The Config Element deals with specifying any required sub-configs (elements), an
 
 <!-- PREDICTION_FLAGS ELEMENT -->
 <!ELEMENT prediction_flags (#PCDATA)>
-<!ATTLIST prediction_flags sample_flag CDATA #REQUIRED>
+<!ATTLIST prediction_flags decision_function_shape CDATA #REQUIRED>
+<!ATTLIST prediction_flags probablity_estimate CDATA #REQUIRED>
+<!ATTLIST prediction_flags max_iteration CDATA #REQUIRED>
 
 
 
