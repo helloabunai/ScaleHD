@@ -13,6 +13,8 @@ from ..backpack import Colour as clr
 from ..backpack import DataLoader
 from ..align.alignment import extract_repeat_distributions
 
+##TODO optimise the functions here to use the same code, only passing appropriate lists of data instead of repeating functions
+
 class SeqPredict:
 
 	def __init__(self, instance_rundir, instance_params, model_data, model_descriptor, assembly_files=None, distribution_files=None):
@@ -133,7 +135,28 @@ class SeqPredict:
 			prediction_outdir = os.path.join(self.instance_rundir, sample_root, 'Prediction')
 			if not os.path.exists(prediction_outdir): os.makedirs(prediction_outdir)
 
-			##TODO call genotyping functions here
+			literal_distribution = self.distribution_information(self.distribution_files[i])
+
+			##
+			## Genotype prediction
+			label_encoder = self.build_model()
+			try:
+				hash_encoded_prediction = self.classifier.predict(literal_distribution)
+			except ValueError:
+				log.critical('{}{}{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Input distribution dimensions invalid! (Input: ', str(len(literal_distribution)) ,' | Training: 2020)'))
+				log.critical('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Please check your input sequence assembly. Aligned to wrong reference?'))
+				log.critical('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Cannot progress with this data. Exiting.'))
+				sys.exit(2)
+			normalised_prediction = str(label_encoder.inverse_transform(hash_encoded_prediction))
+			decision_function = self.classifier.decision_function(literal_distribution)[0]
+			decision_funclist = decision_function.tolist()
+
+			temporary_output = os.path.join(prediction_outdir,'TemporaryPredictionOutput.txt')
+			temporary_file = open(temporary_output, 'w')
+			temporary_file.write(hash_encoded_prediction)
+			temporary_file.write(normalised_prediction)
+			temporary_file.write(decision_funclist)
+			temporary_file.close()
 
 			sys.stdout.flush()
 
