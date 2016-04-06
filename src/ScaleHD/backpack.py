@@ -6,6 +6,8 @@ import datetime
 import subprocess
 import logging as log
 import numpy as np
+import csv
+from sklearn import preprocessing
 from collections import defaultdict
 from xml.etree import cElementTree
 from lxml import etree
@@ -26,9 +28,11 @@ class Colour:
 	underline = '\033[4m'
 	end = '\033[0m'
 
+
 class ScaleHDException:
 	def __init__(self):
 		pass
+
 
 class ConfigReader(object):
 
@@ -255,10 +259,6 @@ class ConfigReader(object):
 		##
 		## Genotype prediction flag settings
 		if genotype_flag == 'True':
-			decision_function_shape = self.config_dict['prediction_flags']['@decision_function_shape']
-			if not (decision_function_shape == 'ovr' or decision_function_shape == 'ovo'):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Decision Function shape is invalid (\"ovr\"/\"ovo\").'))
-				trigger = True
 			probability_estimate = self.config_dict['prediction_flags']['@probablity_estimate']
 			if not (probability_estimate == 'True' or probability_estimate == 'False'):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Probability estimate is not True/False.'))
@@ -277,6 +277,58 @@ class ConfigReader(object):
 			sys.exit(2)
 		else:
 			log.info('{}{}{}{}'.format(Colour.green, 'shd__ ', Colour.end, 'XML Config: Parsing parameters successful!'))
+
+
+class DataClump(dict):
+	"""Container object for datasets: dictionary-like object that
+       exposes its keys as attributes."""
+
+	def __init__(self, **kwargs):
+		dict.__init__(self, kwargs)
+		self.__dict__ = self
+
+
+class DataLoader():
+
+	def __init__(self, database, descriptor):
+
+		self.database = database
+		self.descriptor = descriptor
+
+	def load_model(self):
+
+			## Loads description file for respective data set
+			modeldescr_name = self.descriptor
+			with open(modeldescr_name) as f:
+				descr_text = f.read()
+
+			## Loads data set from csv, into objects in preparation for bunch()
+			data_file_name = self.database
+			with open(data_file_name) as f:
+				data_file = csv.reader(f)
+				temp = next(data_file)
+				n_samples = int(temp[0])
+				n_features = int(temp[1])
+				data = np.empty((n_samples, n_features))
+				temp = next(data_file)
+				feature_names = np.array(temp)
+
+				labels = []
+				for i, d in enumerate(data_file):
+					data[i] = d[:-1]
+					label = d[-1]
+					labels.append(label)
+
+				le = preprocessing.LabelEncoder()
+				le.fit(labels)
+				hash_int_labels = le.transform(labels)
+
+			return DataClump(DATA=data,
+						 	 TARGET=hash_int_labels,
+						 	 FTRNAME=feature_names[:-1],
+							 DESCR=descr_text,
+							 ENCDR=le)
+
 
 def parse_boolean(boolean_value):
 

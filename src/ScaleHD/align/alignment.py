@@ -171,7 +171,7 @@ def extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfil
 	##
 	## We return this single csv for when the function is called from shd/prediction
 	## That call loops through a -i/-b sam input file individually, doesn't need a list
-	## -c input utilises the distribution_files list
+	## -c input utilises the distribution_files list and the below getter function
 	return csv_path
 
 def get_repeat_distributions():

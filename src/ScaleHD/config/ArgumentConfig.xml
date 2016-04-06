@@ -3,5 +3,5 @@
   <dmplex_flags demultiplex_data="False" barcode_file="/Users/alastairm/Desktop/scaleHDTests/barcodes.txt" max_mismatch="0"/>
   <trim_flags trim_data="True" trim_type="Both" quality_threshold="5" adapter_flag="-a" adapter="ATAT"/>
   <alignment_flags extension_threshold="15" seed_size="2" align_mismatch="0" substr_length="22" substr_interval_start="1" substr_interval_end="1.15"/>
-  <prediction_flags decision_function_shape="ovr" probablity_estimate="True" max_iteration="-1"/>
+  <prediction_flags probablity_estimate="True" max_iteration="-1"/>
 </config>
