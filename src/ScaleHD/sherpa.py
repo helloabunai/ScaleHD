@@ -1,4 +1,7 @@
 #/usr/bin/python
+__version__ = 0.01
+__author__ = 'alastair.maxwell@glasgow.ac.uk'
+
 import os
 import sys
 import argparse
@@ -9,18 +12,18 @@ from multiprocessing import cpu_count
 
 ##
 ## Backend junk
-from backpack import ConfigReader
-from backpack import Colour as clr
-from backpack import initialise_libraries
-from backpack import sanitise_inputs
-from backpack import extract_data
-from backpack import sanitise_outputs
+from __backend import ConfigReader
+from __backend import Colour as clr
+from __backend import initialise_libraries
+from __backend import sanitise_inputs
+from __backend import extract_data
+from __backend import sequence_pairings
+from __backend import sanitise_outputs
 
 ##
 ## Package stages
 from . import seq_qc
 from . import align
-from .align.alignment import get_repeat_distributions
 from . import predict
 
 ##
@@ -30,14 +33,19 @@ LOGGING = True
 THREADS = cpu_count()
 DEF_OUT = os.path.join(os.path.expanduser('~'),'ScaleHD')
 
-class BaseCamp:
-
+class ScaleHD:
 	def __init__(self):
+
+		"""
+		ScaleHD -- automated Huntington Disease genotyping pipeline
+		~~haha fill this out~~
+		"""
 
 		##
 		## Package data
-		self.hdgenerics_dat = pkg_resources.resource_filename(__name__, 'train/hd_generic_model.csv')
-		self.hdgenerics_rst = pkg_resources.resource_filename(__name__, 'train/hd_generic_model.rst')
+		self.generic_descriptor = pkg_resources.resource_filename(__name__, 'train/long_descr.rst')
+		self.collapsed_ccg_zygosity = pkg_resources.resource_filename(__name__, 'train/polyglu_zygosity.csv')
+		self.training_data = {'GenericDescriptor': self.generic_descriptor, 'CollapsedCCGZygosity': self.collapsed_ccg_zygosity}
 
 		##
 		## Argument parser from CLI
@@ -62,7 +70,9 @@ class BaseCamp:
 
 		##
 		## Check inputs, generate outputs
-		sanitise_inputs(self.args)
+		if sanitise_inputs(self.args):
+			log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Error with specified input(s) configuration. Exiting.'))
+			sys.exit(2)
 		self.instance_rundir = sanitise_outputs(self.args.output)
 
 		##
@@ -77,17 +87,20 @@ class BaseCamp:
 
 		##
 		## Check third party libraries before continuing
-		initialise_libraries(self.instance_params)
+		if initialise_libraries(self.instance_params):
+			log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Detected missing library from system/$PATH. Exiting.'))
+			sys.exit(2)
+		else:
+			log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Required libraries present, assuming OK!\n'))
 
 		##
 		## Depending on input mode, direct flow of functions
 		## -i == single file, pass to class
 		## -b == multiple files, loop files to class
 		## -c == config, do as config parsed flags
-		if self.args.input or self.args.batch:
-			self.sam_workflow()
-		if self.args.config:
-			self.instance_workflow()
+		if not self.args.config: self.sam_workflow()
+		else: self.instance_workflow()
+		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'ScaleHD pipeline completed; exiting.'))
 
 	@staticmethod
 	def set_prediction_params():
@@ -101,89 +114,116 @@ class BaseCamp:
 		return param_dict
 
 	def sam_workflow(self):
-
-		##
-		## Build list of sam_files
-		sam_files = []
-		if self.args.input:
-			sam_files.append(self.args.input[0])
-		if self.args.batch:
-			for target_sam in glob.glob(os.path.join(self.args.batch[0], '*')):
-				sam_files.append(target_sam)
-
-		##
-		## For cases where the user has specified input with -i/-b instead of -c
-		## Some CLI feedback if verbose mode is on
-		genotyping_flag = self.instance_params['genotype_prediction']
-		if genotyping_flag == 'True':
-			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Executing genotype prediction workflow..'))
-			predict.SeqPredict(self.instance_rundir, self.instance_params, self.hdgenerics_dat, self.hdgenerics_rst, assembly_files=sam_files)
-			log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Genotype prediction workflow complete!'))
-			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Pipeline complete. Goodbye!'))
+		##TODO rework sam-flow after retooling -config flow
+		print self.instance_rundir
 
 	def instance_workflow(self):
 
 		##
 		## Config generics
 		instance_inputdata = self.instance_params.config_dict['@data_dir']
-		processed_files = []
-		distribution_files = []
 
 		##
 		## Pre-stage: check for compressed data, extract
-		extract_data(instance_inputdata)
+		if not extract_data(instance_inputdata):
+			log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Error during file extraction. Please check your input data.'))
 
 		##
-		## Stage 1: QC and subflags
-		seq_qc_flag = self.instance_params.config_dict['instance_flags']['@quality_control']
-		seq_qc_dmpx = self.instance_params.config_dict['dmplex_flags']['@demultiplex_data']
-		seq_qc_trim = self.instance_params.config_dict['trim_flags']['@trim_data']
+		## Executing the workflow for this SHD instance
+		## Ensure there are even amount of files for forward/reverse sequence pairings
+		data_pairs = sequence_pairings(instance_inputdata, self.instance_rundir)
+		for i in range(len(data_pairs)):
+			log.info('{}{}{}{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Processing sequence pair: ', str(i+1), '/', str(len(data_pairs))))
+			for sequence_label, sequencepair_data in data_pairs[i].iteritems():
 
-		if seq_qc_flag == 'True':
-			log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,'Executing sequence quality control workflow..'))
-			if seq_qc.SeqQC(instance_inputdata, self.instance_rundir, 'valid', self.instance_params):
-				if seq_qc_dmpx == 'True':
-					log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising demulitplexing.'))
-					seq_qc.SeqQC(instance_inputdata, self.instance_rundir, 'dmpx', self.instance_params)
-					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Demultiplexing complete!'))
-				if seq_qc_trim == 'True':
-					log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising trimming.'))
-					seq_qc.SeqQC(instance_inputdata, self.instance_rundir, 'trim', self.instance_params)
-					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Trimming complete!'))
-				else:
-					log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Flow: SeqQC=True, yet neither Trim/Demultiplex=True.'))
-					sys.exit(2)
-			processed_files = seq_qc.SeqQC.getProcessedFiles()
-			log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Sequence quality control workflow complete!\n'))
-		else:
-			## When files are dmpx/trimmed, saved to diff dir and returned in list
-			## If no processing done in SeqQC, just loop over input and add files to list anyway
-			## Continue to Align stage with these
-			for unprocessed_fqfile in glob.glob(os.path.join(instance_inputdata, '*')):
-				processed_files.append(unprocessed_fqfile)
+				##
+				## For the Sequence Pair dictionary we're currently in
+				## create object of the desired stage paths..
+				qc_path = sequencepair_data[2]
+				align_path = sequencepair_data[3]
+				predict_path = sequencepair_data[4]
 
-		##
-		## Stage 2: Alignment flags
-		alignment_flag = self.instance_params.config_dict['instance_flags']['@sequence_alignment']
-		if alignment_flag == 'True':
-			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Executing sequence alignment workflow..'))
-			align.SeqAlign(self.args, processed_files, self.instance_rundir, self.instance_params)
-			distribution_files = get_repeat_distributions()
-			log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence alignment workflow complete!\n'))
+				##
+				## Stage 1: QC and subflags
+				seq_qc_flag = self.instance_params.config_dict['instance_flags']['@quality_control']
+				seq_qc_dmpx = self.instance_params.config_dict['dmplex_flags']['@demultiplex_data']
+				seq_qc_trim = self.instance_params.config_dict['trim_flags']['@trim_data']
 
-		##
-		## Stage 3: Genotyping flags
-		genotyping_flag = self.instance_params.config_dict['instance_flags']['@genotype_prediction']
+				if seq_qc_flag == 'True':
+					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing sequence quality control workflow..'))
+					if seq_qc.SeqQC(sequence_label, sequencepair_data, qc_path, 'valid', self.instance_params):
+						if seq_qc_dmpx == 'True':
+							log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising demultiplexing.'))
+							seq_qc.SeqQC(sequence_label, sequencepair_data, qc_path, 'dmpx', self.instance_params)
+							log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Demultiplexing complete!'))
+						if seq_qc_trim == 'True':
+							log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising trimming.'))
+							seq_qc.SeqQC(sequence_label, sequencepair_data, qc_path, 'trim', self.instance_params)
+							log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Trimming complete!'))
 
-		if genotyping_flag == 'True':
-			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Executing genotype prediction workflow..'))
-			predict.SeqPredict(self.instance_rundir, self.instance_params, self.hdgenerics_dat, self.hdgenerics_rst, distribution_files=distribution_files)
-			log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Genotype prediction workflow complete!'))
-			log.info('\n{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Pipeline complete. Goodbye!'))
+				##
+				## Stage 2: Alignment flags
+				alignment_flag = self.instance_params.config_dict['instance_flags']['@sequence_alignment']
+				if alignment_flag == 'True':
+					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing alignment workflow..'))
+					align.SeqAlign(sequence_label, sequencepair_data, align_path, self.instance_params)
+					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence alignment workflow complete!'))
+
+				##
+				## Stage 3: Genotyping flags
+				genotyping_flag = self.instance_params.config_dict['instance_flags']['@genotype_prediction']
+				if genotyping_flag == 'True':
+					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing genotyping workflow..'))
+					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
+
+				##
+				## Finished all desired stages for this file pair, inform user if -v
+				log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence pair workflow complete!\n'))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def main():
 	try:
-		BaseCamp()
+		ScaleHD()
 	except KeyboardInterrupt:
 		log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Fatal: Keyboard Interrupt detected. Exiting.'))
 		sys.exit(2)

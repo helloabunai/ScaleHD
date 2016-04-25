@@ -1,7 +1,7 @@
-<config data_dir="/Users/alastairm/Desktop/scaleHDTests/input/" reference_file="/Users/alastairm/Desktop/scaleHDTests/reference/CAG200_CCG20.fas">
-  <instance_flags quality_control="True" sequence_alignment="True" genotype_prediction="True"/>
+<config data_dir="/Users/alastairm/Desktop/scaleHDTests/input/" forward_reference="/Users/alastairm/Desktop/scaleHDTests/reference/CAG200_CCG20.fas" reverse_reference="/Users/alastairm/Desktop/scaleHDTests/reference/CAG200_CCG20.fas">
+  <instance_flags quality_control="True" sequence_alignment="False" genotype_prediction="False"/>
   <dmplex_flags demultiplex_data="False" barcode_file="/Users/alastairm/Desktop/scaleHDTests/barcodes.txt" max_mismatch="0"/>
-  <trim_flags trim_data="True" trim_type="Both" quality_threshold="5" adapter_flag="-a" adapter="ATAT"/>
-  <alignment_flags extension_threshold="15" seed_size="2" align_mismatch="0" substr_length="22" substr_interval_start="1" substr_interval_end="1.15"/>
+  <trim_flags trim_data="True" trim_type="Adapter" quality_threshold="5" adapter_flag="-a" adapter="ACACTCTTTCCCTACACGACGCTCTTCCGATC"/>
+  <alignment_flags extension_threshold="15" seed_size="2" align_mismatch="0" substr_length="22" substr_interval_start="1" substr_interval_end="1.15" read_gap_open="" read_gap_extend="" ref_gap_open="" ref_gap_extend="" min_mismatch_pen="" max_mismatch_pen=""/>
   <prediction_flags probablity_estimate="True" max_iteration="-1"/>
 </config>

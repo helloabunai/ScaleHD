@@ -1,2 +1,2 @@
-__all__ = ['quality_control.py']
-from quality_control import SeqQC
+__all__ = ['__quality_control.py']
+from __quality_control import SeqQC

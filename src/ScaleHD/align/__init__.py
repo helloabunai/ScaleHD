@@ -1,2 +1,2 @@
-__all__ = ['alignment.py']
-from alignment import SeqAlign
+__all__ = ['__alignment.py']
+from __alignment import SeqAlign

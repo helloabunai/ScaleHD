@@ -1,2 +1,1 @@
-__all__ = ['prediction.py']
-from prediction import SeqPredict
+__author__ = 'alastairm'

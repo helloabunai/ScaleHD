@@ -89,12 +89,14 @@ setup(
     # These are the data files to be included in the package
 	# For GenoCall, this will be the data-sets used for machine-learning
 	# training, and generating predictive models for each 'data state'
-    package_data={'ScaleHD': ['train/hd_generic_model.csv', 'train/hd_generic_model.rst']},
+    package_data={'ScaleHD': ['train/long_descr.csv', 'train/polyglu_zygosity.rst']},
+
+	include_package_data=True,
 
 	# Executable scripts require an entry point to allow cython to generate
 	# executables for the respective target platform. This entry point is akin
 	# to launching the script in bash: if __name__ == '__main__' etc..
     entry_points={
-        'console_scripts': ['scalehd=ScaleHD.sherpa:main',],
+        'console_scripts': ['scalehd=ScaleHD.__sherpa:main',],
     },
 )

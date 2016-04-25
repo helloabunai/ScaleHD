@@ -14,7 +14,8 @@ The Config Element deals with specifying any required sub-configs (elements), an
 <!-- CONFIG ELEMENT -->
 <!ELEMENT config          (instance_flags, dmplex_flags, trim_flags, alignment_flags, prediction_flags)>
 <!ATTLIST config          data_dir CDATA #REQUIRED>
-<!ATTLIST config		  reference_file CDATA #REQUIRED>
+<!ATTLIST config		  forward_reference CDATA #REQUIRED>
+<!ATTLIST config          reverse_reference CDATA #REQUIRED>
 
 <!-- INSTANCE_FLAGS ELEMENT -->
 <!ELEMENT instance_flags (#PCDATA)>
@@ -44,6 +45,12 @@ The Config Element deals with specifying any required sub-configs (elements), an
 <!ATTLIST alignment_flags substr_length CDATA #REQUIRED>
 <!ATTLIST alignment_flags substr_interval_start CDATA #REQUIRED>
 <!ATTLIST alignment_flags substr_interval_end CDATA #REQUIRED>
+<!ATTLIST alignment_flags read_gap_open CDATA #REQUIRED>
+<!ATTLIST alignment_flags read_gap_extend CDATA #REQUIRED>
+<!ATTLIST alignment_flags ref_gap_open CDATA #REQUIRED>
+<!ATTLIST alignment_flags ref_gap_extend CDATA #REQUIRED>
+<!ATTLIST alignment_flags min_mismatch_pen CDATA #REQUIRED>
+<!ATTLIST alignment_flags max_mismatch_pen CDATA #REQUIRED>
 
 <!-- PREDICTION_FLAGS ELEMENT -->
 <!ELEMENT prediction_flags (#PCDATA)>
