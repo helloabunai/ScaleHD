@@ -12,13 +12,12 @@ import logging as log
 ##
 ## Backend junk
 from ..__backend import Colour as clr
+from ..__backend import replace_fqfile
 from ..seq_qc.__quality_control import THREADS
-
-distribution_files = []
 
 class SeqAlign:
 
-	def __init__(self, sequence_label, sequencepair_data, target_output, instance_params):
+	def __init__(self, sequence_label, sequencepair_data, target_output, reference_indexes, instance_params):
 
 		##
 		## Flag
@@ -29,6 +28,7 @@ class SeqAlign:
 		self.sample_root = sequence_label
 		self.sequencepair_data = sequencepair_data
 		self.target_output = target_output
+		self.reference_indexes = reference_indexes
 		self.instance_params = instance_params
 		self.alignment_workflow()
 
@@ -36,55 +36,27 @@ class SeqAlign:
 
 		##
 		## Get forward reference, resultant indexes, and reads
-		forward_reference = self.instance_params.config_dict['@forward_reference']
-		forward_index = self.index_reference(forward_reference)
+		forward_index = self.reference_indexes[0]
 		forward_reads = self.sequencepair_data[0]
 
 		##
 		## Get reverse reference, resultant indexes, and reads
-		reverse_reference = self.instance_params.config_dict['@reverse_reference']
-		reverse_index = self.index_reference(reverse_reference)
+		reverse_index = self.reference_indexes[1]
 		reverse_reads = self.sequencepair_data[1]
 
 		##
 		## Align the two FastQ files in the pair
-		self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1')
-		self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2')
-
-	def index_reference(self, target_reference):
+		forward_distribution = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1')
+		reverse_distribution = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2')
 
 		##
-		## Be paranoid, check existence/validity of reference.. again
-		reference_root = target_reference.split('/')[-1].split('.')[0]
-		if os.path.isfile(target_reference):
-			if not (target_reference.endswith('.fa') or target_reference.endswith('.fas')):
-				log.critical('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Specified reference does not exist/is not fasta.'))
-				self.alignment_errors = True
-		##
-		## Path to store indexes for this reference
-		index_dir = os.path.join(self.target_output,'Indexes')
-		if not os.path.exists(index_dir): os.makedirs(index_dir)
-		reference_index = '{}/{}'.format(index_dir, reference_root)
-
-		##
-		## Indexing reference with bowtie2-build
-		build_subprocess = subprocess.Popen(['bowtie2-build', target_reference, '-output', reference_index], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		build_rawoutput = build_subprocess.communicate()
-		build_stdout = build_rawoutput[0]
-		build_subprocess.wait()
-
-		build_report = os.path.join(self.target_output,reference_root + '_IndexBuildReport.txt')
-		report_file = open(build_report, 'w')
-		report_file.write(build_stdout)
-		report_file.close()
-
-		return reference_index
+		## Update sequence pair:: replace file that was to be aligned with the distribution resulting from that file
+		## list[0] was foward read FASTQ >> will be >> forward read's repeat distribution
+		## list[1] was reverse read FASTQ >> will be >> reverse read's repeat distribution
+		self.sequencepair_data = replace_fqfile(self.sequencepair_data, forward_reads, forward_distribution)
+		self.sequencepair_data = replace_fqfile(self.sequencepair_data, reverse_reads, reverse_distribution)
 
 	def execute_alignment(self, reference_index, target_fqfile, feedback_string, io_index):
-
-		##
-		## Determine if QC was executed (naming consistency purpose)
-		quality_control = self.instance_params.config_dict['instance_flags']['@quality_control']
 
 		##
 		## So. Many. Flags.
@@ -122,48 +94,88 @@ class SeqAlign:
 		##ref_gap_open/ext    :: --rfg          :: Reference gap opening/extension penalty
 		##max/min_mismatch..  :: --mp           :: Max/min mismatch score
 
-		alignment_outfile = '{}{}{}'.format(alignment_outdir, '/', 'assembly.sam')
-		print alignment_outfile
-		#bowtie_process = subprocess.Popen(['bowtie2', '-p', THREADS,
-		#								   '-x', reference_index, target_fqfile,
-		#								   '-D', extension_threshold,
-		#								   '-R', seed_size,
-		#								   '-N', align_mismatch,
-		#								   '-L', substring_length,
-		#								   '-i', substring_interval,
-		#								   '--rdg', read_penalties,
-		#								   '--rfg', reference_penalties,
-		#								   '--mp', mismatch_penalties,
-		#								   '-S', alignment_outfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		#
-		###TODO explore getting the CPU usage and updating the above user feedback string periodically...?
-		#
-		#bowtie_rawoutput = bowtie_process.communicate()
-		#bowtie_stderr = bowtie_rawoutput[1]
-		#bowtie_process.wait()
-		#
-		###
-		### There's no reason bowtie should die given how secure everything up to this point is
-		### but check the output anyway, just incase.
-		#if '(ERR): bowtie2-align exited with value' in bowtie_stderr:
-		#	log.critical('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end,'Bowtie2 fatal error.'))
-		#	self.alignment_errors = True
-		#
-		#alignment_report = os.path.join(alignment_outdir, 'AlignmentReport.txt')
-		#report_file = open(alignment_report, 'w')
-		#report_file.write(bowtie_stderr)
-		#report_file.close()
-		#
-		#extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfile)
-		#sys.stdout.flush()
-		#
-		#if self.alignment_errors:
-		#	log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Error during alignment. Exiting.'))
-		#	sys.exit(2)
+		alignment_outfile = '{}/{}'.format(alignment_outdir, 'assembly.sam')
+		bowtie_process = subprocess.Popen(['bowtie2', '-p', THREADS,
+										   '-x', reference_index, target_fqfile,
+										   '-D', extension_threshold,
+										   '-R', seed_size,
+										   '-N', align_mismatch,
+										   '-L', substring_length,
+										   '-i', substring_interval,
+										   '--rdg', read_penalties,
+										   '--rfg', reference_penalties,
+										   '--mp', mismatch_penalties,
+										   '-S', alignment_outfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+		##TODO explore getting the CPU usage and updating the above user feedback string periodically...?
+
+		bowtie_rawoutput = bowtie_process.communicate()
+		bowtie_stderr = bowtie_rawoutput[1]
+		bowtie_process.wait()
+
+		##
+		## There's no reason bowtie should die given how secure everything up to this point is
+		## but check the output anyway, just incase.
+		if '(ERR): bowtie2-align exited with value' in bowtie_stderr:
+			log.critical('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end,'Bowtie2 fatal error.'))
+			self.alignment_errors = True
+
+		alignment_report = os.path.join(alignment_outdir, 'AlignmentReport.txt')
+		report_file = open(alignment_report, 'w')
+		report_file.write(bowtie_stderr)
+		report_file.close()
+
+		csv_path = extract_repeat_distributions(self.sample_root, alignment_outdir, alignment_outfile)
+		sys.stdout.flush()
+
+		if self.alignment_errors:
+			log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Error during alignment. Exiting.'))
+			sys.exit(2)
+
+		return csv_path
 
 	def render_distributions(self):
 		##TODO graph the distributions (individual graph per ccg contig probably)
 		pass
+
+
+class ReferenceIndex:
+	def __init__(self, reference_file, target_output):
+		self.reference = reference_file
+		self.target_output = target_output
+		self.reference = self.index_reference()
+
+	def index_reference(self):
+
+		##
+		## Be paranoid, check existence/validity of reference.. again
+		reference_root = self.reference.split('/')[-1].split('.')[0]
+		if os.path.isfile(self.reference):
+			if not (self.reference.endswith('.fa') or self.reference.endswith('.fas')):
+				log.critical('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Specified reference does not exist/is not fasta.'))
+		##
+		## Path to store indexes for this reference
+		reference_index = os.path.join(self.target_output, reference_root)
+		if not os.path.exists(reference_index): os.makedirs(reference_index)
+
+		##
+		## Indexing reference with bowtie2-build
+		output_root = os.path.join(reference_index, reference_root)
+		build_subprocess = subprocess.Popen(['bowtie2-build', self.reference, '-output', output_root], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		build_rawoutput = build_subprocess.communicate()
+		build_stdout = build_rawoutput[0]
+		build_subprocess.wait()
+
+		build_report = os.path.join(reference_index, 'IndexBuildReport.txt')
+		report_file = open(build_report, 'w')
+		report_file.write(build_stdout)
+		report_file.close()
+
+		return output_root
+
+	def getIndexPath(self):
+		return self.reference
+
 
 def extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfile):
 
@@ -198,7 +210,6 @@ def extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfil
 	csv_file = open(csv_path, 'w')
 	csv_file.write(filestring)
 	csv_file.close()
-	distribution_files.append(csv_path)
 	os.remove(raw_repeat_distribution)
 	##
 	## We return this single csv for when the function is called from shd/prediction
@@ -208,5 +219,3 @@ def extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfil
 
 def get_repeat_distributions():
 	return distribution_files
-
-

@@ -123,10 +123,28 @@ class ScaleHD:
 		## Config generics
 		instance_inputdata = self.instance_params.config_dict['@data_dir']
 
+
 		##
 		## Pre-stage: check for compressed data, extract
 		if not extract_data(instance_inputdata):
 			log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Error during file extraction. Please check your input data.'))
+
+		##
+		## If the user wants to align, it makes architectural sense to index references (which will be used in all pairs)
+		## beforehand, so as to not repeat the computation for each cycle; thus the indexes are created outside of the
+		## main "workflow" so to speak :: check flag and then get reference indexes
+		reference_indexes = []
+		if self.instance_params.config_dict['instance_flags']['@sequence_alignment']:
+			log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,'Indexing reference(s) before initialising sample pair cycle..'))
+			index_path = os.path.join(self.instance_rundir,'Indexes')
+			if not os.path.exists(index_path): os.makedirs(index_path)
+
+			forward_reference = self.instance_params.config_dict['@forward_reference']
+			reverse_reference = self.instance_params.config_dict['@reverse_reference']
+
+			forward_index = align.ReferenceIndex(forward_reference, index_path).getIndexPath()
+			reverse_index = align.ReferenceIndex(reverse_reference, index_path).getIndexPath()
+			reference_indexes = [forward_index, reverse_index]
 
 		##
 		## Executing the workflow for this SHD instance
@@ -143,6 +161,11 @@ class ScaleHD:
 				align_path = sequencepair_data[3]
 				predict_path = sequencepair_data[4]
 
+
+				print 'Before QC'
+				print sequencepair_data
+				print '\n'
+
 				##
 				## Stage 1: QC and subflags
 				seq_qc_flag = self.instance_params.config_dict['instance_flags']['@quality_control']
@@ -151,23 +174,31 @@ class ScaleHD:
 
 				if seq_qc_flag == 'True':
 					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing sequence quality control workflow..'))
-					if seq_qc.SeqQC(sequence_label, sequencepair_data, qc_path, 'valid', self.instance_params):
+					if seq_qc.SeqQC(sequencepair_data, qc_path, 'valid', self.instance_params):
 						if seq_qc_dmpx == 'True':
 							log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising demultiplexing.'))
-							seq_qc.SeqQC(sequence_label, sequencepair_data, qc_path, 'dmpx', self.instance_params)
+							seq_qc.SeqQC(sequencepair_data, qc_path, 'dmpx', self.instance_params)
 							log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Demultiplexing complete!'))
 						if seq_qc_trim == 'True':
 							log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising trimming.'))
-							seq_qc.SeqQC(sequence_label, sequencepair_data, qc_path, 'trim', self.instance_params)
+							seq_qc.SeqQC(sequencepair_data, qc_path, 'trim', self.instance_params)
 							log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Trimming complete!'))
+
+				print 'After QC / Before alignment'
+				print sequencepair_data
+				print '\n'
 
 				##
 				## Stage 2: Alignment flags
 				alignment_flag = self.instance_params.config_dict['instance_flags']['@sequence_alignment']
 				if alignment_flag == 'True':
 					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing alignment workflow..'))
-					align.SeqAlign(sequence_label, sequencepair_data, align_path, self.instance_params)
+					align.SeqAlign(sequence_label, sequencepair_data, align_path, reference_indexes, self.instance_params)
 					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence alignment workflow complete!'))
+
+				print 'After alignment / before genotyping'
+				print sequencepair_data
+				print '\n'
 
 				##
 				## Stage 3: Genotyping flags

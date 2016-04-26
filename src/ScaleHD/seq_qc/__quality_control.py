@@ -12,14 +12,14 @@ import logging as log
 ##
 ## Backend junk
 from ..__backend import Colour as clr
+from ..__backend import replace_fqfile
 from multiprocessing import cpu_count
 
 THREADS = str(cpu_count())
 
 class SeqQC:
 
-	def __init__(self, sequence_label, sequencepair_data, target_output, stage, instance_params):
-		self.sample_root = sequence_label
+	def __init__(self, sequencepair_data, target_output, stage, instance_params):
 		self.sequencepair_data = sequencepair_data
 		self.input_filepair = [sequencepair_data[0], sequencepair_data[1]]
 		self.target_output = target_output
@@ -86,16 +86,18 @@ class SeqQC:
 
 			if trim_type.lower()=='quality':
 				for i in range(0,len(self.input_filepair)):
-					trimmed_outdir = '{}/{}{}{}'.format(self.target_output,'trimmed_',self.sample_root,'.fastq')
+					file_root = self.input_filepair[i].split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
+					trimmed_outdir = '{}/{}{}{}'.format(self.target_output,'trimmed_',file_root,'.fastq')
 					quality_threshold = self.instance_params.config_dict['trim_flags']['@quality_threshold']
 
 					argument_list = ['-q', quality_threshold, self.input_filepair[i], '-o', trimmed_outdir]
-					execute_cutadapt(argument_list, self.sample_root, self.target_output)
-					self.sequencepair_data = self.replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
+					execute_cutadapt(argument_list, file_root, self.target_output)
+					self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
 
 			if trim_type.lower()=='adapter':
 				for i in range(0,len(self.input_filepair)):
-					trimmed_outdir = '{}/{}{}{}'.format(self.target_output,'trimmed_',self.sample_root,'.fastq')
+					file_root = self.input_filepair[i].split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
+					trimmed_outdir = '{}/{}{}{}'.format(self.target_output,'trimmed_',file_root,'.fastq')
 					adapter_anchor = self.instance_params.config_dict['trim_flags']['@adapter_flag']
 					adapter_string = self.instance_params.config_dict['trim_flags']['@adapter']
 
@@ -105,12 +107,13 @@ class SeqQC:
 					if adapter_anchor == '-g^':adapter_anchor = '-g';adapter_string = '^' + adapter_string
 
 					argument_list = [adapter_anchor, adapter_string, self.input_filepair[i], '-o', trimmed_outdir]
-					execute_cutadapt(argument_list, self.sample_root, self.target_output)
-					self.sequencepair_data = self.replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
+					execute_cutadapt(argument_list, file_root, self.target_output)
+					self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
 
 			if trim_type.lower()=='both':
 				for i in range(0,len(self.input_filepair)):
-					trimmed_outdir = '{}/{}{}{}'.format(self.target_output,'trimmed_',self.sample_root,'.fastq')
+					file_root = self.input_filepair[i].split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
+					trimmed_outdir = '{}/{}{}{}'.format(self.target_output,'trimmed_',file_root,'.fastq')
 					quality_threshold = self.instance_params.config_dict['trim_flags']['@quality_threshold']
 					adapter_anchor = self.instance_params.config_dict['trim_flags']['@adapter_flag']
 					adapter_string = self.instance_params.config_dict['trim_flags']['@adapter']
@@ -121,16 +124,9 @@ class SeqQC:
 					if adapter_anchor == '-g^':adapter_anchor = '-g';adapter_string = '^' + adapter_string
 
 					argument_list = ['-q', quality_threshold, adapter_anchor, adapter_string, self.input_filepair[i], '-o', trimmed_outdir]
-					execute_cutadapt(argument_list, self.sample_root, self.target_output)
-					self.sequencepair_data = self.replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
+					execute_cutadapt(argument_list, file_root, self.target_output)
+					self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
 
 		if self.trimming_errors == 'True':
 			log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Trimming errors occurred. Check logging report!'))
 			sys.exit(2)
-
-	@staticmethod
-	def replace_fqfile(mutate_list, target_fqfile, altered_path):
-		if target_fqfile in mutate_list:
-			loc = mutate_list.index(target_fqfile)
-			mutate_list[loc] = altered_path
-		return mutate_list

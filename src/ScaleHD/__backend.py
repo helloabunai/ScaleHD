@@ -303,6 +303,10 @@ class ConfigReader(object):
 				log.error('{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'XML Config: Maximum mismatch penalty value is not an integer.'))
 				trigger=True
 
+			## TODO Ensure minimums are >> maximum for these todo ranges
+
+			## TODO Add cutadapt -e and bt2 -e2e and relevant changes to sys
+
 
 		##
 		## Genotype prediction flag settings
@@ -596,3 +600,10 @@ def sanitise_outputs(output_argument):
 	## Inform user it's all gonna be okaaaayyyy
 	log.info('{}{}{}{}'.format(Colour.green, 'shd__ ', Colour.end, 'Output directories OK!'))
 	return run_dir
+
+def replace_fqfile(mutate_list, target_fqfile, altered_path):
+
+	if target_fqfile in mutate_list:
+		loc = mutate_list.index(target_fqfile)
+		mutate_list[loc] = altered_path
+	return mutate_list
