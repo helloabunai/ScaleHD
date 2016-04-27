@@ -17,7 +17,7 @@ from ..seq_qc.__quality_control import THREADS
 
 class SeqAlign:
 
-	def __init__(self, sequence_label, sequencepair_data, target_output, reference_indexes, instance_params):
+	def __init__(self, sequence_label=None, sequencepair_data=None, target_output=None, reference_indexes=None, instance_params=None):
 
 		##
 		## Flag
@@ -30,6 +30,7 @@ class SeqAlign:
 		self.target_output = target_output
 		self.reference_indexes = reference_indexes
 		self.instance_params = instance_params
+		self.alignment_reports = []
 		self.alignment_workflow()
 
 	def alignment_workflow(self):
@@ -46,8 +47,9 @@ class SeqAlign:
 
 		##
 		## Align the two FastQ files in the pair
-		forward_distribution = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1')
-		reverse_distribution = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2')
+		forward_distribution, forward_report = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1')
+		reverse_distribution, reverse_report = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2')
+		self.alignment_reports = [forward_report, reverse_report]
 
 		##
 		## Update sequence pair:: replace file that was to be aligned with the distribution resulting from that file
@@ -135,7 +137,7 @@ class SeqAlign:
 			log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Error during alignment. Exiting.'))
 			sys.exit(2)
 
-		return csv_path
+		return csv_path, alignment_report
 
 	@staticmethod
 	def extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfile):
@@ -181,6 +183,9 @@ class SeqAlign:
 	def render_distributions(self):
 		##TODO graph the distributions (individual graph per ccg contig probably)
 		pass
+
+	def getreports(self):
+		return self.alignment_reports
 
 
 class ReferenceIndex:

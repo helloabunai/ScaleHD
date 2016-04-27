@@ -28,10 +28,7 @@ from . import predict
 
 ##
 ## Globals
-VERBOSE = False
-LOGGING = True
 THREADS = cpu_count()
-DEF_OUT = os.path.join(os.path.expanduser('~'),'ScaleHD')
 
 class ScaleHD:
 	def __init__(self):
@@ -73,6 +70,7 @@ class ScaleHD:
 			log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Error with specified input(s) configuration. Exiting.'))
 			sys.exit(2)
 		self.instance_rundir = sanitise_outputs(self.args.output)
+		self.instance_summary = {}
 
 		##
 		## Set up config dictionary of all params.
@@ -157,6 +155,18 @@ class ScaleHD:
 				log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
 
 				##
+				## Collating the required information for this data pair into a summary dictionary
+				## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
+				datapair_summary = {'R1 Demultiplexing':'N/A',
+									'R1_Trimming':'N/A',
+									'R1_Alignment':'N/A',
+									'R2_Demultiplexing':'N/A',
+									'R2_Trimming':'N/A',
+									'R2_Alignment':'N/A',
+									'Sample_Genotype':'~~Work In Progress~~'}
+				self.instance_summary[assembly_label] = datapair_summary
+
+				##
 				## Finished all desired stages for this file pair, inform user if -v
 				log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Assembly pair workflow complete!\n'))
 
@@ -166,14 +176,13 @@ class ScaleHD:
 		## Config generics
 		instance_inputdata = self.instance_params.config_dict['@data_dir']
 
-
 		##
 		## Pre-stage: check for compressed data, extract
 		if not extract_data(instance_inputdata):
 			log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Error during file extraction. Please check your input data.'))
 
 		##
-		## If the user wants to align, it makes architectural sense to index references (which will be used in all pairs)
+		## If the user wants to align, it is more intuitive to index references (which will be used in all pairs)
 		## beforehand, so as to not repeat the computation for each cycle; thus the indexes are created outside of the
 		## main "workflow" so to speak :: check flag and then get reference indexes
 		reference_indexes = []
@@ -182,9 +191,13 @@ class ScaleHD:
 			index_path = os.path.join(self.instance_rundir,'Indexes')
 			if not os.path.exists(index_path): os.makedirs(index_path)
 
+			##
+			## Ref path
 			forward_reference = self.instance_params.config_dict['@forward_reference']
 			reverse_reference = self.instance_params.config_dict['@reverse_reference']
 
+			##
+			## Return all bt2-index indexed files for the input reference(s)
 			forward_index = align.ReferenceIndex(forward_reference, index_path).getIndexPath()
 			reverse_index = align.ReferenceIndex(reverse_reference, index_path).getIndexPath()
 			reference_indexes = [forward_index, reverse_index]
@@ -205,6 +218,14 @@ class ScaleHD:
 				predict_path = sequencepair_data[4]
 
 				##
+				## List of paths to report files which may or may not be written to
+				## Used to scrape later on for instance summary
+				dmpx_report = ''
+				trim_report = ''
+				align_report = ''
+				gtype_report = ''
+
+				##
 				## Stage 1: QC and subflags
 				seq_qc_flag = self.instance_params.config_dict['instance_flags']['@quality_control']
 				seq_qc_dmpx = self.instance_params.config_dict['dmplex_flags']['@demultiplex_data']
@@ -220,6 +241,7 @@ class ScaleHD:
 						if seq_qc_trim == 'True':
 							log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising trimming.'))
 							seq_qc.SeqQC(sequencepair_data, qc_path, 'trim', self.instance_params)
+							trim_report = seq_qc.SeqQC().getreport()
 							log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Trimming complete!'))
 
 				##
@@ -228,6 +250,7 @@ class ScaleHD:
 				if alignment_flag == 'True':
 					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing alignment workflow..'))
 					align.SeqAlign(sequence_label, sequencepair_data, align_path, reference_indexes, self.instance_params)
+					align_report = align.SeqAlign().getreports()
 					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence alignment workflow complete!'))
 
 				##
@@ -239,13 +262,65 @@ class ScaleHD:
 					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
 
 				##
-				## Scrape summary results from stages and write to 'master' output file
+				## Collating the required information for this data pair into a summary dictionary
+				## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
+				r1_trimming = self.scrape_summary_data('trim', trim_report[0])
+				r2_trimming = self.scrape_summary_data('trim', trim_report[1])
+				r1_align = self.scrape_summary_data('align', align_report[0])
+				r2_align = self.scrape_summary_data('align', align_report[1])
 
-
+				datapair_summary = {'R1 Demultiplexing':'todo',
+									'R1_Trimming':r1_trimming,
+									'R1_Alignment':r1_align,
+									'R2_Demultiplexing':'todo',
+									'R2_Trimming':r2_trimming,
+									'R2_Alignment':r2_align,
+									'Sample_Genotype':'~~Work In Progress~~'}
+				self.instance_summary[sequence_label] = datapair_summary
 
 				##
 				## Finished all desired stages for this file pair, inform user if -v
 				log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence pair workflow complete!\n'))
+
+	@staticmethod
+	def scrape_summary_data(stage, input_report_file):
+
+		##TODO all of these file getters/scrapers
+
+		##
+		## If the argument input_report_file is from demultiplexing..
+		if stage == 'dmpx':
+			print 'dmpx report scrape'
+			return ''
+
+		##
+		## If the argument input_report_file is from trimming..
+		if stage == 'trim':
+			print 'trimming report scrape'
+			return ''
+
+		##
+		## If the argument input_report_file is from alignment..
+		if stage == 'align':
+			print 'align report scrape'
+			return ''
+
+		##
+		## If the argument input_report_file is from genotyping..
+		if stage == 'gtype':
+			print 'genotype report scrape'
+			return ''
+
+
+	def collate_summary(self):
+
+		##
+		## Ideally every pair will be a key, with a dictionary as it's value
+		## in the child dictionary, will be the 'column' results for use in writing a summary
+		## e.g. R1_dmpx_summary, R1_trim_summary, R1_align_summary, R1_gtype_summary
+		## and repeat for R2, in the same row; repeat in each row for each parent dictionary..
+		for samplepair_key, child_dict in self.instance_summary.iteritems():
+			print samplepair_key, child_dict
 
 
 def main():

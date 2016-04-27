@@ -19,12 +19,13 @@ THREADS = str(cpu_count())
 
 class SeqQC:
 
-	def __init__(self, sequencepair_data, target_output, stage, instance_params):
+	def __init__(self, sequencepair_data=None, target_output=None, stage=None, instance_params=None):
 		self.sequencepair_data = sequencepair_data
 		self.input_filepair = [sequencepair_data[0], sequencepair_data[1]]
 		self.target_output = target_output
 		self.instance_params = instance_params
 		self.trimming_errors = False
+		self.trimrep_paths = []
 
 		if stage.lower()=='valid':
 			self.verify_input()
@@ -76,6 +77,7 @@ class SeqQC:
 
 			if cutadapt_errors is not None:
 				self.trimming_errors = True
+			return report_directory
 
 		##
 		## Determine what we want to trim from parameters dictionary
@@ -91,8 +93,9 @@ class SeqQC:
 					quality_threshold = self.instance_params.config_dict['trim_flags']['@quality_threshold']
 
 					argument_list = ['-q', quality_threshold, self.input_filepair[i], '-o', trimmed_outdir]
-					execute_cutadapt(argument_list, file_root, self.target_output)
+					trim_report = execute_cutadapt(argument_list, file_root, self.target_output)
 					self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
+					self.trimrep_paths.append(trim_report)
 
 			if trim_type.lower()=='adapter':
 				for i in range(0,len(self.input_filepair)):
@@ -107,8 +110,9 @@ class SeqQC:
 					if adapter_anchor == '-g^':adapter_anchor = '-g';adapter_string = '^' + adapter_string
 
 					argument_list = [adapter_anchor, adapter_string, self.input_filepair[i], '-o', trimmed_outdir]
-					execute_cutadapt(argument_list, file_root, self.target_output)
+					trim_report = execute_cutadapt(argument_list, file_root, self.target_output)
 					self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
+					self.trimrep_paths.append(trim_report)
 
 			if trim_type.lower()=='both':
 				for i in range(0,len(self.input_filepair)):
@@ -124,9 +128,13 @@ class SeqQC:
 					if adapter_anchor == '-g^':adapter_anchor = '-g';adapter_string = '^' + adapter_string
 
 					argument_list = ['-q', quality_threshold, adapter_anchor, adapter_string, self.input_filepair[i], '-o', trimmed_outdir]
-					execute_cutadapt(argument_list, file_root, self.target_output)
+					trim_report = execute_cutadapt(argument_list, file_root, self.target_output)
 					self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
+					self.trimrep_paths.append(trim_report)
 
 		if self.trimming_errors == 'True':
 			log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Trimming errors occurred. Check logging report!'))
 			sys.exit(2)
+
+	def getreport(self):
+		return self.trimrep_paths
