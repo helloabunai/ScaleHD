@@ -95,6 +95,7 @@ class SeqAlign:
 		##max/min_mismatch..  :: --mp           :: Max/min mismatch score
 
 		alignment_outfile = '{}/{}'.format(alignment_outdir, 'assembly.sam')
+		metrics_outfile = os.path.join(alignment_outdir,'performance_metrics.txt')
 		bowtie_process = subprocess.Popen(['bowtie2', '-p', THREADS,
 										   '-x', reference_index, target_fqfile,
 										   '-D', extension_threshold,
@@ -105,6 +106,8 @@ class SeqAlign:
 										   '--rdg', read_penalties,
 										   '--rfg', reference_penalties,
 										   '--mp', mismatch_penalties,
+										   '--met-file', metrics_outfile,
+										   '--end-to-end',
 										   '-S', alignment_outfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 		##TODO explore getting the CPU usage and updating the above user feedback string periodically...?
@@ -125,7 +128,7 @@ class SeqAlign:
 		report_file.write(bowtie_stderr)
 		report_file.close()
 
-		csv_path = extract_repeat_distributions(self.sample_root, alignment_outdir, alignment_outfile)
+		csv_path = self.extract_repeat_distributions(self.sample_root, alignment_outdir, alignment_outfile)
 		sys.stdout.flush()
 
 		if self.alignment_errors:
@@ -134,13 +137,56 @@ class SeqAlign:
 
 		return csv_path
 
+	@staticmethod
+	def extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfile):
+
+		##
+		## Scrapes repeat distribution from alignment
+		sorted_assembly = '{}{}'.format(alignment_outdir, '/assembly_sorted.bam')
+		view_subprocess = subprocess.Popen(['samtools', 'view', '-bS', '-@', THREADS, alignment_outfile], stdout=subprocess.PIPE)
+		sort_subprocess = subprocess.Popen(['samtools', 'sort', '-@', THREADS, '-', '-o', sorted_assembly], stdin=view_subprocess.stdout)
+		view_subprocess.wait(); sort_subprocess.wait()
+
+		index_subprocess = subprocess.Popen(['samtools', 'index', sorted_assembly], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		index_subprocess.wait()
+
+		raw_repeat_distribution = os.path.join(alignment_outdir, 'Raw_RepeatDistribution.txt')
+		rrd_file = open(raw_repeat_distribution, 'w')
+		idxstats_subprocess = subprocess.Popen(['samtools', 'idxstats', sorted_assembly], stdout=rrd_file)
+		idxstats_subprocess.wait()
+		rrd_file.close()
+
+		##
+		## Text to CSV, clean up text distribution
+		with open(raw_repeat_distribution) as text_distribution:
+			repeat_values = []
+			data_string = ''
+			for line in text_distribution.readlines()[:-1]:
+				values = line.split('\t')
+				data_string += values[0] + ',' + values[1] + ',' + values[2] + ',0\n'
+
+		filestring = sample_root + '\n'
+		filestring += data_string
+		csv_path = os.path.join(alignment_outdir,'RepeatDistribution.csv')
+		csv_file = open(csv_path, 'w')
+		csv_file.write(filestring)
+		csv_file.close()
+		os.remove(raw_repeat_distribution)
+		##
+		## We return this single csv for when the function is called from shd/prediction
+		## That call loops through a -i/-b sam input file individually, doesn't need a list
+		## -c input utilises the distribution_files list and the below getter function
+		return csv_path
+
 	def render_distributions(self):
 		##TODO graph the distributions (individual graph per ccg contig probably)
 		pass
 
 
 class ReferenceIndex:
+
 	def __init__(self, reference_file, target_output):
+
 		self.reference = reference_file
 		self.target_output = target_output
 		self.reference = self.index_reference()
@@ -174,48 +220,5 @@ class ReferenceIndex:
 		return output_root
 
 	def getIndexPath(self):
+
 		return self.reference
-
-
-def extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfile):
-
-	##
-	## Scrapes repeat distribution from alignment
-	sorted_assembly = '{}{}'.format(alignment_outdir, '/assembly_sorted.bam')
-	view_subprocess = subprocess.Popen(['samtools', 'view', '-bS', '-@', THREADS, alignment_outfile], stdout=subprocess.PIPE)
-	sort_subprocess = subprocess.Popen(['samtools', 'sort', '-@', THREADS, '-', '-o', sorted_assembly], stdin=view_subprocess.stdout)
-	view_subprocess.wait(); sort_subprocess.wait()
-
-	index_subprocess = subprocess.Popen(['samtools', 'index', sorted_assembly], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	index_subprocess.wait()
-
-	raw_repeat_distribution = os.path.join(alignment_outdir, 'Raw_RepeatDistribution.txt')
-	rrd_file = open(raw_repeat_distribution, 'w')
-	idxstats_subprocess = subprocess.Popen(['samtools', 'idxstats', sorted_assembly], stdout=rrd_file)
-	idxstats_subprocess.wait()
-	rrd_file.close()
-
-	##
-	## Text to CSV, clean up text distribution
-	with open(raw_repeat_distribution) as text_distribution:
-		repeat_values = []
-		data_string = ''
-		for line in text_distribution.readlines()[:-1]:
-			values = line.split('\t')
-			data_string += values[0] + ',' + values[1] + ',' + values[2] + ',0\n'
-
-	filestring = sample_root + '\n'
-	filestring += data_string
-	csv_path = os.path.join(alignment_outdir,'RepeatDistribution.csv')
-	csv_file = open(csv_path, 'w')
-	csv_file.write(filestring)
-	csv_file.close()
-	os.remove(raw_repeat_distribution)
-	##
-	## We return this single csv for when the function is called from shd/prediction
-	## That call loops through a -i/-b sam input file individually, doesn't need a list
-	## -c input utilises the distribution_files list and the below getter function
-	return csv_path
-
-def get_repeat_distributions():
-	return distribution_files

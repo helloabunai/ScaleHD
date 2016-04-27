@@ -237,6 +237,13 @@ class ConfigReader(object):
 					if charbase not in trim_adapter_base:
 						log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Invalid character detected in adapter sequence.'))
 						trigger = True
+				error_tolerance = self.config_dict['trim_flags']['@error_tolerance']
+				if not isinstance(error_tolerance, float):
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified error tolerance is not a valid float.'))
+					trigger = True
+				if not error_tolerance in np.arange(0,1.1,0.1):
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified error tolerance is not 0.0 < x < 1.0.'))
+					trigger = True
 
 		##
 		## SeqQC stage check
@@ -304,9 +311,6 @@ class ConfigReader(object):
 				trigger=True
 
 			## TODO Ensure minimums are >> maximum for these todo ranges
-
-			## TODO Add cutadapt -e and bt2 -e2e and relevant changes to sys
-
 
 		##
 		## Genotype prediction flag settings
@@ -416,15 +420,6 @@ def sanitise_inputs(parsed_arguments):
 
 	trigger = False
 
-	if parsed_arguments.input:
-		if not filesystem_exists_check(parsed_arguments.input[0]):
-			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified input file could not be found.')); print 'input not found'
-			trigger = True
-		for samfile in parsed_arguments.input:
-			if not check_input_files('.sam',samfile):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified input file is not a SAM file.')); print 'input not sam'
-				trigger = True
-
 	if parsed_arguments.batch:
 		if not filesystem_exists_check(parsed_arguments.batch[0]):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified batch folder could not be found.')); print 'batch not found'
@@ -461,7 +456,7 @@ def extract_data(input_data_directory):
 
 	return True
 
-def sequence_pairings(data_path, instance_rundir):
+def sequence_pairings(data_path, instance_rundir, workflow_type):
 
 	input_files = glob.glob(os.path.join(data_path, '*'))
 	sequence_pairs = []
@@ -475,36 +470,49 @@ def sequence_pairings(data_path, instance_rundir):
 	## Optimise so code isn't recycled
 	for i in range(0, len(input_files), 2):
 		file_pair = {}
-		forward_reads = input_files[i]
-		reverse_reads = input_files[i+1]
+		forward_data = input_files[i]
+		reverse_data = input_files[i+1]
 
 		##
 		## Check forward ends with R1
-		forward_reads_name = input_files[i].split('/')[-1].split('.')[0]
-		if not forward_reads_name.endswith('R1'):
-			log.error('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'I/O: Forward read file does not end in _R1. ', forward_reads))
+		forward_data_name = input_files[i].split('/')[-1].split('.')[0]
+		if not forward_data_name.endswith('R1'):
+			log.error('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'I/O: Forward input file does not end in _R1. ', forward_data))
 			sys.exit(2)
 
 		##
 		## Check reverse ends with R2
-		reverse_reads_name = input_files[i+1].split('/')[-1].split('.')[0]
-		if not reverse_reads_name.endswith('R2'):
-			log.error('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'I/O: Reverse read file does not end in _R2. ', reverse_reads))
+		reverse_data_name = input_files[i+1].split('/')[-1].split('.')[0]
+		if not reverse_data_name.endswith('R2'):
+			log.error('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'I/O: Reverse input file does not end in _R2. ', reverse_data))
 			sys.exit(2)
 
-		##
-		## Make Stage outputs for use in everywhere else in pipeline
-		sample_root = '_'.join(forward_reads_name.split('_')[:-1])
-		seq_qc_path = os.path.join(instance_rundir, sample_root, 'SeqQC')
-		align_path = os.path.join(instance_rundir, sample_root, 'Align')
-		predict_path = os.path.join(instance_rundir, sample_root, 'Predict')
+		if workflow_type == 'sequence':
 
-		paths = [seq_qc_path, align_path, predict_path]
-		for path in paths:
-			if not os.path.exists(path): os.makedirs(path)
+			##
+			## Make Stage outputs for use in everywhere else in pipeline
+			sample_root = '_'.join(forward_data_name.split('_')[:-1])
+			seq_qc_path = os.path.join(instance_rundir, sample_root, 'SeqQC')
+			align_path = os.path.join(instance_rundir, sample_root, 'Align')
+			predict_path = os.path.join(instance_rundir, sample_root, 'Predict')
 
-		file_pair[sample_root] = [forward_reads, reverse_reads, seq_qc_path, align_path, predict_path]
-		sequence_pairs.append(file_pair)
+			paths = [seq_qc_path, align_path, predict_path]
+			for path in paths:
+				if not os.path.exists(path): os.makedirs(path)
+
+			file_pair[sample_root] = [forward_data, reverse_data, seq_qc_path, align_path, predict_path]
+			sequence_pairs.append(file_pair)
+
+		if workflow_type == 'assembly':
+
+			##
+			## Assembly only requires a prediction folder so we do a slightly different thing here
+			sample_root = '_'.join(forward_data_name.split('_')[:-1])
+			predict_path = os.path.join(instance_rundir, sample_root, 'Predict')
+			if not os.path.exists(predict_path): os.makedirs(predict_path)
+
+			file_pair[sample_root] = [forward_data, reverse_data, predict_path]
+			sequence_pairs.append(file_pair)
 
 	return sequence_pairs
 
@@ -519,7 +527,7 @@ def filesystem_exists_check(path, raise_exception=True):
 	if os.path.lexists(path):
 		return True
 	if raise_exception:
-		log.error('{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Specified -i/-b/-c path could not be found.'))
+		log.error('{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Specified -b/-c path could not be found.'))
 	return False
 
 def check_input_files(input_format, input_file, raise_exception=True):
@@ -527,7 +535,7 @@ def check_input_files(input_format, input_file, raise_exception=True):
 	if input_file.endswith(input_format):
 		return True
 	if raise_exception:
-		log.error('{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Unrecognised file format found in -i/-b/-c path.'))
+		log.error('{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Unrecognised file format found in -b/-c path.'))
 	return False
 
 def initialise_libraries(instance_params):
@@ -548,7 +556,7 @@ def initialise_libraries(instance_params):
 	##
 	## To determine which binaries to check for
 	## AttributeError in the situation where instance_params origin differs
-	## try for -c style, except AttributeError for -i/-b style
+	## try for -c style, except AttributeError for -b style
 	try:
 		quality_control = instance_params.config_dict['instance_flags']['@quality_control']
 		alignment = instance_params.config_dict['instance_flags']['@sequence_alignment']
@@ -559,7 +567,7 @@ def initialise_libraries(instance_params):
 		genotyping = instance_params['genotype_prediction']
 
 	if quality_control:
-		try:which('FastQC')
+		try:which('fastqc')
 		except ScaleHDException: trigger=True
 		try:which('cutadapt')
 		except ScaleHDException: trigger=True
@@ -593,7 +601,7 @@ def sanitise_outputs(output_argument):
 	if not os.path.exists(output_root):
 		log.info('{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Creating output root... '))
 		os.mkdir(output_root)
-	run_dir = output_root + '/ScaleHDRun_' + today
+	run_dir = output_root + 'ScaleHDRun_' + today
 	log.info('{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Creating instance run directory.. '))
 	os.mkdir(run_dir)
 

@@ -36,6 +36,7 @@ The Config Element deals with specifying any required sub-configs (elements), an
 <!ATTLIST trim_flags quality_threshold CDATA #IMPLIED>
 <!ATTLIST trim_flags adapter_flag CDATA #IMPLIED>
 <!ATTLIST trim_flags adapter CDATA #IMPLIED>
+<!ATTLIST trim_flags error_tolerance CDATA #IMPLIED>
 
 <!-- ALIGNMENT_FLAGS ELEMENT -->
 <!ELEMENT alignment_flags (#PCDATA)>
