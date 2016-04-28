@@ -16,16 +16,16 @@ from ..__backend import replace_fqfile
 from multiprocessing import cpu_count
 
 THREADS = str(cpu_count())
+TR_REPORT = []
 
 class SeqQC:
 
-	def __init__(self, sequencepair_data=None, target_output=None, stage=None, instance_params=None):
+	def __init__(self, sequencepair_data, target_output, stage, instance_params):
 		self.sequencepair_data = sequencepair_data
 		self.input_filepair = [sequencepair_data[0], sequencepair_data[1]]
 		self.target_output = target_output
 		self.instance_params = instance_params
 		self.trimming_errors = False
-		self.trimrep_paths = []
 
 		if stage.lower()=='valid':
 			self.verify_input()
@@ -95,7 +95,7 @@ class SeqQC:
 					argument_list = ['-q', quality_threshold, self.input_filepair[i], '-o', trimmed_outdir]
 					trim_report = execute_cutadapt(argument_list, file_root, self.target_output)
 					self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
-					self.trimrep_paths.append(trim_report)
+					TR_REPORT.append(trim_report)
 
 			if trim_type.lower()=='adapter':
 				for i in range(0,len(self.input_filepair)):
@@ -112,7 +112,7 @@ class SeqQC:
 					argument_list = [adapter_anchor, adapter_string, self.input_filepair[i], '-o', trimmed_outdir]
 					trim_report = execute_cutadapt(argument_list, file_root, self.target_output)
 					self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
-					self.trimrep_paths.append(trim_report)
+					TR_REPORT.append(trim_report)
 
 			if trim_type.lower()=='both':
 				for i in range(0,len(self.input_filepair)):
@@ -130,11 +130,11 @@ class SeqQC:
 					argument_list = ['-q', quality_threshold, adapter_anchor, adapter_string, self.input_filepair[i], '-o', trimmed_outdir]
 					trim_report = execute_cutadapt(argument_list, file_root, self.target_output)
 					self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
-					self.trimrep_paths.append(trim_report)
+					TR_REPORT.append(trim_report)
 
 		if self.trimming_errors == 'True':
 			log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Trimming errors occurred. Check logging report!'))
 			sys.exit(2)
 
-	def getreport(self):
-		return self.trimrep_paths
+def get_trimreport():
+	return TR_REPORT

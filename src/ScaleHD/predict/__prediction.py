@@ -35,10 +35,8 @@ class GenotypePrediction:
 		## Distribution files for the data_pair we've been passed into an object of GenotypePrediction
 		forward_distrofile = self.data_pair[0]
 		reverse_distrofile = self.data_pair[1]
-		forward_distribution = self.scrape_distro(forward_distrofile)
-		reverse_distribution = self.scrape_distro(reverse_distrofile)
-		collapsed_forward = self.collapse_ccg(forward_distribution)
-		collapsed_reverse = self.collapse_ccg(reverse_distribution)
+		collapsed_forward = self.collapse_ccg(self.scrape_distro(forward_distrofile))
+		collapsed_reverse = self.collapse_ccg(self.scrape_distro(reverse_distrofile))
 
 		print 'forward', collapsed_forward
 		print 'reverse', collapsed_reverse

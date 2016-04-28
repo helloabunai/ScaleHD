@@ -23,7 +23,9 @@ from __backend import sanitise_outputs
 ##
 ## Package stages
 from . import seq_qc
+from .seq_qc.__quality_control import get_trimreport
 from . import align
+from .align.__alignment import get_alignreport
 from . import predict
 
 ##
@@ -157,14 +159,14 @@ class ScaleHD:
 				##
 				## Collating the required information for this data pair into a summary dictionary
 				## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
-				datapair_summary = {'R1 Demultiplexing':'N/A',
-									'R1_Trimming':'N/A',
-									'R1_Alignment':'N/A',
-									'R2_Demultiplexing':'N/A',
-									'R2_Trimming':'N/A',
-									'R2_Alignment':'N/A',
-									'Sample_Genotype':'~~Work In Progress~~'}
-				self.instance_summary[assembly_label] = datapair_summary
+				#datapair_summary = {'R1 Demultiplexing':'N/A',
+				#					'R1_Trimming':'N/A',
+				#					'R1_Alignment':'N/A',
+				#					'R2_Demultiplexing':'N/A',
+				#					'R2_Trimming':'N/A',
+				#					'R2_Alignment':'N/A',
+				#					'Sample_Genotype':'~~Work In Progress~~'}
+				#self.instance_summary[assembly_label] = datapair_summary
 
 				##
 				## Finished all desired stages for this file pair, inform user if -v
@@ -220,10 +222,10 @@ class ScaleHD:
 				##
 				## List of paths to report files which may or may not be written to
 				## Used to scrape later on for instance summary
-				dmpx_report = ''
-				trim_report = ''
-				align_report = ''
-				gtype_report = ''
+				dmpx_report = []
+				trim_report = []
+				align_report = []
+				gtype_report = []
 
 				##
 				## Stage 1: QC and subflags
@@ -241,7 +243,7 @@ class ScaleHD:
 						if seq_qc_trim == 'True':
 							log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising trimming.'))
 							seq_qc.SeqQC(sequencepair_data, qc_path, 'trim', self.instance_params)
-							trim_report = seq_qc.SeqQC().getreport()
+							trim_report = get_trimreport()
 							log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Trimming complete!'))
 
 				##
@@ -250,7 +252,7 @@ class ScaleHD:
 				if alignment_flag == 'True':
 					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing alignment workflow..'))
 					align.SeqAlign(sequence_label, sequencepair_data, align_path, reference_indexes, self.instance_params)
-					align_report = align.SeqAlign().getreports()
+					align_report = get_alignreport()
 					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence alignment workflow complete!'))
 
 				##
@@ -296,13 +298,15 @@ class ScaleHD:
 		##
 		## If the argument input_report_file is from trimming..
 		if stage == 'trim':
-			print 'trimming report scrape'
+			print 'trim report'
+			print input_report_file
 			return ''
 
 		##
 		## If the argument input_report_file is from alignment..
 		if stage == 'align':
-			print 'align report scrape'
+			print 'align report'
+			print input_report_file
 			return ''
 
 		##

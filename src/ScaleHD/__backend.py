@@ -238,10 +238,10 @@ class ConfigReader(object):
 						log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Invalid character detected in adapter sequence.'))
 						trigger = True
 				error_tolerance = self.config_dict['trim_flags']['@error_tolerance']
-				if not isinstance(error_tolerance, float):
+				if not isinstance(float(error_tolerance), float):
 					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified error tolerance is not a valid float.'))
 					trigger = True
-				if not error_tolerance in np.arange(0,1.1,0.1):
+				if not float(error_tolerance) in np.arange(0,1.1,0.1):
 					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified error tolerance is not 0.0 < x < 1.0.'))
 					trigger = True
 

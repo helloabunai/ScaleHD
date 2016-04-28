@@ -15,6 +15,8 @@ from ..__backend import Colour as clr
 from ..__backend import replace_fqfile
 from ..seq_qc.__quality_control import THREADS
 
+ALN_REPORT = []
+
 class SeqAlign:
 
 	def __init__(self, sequence_label=None, sequencepair_data=None, target_output=None, reference_indexes=None, instance_params=None):
@@ -49,7 +51,7 @@ class SeqAlign:
 		## Align the two FastQ files in the pair
 		forward_distribution, forward_report = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1')
 		reverse_distribution, reverse_report = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2')
-		self.alignment_reports = [forward_report, reverse_report]
+		ALN_REPORT.append(forward_report); ALN_REPORT.append(reverse_report)
 
 		##
 		## Update sequence pair:: replace file that was to be aligned with the distribution resulting from that file
@@ -184,8 +186,8 @@ class SeqAlign:
 		##TODO graph the distributions (individual graph per ccg contig probably)
 		pass
 
-	def getreports(self):
-		return self.alignment_reports
+def get_alignreport():
+	return ALN_REPORT
 
 
 class ReferenceIndex:
