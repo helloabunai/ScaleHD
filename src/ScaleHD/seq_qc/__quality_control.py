@@ -16,6 +16,7 @@ from ..__backend import replace_fqfile
 from multiprocessing import cpu_count
 
 THREADS = str(cpu_count())
+DM_REPORT = []
 TR_REPORT = []
 
 class SeqQC:
@@ -46,6 +47,7 @@ class SeqQC:
 		return False
 
 	def execute_fastQC(self):
+
 		##
 		## For the files in the current file pair, make FastQC output folder and run FastQC
 		for fqfile in self.input_filepair:
@@ -55,8 +57,55 @@ class SeqQC:
 			fastqc_process.wait()
 
 	def execute_demultiplex(self):
-		##TODO this would be first, but do later
-		pass
+
+		##
+		## Paranoid test for dmpx stage
+		if self.instance_params.config_dict['dmpx_flags']['@demultiplex_data']:
+
+			##
+			## Options for demultiplexing
+			barcode_sequence = self.instance_params.config_dict['dmpx_flags']['@barcode']
+			max_mismatch = self.instance_params.config_dict['dmpx_flags']['@max_mismatch']
+			retain_unmatched = self.instance_params.config_dict['dmpx_flags']['@retain_unmatched']
+
+			##
+			## Generate barcode file for sabre to use
+			for i in range(0, len(self.input_filepair)):
+
+				##
+				## Files/paths required for demultiplexing
+				file_root = self.input_filepair[i].split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
+				dmpx_string = '{}{}{}'.format('demultiplexed_', file_root, '.fq')
+				barcode_file = os.path.join(self.target_output, '{}{}{}'.format('barcodes_', file_root, '.txt'))
+				unknown_barcodes = os.path.join(self.target_output, '{}{}{}'.format('unmatched_',file_root,'.fq'))
+
+				##
+				## Generate sabre barcode input file for this individual file
+				target_dmpx_output = os.path.join(self.target_output, dmpx_string)
+				barcode_string = '{} {}'.format(barcode_sequence, target_dmpx_output)
+				with open(barcode_file, 'w') as dmpx:
+					dmpx.write(barcode_string)
+					dmpx.close()
+
+				##
+				## Execute sabre, dump stdout to report file
+				process_parameters = ['-f', self.input_filepair[i], '-b', barcode_file, '-m', max_mismatch,'-u', unknown_barcodes]
+				dmpx_report_path = os.path.join(self.target_output,'{}{}'.format(file_root,'_DemultiplexReport.txt'))
+				dmpx_report_inst = open(dmpx_report_path, 'w')
+				sabre_subprocess = subprocess.Popen(['sabre', 'se'] + process_parameters, stdout=dmpx_report_inst, stderr=subprocess.PIPE)
+				sabre_subprocess.wait()
+				DM_REPORT.append(dmpx_report_path)
+				dmpx_report_inst.close()
+
+				##
+				## Remove unknown/unmatched fq file if desired
+				if retain_unmatched == 'False':
+					os.remove(unknown_barcodes)
+
+				##
+				## Update self.sequencepair_data with demultiplexed file
+				self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], target_dmpx_output)
+
 
 	def execute_trimming(self):
 
@@ -85,6 +134,7 @@ class SeqQC:
 		## Then go into setting up instance
 		if self.instance_params.config_dict['trim_flags']['@trim_data']:
 			trim_type = self.instance_params.config_dict['trim_flags']['@trim_type']
+			error_tolerance = self.instance_params.config_dict['trim_flags']['@error_tolerance']
 
 			if trim_type.lower()=='quality':
 				for i in range(0,len(self.input_filepair)):
@@ -92,7 +142,7 @@ class SeqQC:
 					trimmed_outdir = '{}/{}{}{}'.format(self.target_output,'trimmed_',file_root,'.fastq')
 					quality_threshold = self.instance_params.config_dict['trim_flags']['@quality_threshold']
 
-					argument_list = ['-q', quality_threshold, self.input_filepair[i], '-o', trimmed_outdir]
+					argument_list = ['-e', error_tolerance, '-q', quality_threshold, self.input_filepair[i], '-o', trimmed_outdir]
 					trim_report = execute_cutadapt(argument_list, file_root, self.target_output)
 					self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
 					TR_REPORT.append(trim_report)
@@ -109,7 +159,7 @@ class SeqQC:
 					if adapter_anchor == '-a$':adapter_anchor = '-a';adapter_string += '$'
 					if adapter_anchor == '-g^':adapter_anchor = '-g';adapter_string = '^' + adapter_string
 
-					argument_list = [adapter_anchor, adapter_string, self.input_filepair[i], '-o', trimmed_outdir]
+					argument_list = ['-e', error_tolerance, adapter_anchor, adapter_string, self.input_filepair[i], '-o', trimmed_outdir]
 					trim_report = execute_cutadapt(argument_list, file_root, self.target_output)
 					self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
 					TR_REPORT.append(trim_report)
@@ -127,7 +177,7 @@ class SeqQC:
 					if adapter_anchor == '-a$':adapter_anchor = '-a';adapter_string += '$'
 					if adapter_anchor == '-g^':adapter_anchor = '-g';adapter_string = '^' + adapter_string
 
-					argument_list = ['-q', quality_threshold, adapter_anchor, adapter_string, self.input_filepair[i], '-o', trimmed_outdir]
+					argument_list = ['-e', error_tolerance, '-q', quality_threshold, adapter_anchor, adapter_string, self.input_filepair[i], '-o', trimmed_outdir]
 					trim_report = execute_cutadapt(argument_list, file_root, self.target_output)
 					self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
 					TR_REPORT.append(trim_report)
@@ -138,3 +188,5 @@ class SeqQC:
 
 def get_trimreport():
 	return TR_REPORT
+def get_dmpxreport():
+	return DM_REPORT

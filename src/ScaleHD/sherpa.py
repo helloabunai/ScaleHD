@@ -23,6 +23,7 @@ from __backend import sanitise_outputs
 ##
 ## Package stages
 from . import seq_qc
+from .seq_qc.__quality_control import get_dmpxreport
 from .seq_qc.__quality_control import get_trimreport
 from . import align
 from .align.__alignment import get_alignreport
@@ -33,6 +34,7 @@ from . import predict
 THREADS = cpu_count()
 
 class ScaleHD:
+
 	def __init__(self):
 
 		"""
@@ -230,16 +232,20 @@ class ScaleHD:
 				##
 				## Stage 1: QC and subflags
 				seq_qc_flag = self.instance_params.config_dict['instance_flags']['@quality_control']
-				seq_qc_dmpx = self.instance_params.config_dict['dmplex_flags']['@demultiplex_data']
+				seq_qc_dmpx = self.instance_params.config_dict['dmpx_flags']['@demultiplex_data']
 				seq_qc_trim = self.instance_params.config_dict['trim_flags']['@trim_data']
 
 				if seq_qc_flag == 'True':
+
 					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing sequence quality control workflow..'))
 					if seq_qc.SeqQC(sequencepair_data, qc_path, 'valid', self.instance_params):
+
 						if seq_qc_dmpx == 'True':
 							log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising demultiplexing.'))
 							seq_qc.SeqQC(sequencepair_data, qc_path, 'dmpx', self.instance_params)
+							dmpx_report = get_dmpxreport()
 							log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Demultiplexing complete!'))
+
 						if seq_qc_trim == 'True':
 							log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising trimming.'))
 							seq_qc.SeqQC(sequencepair_data, qc_path, 'trim', self.instance_params)
@@ -263,18 +269,25 @@ class ScaleHD:
 					predict.GenotypePrediction(sequencepair_data, predict_path, self.training_data, self.instance_params)
 					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
 
+				##TODO fix if no reports due to stage not being ran
+				for testlist in [dmpx_report, trim_report, align_report, gtype_report]:
+					if not testlist:
+						print str(testlist) + ' nah its empty son'
+
 				##
 				## Collating the required information for this data pair into a summary dictionary
 				## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
+				r1_dmpx = self.scrape_summary_data('dmpx', dmpx_report[0])
+				r2_dmpx = self.scrape_summary_data('dmpx', dmpx_report[1])
 				r1_trimming = self.scrape_summary_data('trim', trim_report[0])
 				r2_trimming = self.scrape_summary_data('trim', trim_report[1])
 				r1_align = self.scrape_summary_data('align', align_report[0])
 				r2_align = self.scrape_summary_data('align', align_report[1])
 
-				datapair_summary = {'R1 Demultiplexing':'todo',
+				datapair_summary = {'R1 Demultiplexing':r1_dmpx,
 									'R1_Trimming':r1_trimming,
 									'R1_Alignment':r1_align,
-									'R2_Demultiplexing':'todo',
+									'R2_Demultiplexing':r2_dmpx,
 									'R2_Trimming':r2_trimming,
 									'R2_Alignment':r2_align,
 									'Sample_Genotype':'~~Work In Progress~~'}
@@ -292,6 +305,7 @@ class ScaleHD:
 		##
 		## If the argument input_report_file is from demultiplexing..
 		if stage == 'dmpx':
+			print input_report_file
 			print 'dmpx report scrape'
 			return ''
 
@@ -314,7 +328,6 @@ class ScaleHD:
 		if stage == 'gtype':
 			print 'genotype report scrape'
 			return ''
-
 
 	def collate_summary(self):
 

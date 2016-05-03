@@ -12,7 +12,7 @@ The Config Element deals with specifying any required sub-configs (elements), an
 
 
 <!-- CONFIG ELEMENT -->
-<!ELEMENT config          (instance_flags, dmplex_flags, trim_flags, alignment_flags, prediction_flags)>
+<!ELEMENT config          (instance_flags, dmpx_flags, trim_flags, alignment_flags, prediction_flags)>
 <!ATTLIST config          data_dir CDATA #REQUIRED>
 <!ATTLIST config		  forward_reference CDATA #REQUIRED>
 <!ATTLIST config          reverse_reference CDATA #REQUIRED>
@@ -23,11 +23,12 @@ The Config Element deals with specifying any required sub-configs (elements), an
 <!ATTLIST instance_flags sequence_alignment CDATA #REQUIRED>
 <!ATTLIST instance_flags genotype_prediction CDATA #REQUIRED>
 
-<!-- DMPLEX_FLAGS ELEMENT -->
-<!ELEMENT dmplex_flags (#PCDATA)>
-<!ATTLIST dmplex_flags demultiplex_data CDATA #REQUIRED>
-<!ATTLIST dmplex_flags barcode_file CDATA #REQUIRED>
-<!ATTLIST dmplex_flags max_mismatch CDATA #IMPLIED>
+<!-- DMPX_FLAGS ELEMENT -->
+<!ELEMENT dmpx_flags (#PCDATA)>
+<!ATTLIST dmpx_flags demultiplex_data CDATA #REQUIRED>
+<!ATTLIST dmpx_flags barcode CDATA #REQUIRED>
+<!ATTLIST dmpx_flags max_mismatch CDATA #IMPLIED>
+<!ATTLIST dmpx_flags retain_unmatched CDATA #IMPLIED>
 
 <!-- TRIM_FLAGS ELEMENT -->
 <!ELEMENT trim_flags (#PCDATA)>

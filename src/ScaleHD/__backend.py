@@ -183,13 +183,9 @@ class ConfigReader(object):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Genotype Prediction control flag is not True/False.'))
 			trigger = True
 
-		if sequence_qc_flag == 'True' and alignment_flag == 'False':
-			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Quality control selected, but not alignment. Invalid selection.'))
-			trigger = True
-
 		##
 		## SeqQC check
-		demultiplex_flag = self.config_dict['dmplex_flags']['@demultiplex_data']
+		demultiplex_flag = self.config_dict['dmpx_flags']['@demultiplex_data']
 		trimming_flag = self.config_dict['trim_flags']['@trim_data']
 
 		##
@@ -199,13 +195,19 @@ class ConfigReader(object):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Demultiplexing flag is not True/False.'))
 				trigger = True
 			if demultiplex_flag == 'True':
-				barcode_file = self.config_dict['dmplex_flags']['@barcode_file']
-				if not os.path.isfile(barcode_file):
-					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified barcode file could not be found.'))
-					trigger = True
-				demultiplex_mismatch = self.config_dict['dmplex_flags']['@max_mismatch']
+				barcode_bases = ['A','G','C','T','U','N']
+				barcode_sequence = self.config_dict['dmpx_flags']['@barcode']
+				for charbase in barcode_sequence:
+					if charbase not in barcode_bases:
+						log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Invalid character detected in barcode sequence.'))
+						trigger = True
+				demultiplex_mismatch = self.config_dict['dmpx_flags']['@max_mismatch']
 				if not demultiplex_mismatch.isdigit():
 					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified barcode mismatch integer is invalid.'))
+					trigger = True
+				retain_unmatched = self.config_dict['dmpx_flags']['@retain_unmatched']
+				if not (retain_unmatched == 'True' or retain_unmatched == 'False'):
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified retain unmatched reads value is not True/False.'))
 					trigger = True
 
 		##
@@ -447,7 +449,7 @@ def extract_data(input_data_directory):
 	target_files = glob.glob(os.path.join(input_data_directory, '*'))
 	for extract_target in target_files:
 		if extract_target.lower().endswith(('.fq.gz', '.fastq.gz')):
-			log.info('{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Detected compressed input data. Extracted!'))
+			log.info('{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Detected compressed input data. Extracting!'))
 			break
 
 	for extract_target in target_files:
