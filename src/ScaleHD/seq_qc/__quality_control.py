@@ -16,7 +16,6 @@ from ..__backend import replace_fqfile
 from multiprocessing import cpu_count
 
 THREADS = str(cpu_count())
-DM_REPORT = []
 TR_REPORT = []
 
 class SeqQC:
@@ -31,8 +30,6 @@ class SeqQC:
 		if stage.lower()=='valid':
 			self.verify_input()
 			self.execute_fastQC()
-		if stage.lower()=='dmpx':
-			self.execute_demultiplex()
 		if stage.lower()=='trim':
 			self.execute_trimming()
 
@@ -55,56 +52,6 @@ class SeqQC:
 			if not os.path.exists(fastqc_outdir): os.makedirs(fastqc_outdir)
 			fastqc_process = subprocess.Popen(['fastqc','--quiet','--extract','-t',THREADS,'-o',fastqc_outdir,fqfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			fastqc_process.wait()
-
-	def execute_demultiplex(self):
-
-		##
-		## Paranoid test for dmpx stage
-		if self.instance_params.config_dict['dmpx_flags']['@demultiplex_data']:
-
-			##
-			## Options for demultiplexing
-			barcode_sequence = self.instance_params.config_dict['dmpx_flags']['@barcode']
-			max_mismatch = self.instance_params.config_dict['dmpx_flags']['@max_mismatch']
-			retain_unmatched = self.instance_params.config_dict['dmpx_flags']['@retain_unmatched']
-
-			##
-			## Generate barcode file for sabre to use
-			for i in range(0, len(self.input_filepair)):
-
-				##
-				## Files/paths required for demultiplexing
-				file_root = self.input_filepair[i].split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
-				dmpx_string = '{}{}{}'.format('demultiplexed_', file_root, '.fq')
-				barcode_file = os.path.join(self.target_output, '{}{}{}'.format('barcodes_', file_root, '.txt'))
-				unknown_barcodes = os.path.join(self.target_output, '{}{}{}'.format('unmatched_',file_root,'.fq'))
-
-				##
-				## Generate sabre barcode input file for this individual file
-				target_dmpx_output = os.path.join(self.target_output, dmpx_string)
-				barcode_string = '{} {}'.format(barcode_sequence, target_dmpx_output)
-				with open(barcode_file, 'w') as dmpx:
-					dmpx.write(barcode_string)
-					dmpx.close()
-
-				##
-				## Execute sabre, dump stdout to report file
-				process_parameters = ['-f', self.input_filepair[i], '-b', barcode_file, '-m', max_mismatch,'-u', unknown_barcodes]
-				dmpx_report_path = os.path.join(self.target_output,'{}{}'.format(file_root,'_DemultiplexReport.txt'))
-				dmpx_report_inst = open(dmpx_report_path, 'w')
-				sabre_subprocess = subprocess.Popen(['sabre', 'se'] + process_parameters, stdout=dmpx_report_inst, stderr=subprocess.PIPE)
-				sabre_subprocess.wait()
-				DM_REPORT.append(dmpx_report_path)
-				dmpx_report_inst.close()
-
-				##
-				## Remove unknown/unmatched fq file if desired
-				if retain_unmatched == 'False':
-					os.remove(unknown_barcodes)
-
-				##
-				## Update self.sequencepair_data with demultiplexed file
-				self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], target_dmpx_output)
 
 
 	def execute_trimming(self):
@@ -188,5 +135,3 @@ class SeqQC:
 
 def get_trimreport():
 	return TR_REPORT
-def get_dmpxreport():
-	return DM_REPORT

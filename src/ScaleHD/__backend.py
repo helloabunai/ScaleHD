@@ -185,30 +185,7 @@ class ConfigReader(object):
 
 		##
 		## SeqQC check
-		demultiplex_flag = self.config_dict['dmpx_flags']['@demultiplex_data']
 		trimming_flag = self.config_dict['trim_flags']['@trim_data']
-
-		##
-		## Demultiplexing flag settings
-		if sequence_qc_flag == 'True':
-			if not (demultiplex_flag == 'True' or demultiplex_flag == 'False'):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Demultiplexing flag is not True/False.'))
-				trigger = True
-			if demultiplex_flag == 'True':
-				barcode_bases = ['A','G','C','T','U','N']
-				barcode_sequence = self.config_dict['dmpx_flags']['@barcode']
-				for charbase in barcode_sequence:
-					if charbase not in barcode_bases:
-						log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Invalid character detected in barcode sequence.'))
-						trigger = True
-				demultiplex_mismatch = self.config_dict['dmpx_flags']['@max_mismatch']
-				if not demultiplex_mismatch.isdigit():
-					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified barcode mismatch integer is invalid.'))
-					trigger = True
-				retain_unmatched = self.config_dict['dmpx_flags']['@retain_unmatched']
-				if not (retain_unmatched == 'True' or retain_unmatched == 'False'):
-					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified retain unmatched reads value is not True/False.'))
-					trigger = True
 
 		##
 		## Trimming flag settings
@@ -250,8 +227,8 @@ class ConfigReader(object):
 		##
 		## SeqQC stage check
 		if sequence_qc_flag == 'True':
-			if not (demultiplex_flag == 'True' or trimming_flag == 'True'):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Sequence Quality Control flag is true, but neither Demultiplexing or Trimming are.'))
+			if not trimming_flag == 'True':
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Sequence Quality Control flag is true, but Trimming is not.'))
 				trigger = True
 
 		##
@@ -572,8 +549,6 @@ def initialise_libraries(instance_params):
 		try:which('fastqc')
 		except ScaleHDException: trigger=True
 		try:which('cutadapt')
-		except ScaleHDException: trigger=True
-		try:which('sabre')
 		except ScaleHDException: trigger=True
 	if alignment:
 		try:which('bowtie2')
