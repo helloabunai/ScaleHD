@@ -12,7 +12,7 @@ setup(
     name='ScaleHD',
 
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.0.1',
+    version='0.01',
 
     description='Automated DNA micro-satellite genotyping.',
     long_description=long_description,
@@ -77,10 +77,11 @@ setup(
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=['peppercorn',
-					  'progress',
+					  'progressbar2',
 					  'lxml',
 					  'numpy',
 					  'prettyplotlib',
+					  'matplotlib',
 					  'sklearn',
 					  'scipy',
 					  'pandas',
@@ -97,6 +98,6 @@ setup(
 	# executables for the respective target platform. This entry point is akin
 	# to launching the script in bash: if __name__ == '__main__' etc..
     entry_points={
-        'console_scripts': ['scalehd=ScaleHD.__sherpa:main',],
+        'console_scripts': ['scalehd=ScaleHD.sherpa:main',],
     },
 )

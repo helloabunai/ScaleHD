@@ -95,7 +95,6 @@ class ScaleHD:
 
 		##
 		## Depending on input mode, direct flow of functions
-		## -i == single file, pass to class
 		## -b == multiple files, loop files to class
 		## -c == config, do as config parsed flags
 		if not self.args.config: self.assembly_workflow()
