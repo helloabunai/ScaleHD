@@ -27,6 +27,7 @@ from .seq_qc.__quality_control import get_trimreport
 from . import align
 from .align.__alignment import get_alignreport
 from . import predict
+from .predict.__prediction import get_predictionreport
 
 ##
 ## Globals
@@ -99,6 +100,10 @@ class ScaleHD:
 		## -c == config, do as config parsed flags
 		if not self.args.config: self.assembly_workflow()
 		else: self.sequence_workflow()
+
+		##
+		##testing printing here
+		self.collate_summary()
 		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'ScaleHD pipeline completed; exiting.'))
 
 	@staticmethod
@@ -133,6 +138,13 @@ class ScaleHD:
 				instance_params = self.set_prediction_params()
 
 				##
+				## List of paths to report files which may or may not be written to
+				## Used to scrape later on for instance summary
+				trim_report = []
+				align_report = []
+				gtype_report = []
+
+				##
 				## Specific paths to pass to distribution scraper
 				## In instance_workflow these would've been created for alignment, but since we don't align here
 				## They have to be made in this location instead
@@ -159,14 +171,29 @@ class ScaleHD:
 				##
 				## Collating the required information for this data pair into a summary dictionary
 				## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
-				#datapair_summary = {'R1 Demultiplexing':'N/A',
-				#					'R1_Trimming':'N/A',
-				#					'R1_Alignment':'N/A',
-				#					'R2_Demultiplexing':'N/A',
-				#					'R2_Trimming':'N/A',
-				#					'R2_Alignment':'N/A',
-				#					'Sample_Genotype':'~~Work In Progress~~'}
-				#self.instance_summary[assembly_label] = datapair_summary
+				r1_trimming = ''
+				r2_trimming = ''
+				r1_align = ''
+				r2_align = ''
+				gtype_prediction = ''
+
+				if trim_report:
+					r1_trimming = self.scrape_summary_data('trim', trim_report[0])
+					r2_trimming = self.scrape_summary_data('trim', trim_report[1])
+				if align_report:
+					r1_align = self.scrape_summary_data('align', align_report[0])
+					r2_align = self.scrape_summary_data('align', align_report[1])
+				if gtype_report:
+					gtype_prediction = self.scrape_summary_data('gtype', gtype_report)
+				##
+				## Collating the required information for this data pair into a summary dictionary
+				## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
+				datapair_summary = {'R1_Trimming':r1_trimming,
+									'R1_Alignment':r1_align,
+									'R2_Trimming':r2_trimming,
+									'R2_Alignment':r2_align,
+									'Sample_Genotype':gtype_prediction}
+				self.instance_summary[assembly_label] = datapair_summary
 
 				##
 				## Finished all desired stages for this file pair, inform user if -v
@@ -257,6 +284,7 @@ class ScaleHD:
 				if genotyping_flag == 'True':
 					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing genotyping workflow..'))
 					predict.GenotypePrediction(sequencepair_data, predict_path, self.training_data, self.instance_params)
+					gtype_report = get_predictionreport()
 					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
 
 				##
@@ -266,6 +294,7 @@ class ScaleHD:
 				r2_trimming = ''
 				r1_align = ''
 				r2_align = ''
+				gtype_prediction = ''
 
 				if trim_report:
 					r1_trimming = self.scrape_summary_data('trim', trim_report[0])
@@ -274,13 +303,13 @@ class ScaleHD:
 					r1_align = self.scrape_summary_data('align', align_report[0])
 					r2_align = self.scrape_summary_data('align', align_report[1])
 				if gtype_report:
-					pass
+					gtype_prediction = self.scrape_summary_data('gtype', gtype_report)
 
 				datapair_summary = {'R1_Trimming':r1_trimming,
 									'R1_Alignment':r1_align,
 									'R2_Trimming':r2_trimming,
 									'R2_Alignment':r2_align,
-									'Sample_Genotype':'~~Work In Progress~~'}
+									'Sample_Genotype':gtype_prediction}
 				self.instance_summary[sequence_label] = datapair_summary
 
 				##
@@ -290,27 +319,42 @@ class ScaleHD:
 	@staticmethod
 	def scrape_summary_data(stage, input_report_file):
 
-		##TODO all of these file getters/scrapers
-
 		##
 		## If the argument input_report_file is from trimming..
 		if stage == 'trim':
-			print 'trim report'
-			print input_report_file
-			return ''
+			with open(input_report_file, 'r') as trpf:
+				trim_lines = trpf.readlines()
+				##
+				## Determine buffer size to slice from above array
+				scraping_buffer = 8
+				if '-q' in trim_lines[1]:
+					scraping_buffer += 1
+				##
+				## Get Anchor
+				summary_start = 0
+				for i in range(0, len(trim_lines)):
+					if '== Summary ==' in trim_lines[i]:
+						summary_start = i
+				##
+				## Slice and close
+				summary_data = trim_lines[summary_start:summary_start+scraping_buffer]
+				trpf.close()
+			return summary_data[2:]
 
 		##
 		## If the argument input_report_file is from alignment..
 		if stage == 'align':
-			print 'align report'
-			print input_report_file
-			return ''
+			with open(input_report_file,'r') as alnrpf:
+				align_lines = alnrpf.readlines()
+				alnrpf.close()
+			##
+			## No ranges required, only skip first line
+			return align_lines[1:]
 
 		##
 		## If the argument input_report_file is from genotyping..
-		if stage == 'gtype':
-			print 'genotype report scrape'
-			return ''
+		if stage == '\ngtype':
+			return 'WorkInProgress'
 
 	def collate_summary(self):
 

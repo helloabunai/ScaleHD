@@ -16,6 +16,8 @@ from sklearn import svm
 from ..__backend import Colour as clr
 from ..__backend import DataLoader
 
+PRD_REPORT = []
+
 class GenotypePrediction:
 	def __init__(self, data_pair, prediction_path, training_data, instance_params):
 		self.data_pair = data_pair
@@ -44,12 +46,18 @@ class GenotypePrediction:
 		##
 		## Training data for model(s)
 		generic_hd_descr = self.training_data['GenericDescriptor']
-		collapsed_ccg_data = self.training_data['CollapsedCCGZygosity']
+		#collapsed_ccg_data = self.training_data['CollapsedCCGZygosity']
+		collapsed_ccg_data = os.path.join('/Users/alastairm/git/ScaleHD/src/ScaleHD/train/test.csv')
 
 		##
 		## Building predictive model(s)
-		#model_encoder = self.build_model(classifier, collapsed_ccg_data, generic_hd_descr)
-		#collapsed_distribution = self.collapse_input_distributions()
+		print 'building model'
+		model_encoder = self.build_model(classifier, collapsed_ccg_data, generic_hd_descr)
+		print 'done'
+		print 'predicting zygosity'
+		samplepair_zygosity = self.predict_CCG_zygosity(classifier, model_encoder, collapsed_forward, collapsed_reverse)
+		print samplepair_zygosity, '  samplepair:: outer scope'
+		print 'done'
 
 	@staticmethod
 	def build_classifier():
@@ -109,8 +117,21 @@ class GenotypePrediction:
 
 		return hash_encoder
 
-	def collapse_input_distributions(self, distribution_file):
+	@staticmethod
+	def predict_CCG_zygosity(classifier, encoder, forward_reads, reverse_reads):
+		hashed_forward_zygstate = classifier.predict(forward_reads)
+		hashed_reverse_zygstate = classifier.predict(reverse_reads)
 
-		print distribution_file
+		forward_zygstate = str(encoder.inverse_transform(hashed_forward_zygstate))
+		reverse_zygstate = str(encoder.inverse_transform(hashed_reverse_zygstate))
 
-		return True
+		print forward_zygstate
+		print reverse_zygstate
+
+		if not forward_zygstate == reverse_zygstate:
+			return 'error'
+		else:
+			return forward_zygstate
+
+def get_predictionreport():
+	return PRD_REPORT
