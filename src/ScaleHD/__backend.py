@@ -592,3 +592,39 @@ def replace_fqfile(mutate_list, target_fqfile, altered_path):
 		loc = mutate_list.index(target_fqfile)
 		mutate_list[loc] = altered_path
 	return mutate_list
+
+def seek_target(input_list, target):
+
+	for i in range(0, len(input_list)):
+		if target in input_list[i]:
+			return i
+
+def sanitise_trimming_output(input_object, input_list):
+
+	if type(input_object) is int:
+		cleanse_target = input_list[input_object].split(':')[1].lstrip().rstrip()
+		return cleanse_target
+	else:
+		return 'N/A'
+
+def sanitise_alignment_output(input_object, input_list, stage):
+
+	if type(input_object) is int:
+
+		if stage == 0:
+			cleanse_target = input_list[input_object].lstrip().rstrip().split(' ')[0:2]
+			return ' '.join(cleanse_target)
+
+		if stage == 1:
+			cleanse_target = input_list[input_object].lstrip().rstrip().split(' ')[0:2]
+			return ' '.join(cleanse_target)
+
+		if stage == 2:
+			cleanse_target = input_list[input_object].lstrip().rstrip().split(' ')[0:2]
+			return ' '.join(cleanse_target)
+
+		if stage == 3:
+			cleanse_target = input_list[input_object].lstrip().rstrip().split(' ')[0:1]
+			return ''.join(cleanse_target)
+	else:
+		return 'N/A'

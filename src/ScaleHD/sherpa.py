@@ -19,6 +19,9 @@ from __backend import sanitise_inputs
 from __backend import extract_data
 from __backend import sequence_pairings
 from __backend import sanitise_outputs
+from __backend import seek_target
+from __backend import sanitise_trimming_output
+from __backend import sanitise_alignment_output
 
 ##
 ## Package stages
@@ -102,8 +105,9 @@ class ScaleHD:
 		else: self.sequence_workflow()
 
 		##
-		##testing printing here
-		self.collate_summary()
+		## Print all the information from this
+		## whole instance of the application -- 'master summary'
+		self.process_report()
 		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'ScaleHD pipeline completed; exiting.'))
 
 	@staticmethod
@@ -356,16 +360,94 @@ class ScaleHD:
 		if stage == '\ngtype':
 			return 'WorkInProgress'
 
-	def collate_summary(self):
+	def process_report(self):
 
 		##
-		## Ideally every pair will be a key, with a dictionary as it's value
-		## in the child dictionary, will be the 'column' results for use in writing a summary
-		## e.g. R1_dmpx_summary, R1_trim_summary, R1_align_summary, R1_gtype_summary
-		## and repeat for R2, in the same row; repeat in each row for each parent dictionary..
-		for samplepair_key, child_dict in self.instance_summary.iteritems():
-			print samplepair_key, child_dict
+		## Taking summary results dictionary and polishing
+		## into a suitably readable CSV master table
+		## Huge ass headers string for columns in CSV
+		master_summary_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
+		report_headers = '{},{},,,,{},,,,{},,,,{},,,,{}\n'.format('Sample Name','Forward Trimming','Forward Alignment','Reverse Trimming','Reverse Alignment','Genotype')
+		report_subheaders = '{},{},{},{},{},' \
+							'{},{},{},{},{},' \
+							'{},{},{},{},{},' \
+							'{},{},{},{},{}\n'.format('','Total reads processed','Quality-trimmed','Adapter-trimmed','Total written',
+													  'Aligned 0 times','Aligned 1 time', 'Aligned >1 time','Overall alignment rate',
+													  'Total reads processed','Quality-trimmed','Adapter-trimmed','Total written',
+													  'Aligned 0 times','Aligned 1 time', 'Aligned >1 time','Overall alignment rate',
+													  'Genotype','Confidence','Next prediction','Raw distance')
+		##
+		## Writing to the summary file all of the information gathered previously
+		## Some stages missing from instance/n.a. so check & act accordingly
+		with open(master_summary_file, 'w') as msfile:
+			msfile.write(report_headers)
+			msfile.write(report_subheaders)
+			sorted_instance = iter(sorted(self.instance_summary.iteritems()))
+			for key, child_dictionary in sorted_instance:
 
+				print key
+				for subkey, subentry in child_dictionary.iteritems():
+					print subkey
+					print subentry
+				print '\n\n'
+
+				##
+				## Forward Trimming information
+				forward_trimming = child_dictionary['R1_Trimming']
+				fw_total_reads = sanitise_trimming_output(seek_target(forward_trimming, 'Total reads processed'), forward_trimming)
+				fw_quality_trimmed = sanitise_trimming_output(seek_target(forward_trimming, 'Quality-trimmed'), forward_trimming)
+				fw_adapter_trimmed = sanitise_trimming_output(seek_target(forward_trimming, 'Reads with adapters'), forward_trimming)
+				fw_total_written = sanitise_trimming_output(seek_target(forward_trimming, 'Total written (filtered)'), forward_trimming)
+
+				##
+				## Forward Alignment information
+				forward_alignment = child_dictionary['R1_Alignment']
+				fw_zero_align = sanitise_alignment_output(seek_target(forward_alignment, 'aligned 0 times'), forward_alignment, 0)
+				fw_one_align = sanitise_alignment_output(seek_target(forward_alignment, 'aligned exactly 1 time'), forward_alignment, 1)
+				fw_onepl_align = sanitise_alignment_output(seek_target(forward_alignment, 'aligned >1 times'), forward_alignment, 2)
+				fw_overall_align = sanitise_alignment_output(seek_target(forward_alignment, 'overall alignment rate'), forward_alignment, 3)
+
+				##
+				## Reverse Trimming information
+				reverse_trimming = child_dictionary['R2_Trimming']
+				rv_total_reads = sanitise_trimming_output(seek_target(reverse_trimming, 'Total reads processed'), reverse_trimming)
+				rv_quality_trimmed = sanitise_trimming_output(seek_target(reverse_trimming, 'Quality-trimmed'), reverse_trimming)
+				rv_adapter_trimmed = sanitise_trimming_output(seek_target(reverse_trimming, 'Reads with adapters'), reverse_trimming)
+				rv_total_written = sanitise_trimming_output(seek_target(reverse_trimming, 'Total written (filtered)'), reverse_trimming)
+
+				##
+				## Reverse Alignment information
+				reverse_alignment = child_dictionary['R2_Alignment']
+				rv_zero_align = sanitise_alignment_output(seek_target(reverse_alignment, 'aligned 0 times'), reverse_alignment, 0)
+				rv_one_align = sanitise_alignment_output(seek_target(reverse_alignment, 'aligned exactly 1 time'), reverse_alignment, 1)
+				rv_onepl_align = sanitise_alignment_output(seek_target(reverse_alignment, 'aligned >1 times'), reverse_alignment, 2)
+				rv_overall_align = sanitise_alignment_output(seek_target(reverse_alignment, 'overall alignment rate'), reverse_alignment, 3)
+
+				##
+				## Genotype information
+				## Work in progress, so not filled out..
+				genotype_results = child_dictionary['Sample_Genotype']
+
+				##
+				## Generate the string
+				## NOTE: Genotype information replaced with WiP for now
+				datasample_string = '{},' \
+									'{},{},{},{},' \
+									'{},{},{},{},' \
+									'{},{},{},{},' \
+									'{},{},{},{},' \
+									'{},{},{}'.format(key,
+													  fw_total_reads, fw_quality_trimmed, fw_adapter_trimmed, fw_total_written,
+													  fw_zero_align, fw_one_align, fw_onepl_align, fw_overall_align,
+													  rv_total_reads, rv_quality_trimmed, rv_adapter_trimmed, rv_total_written,
+													  rv_zero_align, rv_one_align, rv_onepl_align, rv_overall_align,
+													  'WiP','WiP','WiP')
+
+				##
+				## Write line to file
+				msfile.write(datasample_string + '\n')
+
+			msfile.close()
 
 def main():
 	try:

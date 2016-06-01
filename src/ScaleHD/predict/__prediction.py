@@ -25,39 +25,34 @@ class GenotypePrediction:
 		self.training_data = training_data
 		self.instance_params = instance_params
 
-		self.prediction_workflow()
+		self.ccgzyg = self.ccg_zygosity()
 
-	def prediction_workflow(self):
+		if self.ccgzyg == 'HOMO':
+			self.homozygous_workflow()
+		if self.ccgzyg == 'HETERO':
+			self.heterozygous_workflow()
+
+	def ccg_zygosity(self):
 
 		##
 		## Workflow of stages for genotyping
-		classifier = self.build_classifier()
+		zygosity_classifier = self.build_classifier()
 
 		##
 		## Distribution files for the data_pair we've been passed into an object of GenotypePrediction
-		forward_distrofile = self.data_pair[0]
-		reverse_distrofile = self.data_pair[1]
-		collapsed_forward = self.collapse_ccg(self.scrape_distro(forward_distrofile))
-		collapsed_reverse = self.collapse_ccg(self.scrape_distro(reverse_distrofile))
-
-		print 'forward', collapsed_forward
-		print 'reverse', collapsed_reverse
+		collapsed_forward = self.collapse_ccg(self.scrape_distro(self.data_pair[0]))
+		collapsed_reverse = self.collapse_ccg(self.scrape_distro(self.data_pair[1]))
 
 		##
 		## Training data for model(s)
-		generic_hd_descr = self.training_data['GenericDescriptor']
-		#collapsed_ccg_data = self.training_data['CollapsedCCGZygosity']
-		collapsed_ccg_data = os.path.join('/Users/alastairm/git/ScaleHD/src/ScaleHD/train/test.csv')
+		hd_generic_desc = self.training_data['GenericDescriptor']
+		collapsed_ccg_data = self.training_data['CollapsedCCGZygosity']
 
 		##
 		## Building predictive model(s)
-		print 'building model'
-		model_encoder = self.build_model(classifier, collapsed_ccg_data, generic_hd_descr)
-		print 'done'
-		print 'predicting zygosity'
-		samplepair_zygosity = self.predict_CCG_zygosity(classifier, model_encoder, collapsed_forward, collapsed_reverse)
-		print samplepair_zygosity, '  samplepair:: outer scope'
-		print 'done'
+		ccgzyg_model = self.build_model(zygosity_classifier, collapsed_ccg_data, hd_generic_desc)
+		samplepair_zygosity = self.predict_CCG_zygosity(zygosity_classifier, ccgzyg_model, collapsed_forward, collapsed_reverse)
+		return samplepair_zygosity
 
 	@staticmethod
 	def build_classifier():
@@ -66,7 +61,7 @@ class GenotypePrediction:
 		## Classifier flags will go here when we determine what we want
 
 		cls_SVC = svm.SVC(cache_size=200,coef0=0.0,
-						  degree=3,gamma=0.0,kernel='linear',max_iter=-1,
+						  degree=3,gamma=0.0,kernel='rbf',max_iter=-1,
 						  probability=True,random_state=None,
 						  shrinking=True,tol=0.001,verbose=0)
 		return cls_SVC
@@ -125,13 +120,16 @@ class GenotypePrediction:
 		forward_zygstate = str(encoder.inverse_transform(hashed_forward_zygstate))
 		reverse_zygstate = str(encoder.inverse_transform(hashed_reverse_zygstate))
 
-		print forward_zygstate
-		print reverse_zygstate
-
 		if not forward_zygstate == reverse_zygstate:
-			return 'error'
+			PRD_REPORT.append('CCG Zygosity different. Error.')
 		else:
 			return forward_zygstate
+
+	def homozygous_workflow(self):
+		print 'working on a CCG homozygous indiviudal'
+
+	def heterozygous_workflow(self):
+		print 'working on a CCG heterozygous individual'
 
 def get_predictionreport():
 	return PRD_REPORT
