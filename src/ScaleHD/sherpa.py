@@ -362,16 +362,23 @@ class ScaleHD:
 
 	def process_report(self):
 
+		"""
+		A very large and ugly method which scrapes required strings from the instance dictionary
+		Within each scraped string, some backend methods further scrape specific values
+		This data is then slotted into the respective location in the master summary file
+		"""
+
+
 		##
 		## Taking summary results dictionary and polishing
 		## into a suitably readable CSV master table
-		## Huge ass headers string for columns in CSV
-		master_summary_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		report_headers = '{},{},,,,{},,,,{},,,,{},,,,{}\n'.format('Sample Name','Forward Trimming','Forward Alignment','Reverse Trimming','Reverse Alignment','Genotype')
-		report_subheaders = '{},{},{},{},{},' \
-							'{},{},{},{},{},' \
-							'{},{},{},{},{},' \
-							'{},{},{},{},{}\n'.format('','Total reads processed','Quality-trimmed','Adapter-trimmed','Total written',
+		## Huge ass headers string for columns
+		master_summary_file = os.path.join(self.instance_rundir, 'InstanceReport.txt')
+		report_headers = '{}\t{}\t\t\t\t{}\t\t\t\t{}\t\t\t\t{}\t\t\t\t{}\n'.format('Sample Name','Forward Trimming','Forward Alignment','Reverse Trimming','Reverse Alignment','Genotype')
+		report_subheaders = '{}\t{}\t{}\t{}\t{}\t' \
+							'{}\t{}\t{}\t{}\t{}\t' \
+							'{}\t{}\t{}\t{}\t{}\t' \
+							'{}\t{}\t{}\t{}\t{}\n'.format('','Total reads processed','Quality-trimmed','Adapter-trimmed','Total written',
 													  'Aligned 0 times','Aligned 1 time', 'Aligned >1 time','Overall alignment rate',
 													  'Total reads processed','Quality-trimmed','Adapter-trimmed','Total written',
 													  'Aligned 0 times','Aligned 1 time', 'Aligned >1 time','Overall alignment rate',
@@ -384,12 +391,6 @@ class ScaleHD:
 			msfile.write(report_subheaders)
 			sorted_instance = iter(sorted(self.instance_summary.iteritems()))
 			for key, child_dictionary in sorted_instance:
-
-				print key
-				for subkey, subentry in child_dictionary.iteritems():
-					print subkey
-					print subentry
-				print '\n\n'
 
 				##
 				## Forward Trimming information
@@ -431,12 +432,12 @@ class ScaleHD:
 				##
 				## Generate the string
 				## NOTE: Genotype information replaced with WiP for now
-				datasample_string = '{},' \
-									'{},{},{},{},' \
-									'{},{},{},{},' \
-									'{},{},{},{},' \
-									'{},{},{},{},' \
-									'{},{},{}'.format(key,
+				datasample_string = '{}\t' \
+									'{}\t{}\t{}\t{}\t' \
+									'{}\t{}\t{}\t{}\t' \
+									'{}\t{}\t{}\t{}\t' \
+									'{}\t{}\t{}\t{}\t' \
+									'{}\t{}\t{}'.format(key,
 													  fw_total_reads, fw_quality_trimmed, fw_adapter_trimmed, fw_total_written,
 													  fw_zero_align, fw_one_align, fw_onepl_align, fw_overall_align,
 													  rv_total_reads, rv_quality_trimmed, rv_adapter_trimmed, rv_total_written,
