@@ -263,7 +263,6 @@ class ScaleHD:
 				seq_qc_trim = self.instance_params.config_dict['trim_flags']['@trim_data']
 
 				if seq_qc_flag == 'True':
-
 					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing sequence quality control workflow..'))
 					if seq_qc.SeqQC(sequencepair_data, qc_path, 'valid', self.instance_params):
 
@@ -300,13 +299,16 @@ class ScaleHD:
 				r2_align = ''
 				gtype_prediction = ''
 
-				if trim_report:
+				##
+				## If the stage has been specified, get the report from that stage
+				## If sliced, that report is a list indicating fw/rv files
+				if seq_qc_flag == 'True':
 					r1_trimming = self.scrape_summary_data('trim', trim_report[0])
 					r2_trimming = self.scrape_summary_data('trim', trim_report[1])
-				if align_report:
+				if alignment_flag == 'True':
 					r1_align = self.scrape_summary_data('align', align_report[0])
 					r2_align = self.scrape_summary_data('align', align_report[1])
-				if gtype_report:
+				if genotyping_flag == 'True':
 					gtype_prediction = self.scrape_summary_data('gtype', gtype_report)
 
 				datapair_summary = {'R1_Trimming':r1_trimming,
@@ -314,6 +316,7 @@ class ScaleHD:
 									'R2_Trimming':r2_trimming,
 									'R2_Alignment':r2_align,
 									'Sample_Genotype':gtype_prediction}
+
 				self.instance_summary[sequence_label] = datapair_summary
 
 				##
@@ -390,6 +393,8 @@ class ScaleHD:
 			msfile.write(report_headers)
 			msfile.write(report_subheaders)
 			sorted_instance = iter(sorted(self.instance_summary.iteritems()))
+			datasample_string = ''
+
 			for key, child_dictionary in sorted_instance:
 
 				##
@@ -447,6 +452,7 @@ class ScaleHD:
 				##
 				## Write line to file
 				msfile.write(datasample_string + '\n')
+				datasample_string = ''
 
 			msfile.close()
 

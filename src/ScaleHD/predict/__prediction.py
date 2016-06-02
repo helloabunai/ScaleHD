@@ -25,23 +25,27 @@ class GenotypePrediction:
 		self.training_data = training_data
 		self.instance_params = instance_params
 
-		self.ccgzyg = self.ccg_zygosity()
+		self.ccg_collapsed_forward = []
+		self.ccg_collapsed_reverse = []
+		self.ccgzygosity = self.ccg_zygosity()
 
-		if self.ccgzyg == 'HOMO':
+		print self.ccgzygosity
+
+		if self.ccgzygosity == 'HOMO':
 			self.homozygous_workflow()
-		if self.ccgzyg == 'HETERO':
+		if self.ccgzygosity == 'HETERO':
 			self.heterozygous_workflow()
 
 	def ccg_zygosity(self):
 
 		##
-		## Workflow of stages for genotyping
+		## Workflow of stages for determining zygosity (CCG)
 		zygosity_classifier = self.build_classifier()
 
 		##
 		## Distribution files for the data_pair we've been passed into an object of GenotypePrediction
-		collapsed_forward = self.collapse_ccg(self.scrape_distro(self.data_pair[0]))
-		collapsed_reverse = self.collapse_ccg(self.scrape_distro(self.data_pair[1]))
+		self.ccg_collapsed_forward = self.collapse_ccg(self.scrape_distro(self.data_pair[0]))
+		self.ccg_collapsed_reverse = self.collapse_ccg(self.scrape_distro(self.data_pair[1]))
 
 		##
 		## Training data for model(s)
@@ -50,9 +54,10 @@ class GenotypePrediction:
 
 		##
 		## Building predictive model(s)
+		## Slice return to remove extra formatting from sklearn stdout
 		ccgzyg_model = self.build_model(zygosity_classifier, collapsed_ccg_data, hd_generic_desc)
-		samplepair_zygosity = self.predict_CCG_zygosity(zygosity_classifier, ccgzyg_model, collapsed_forward, collapsed_reverse)
-		return samplepair_zygosity
+		samplepair_zygosity = self.predict_CCG_zygosity(zygosity_classifier, ccgzyg_model, self.ccg_collapsed_forward, self.ccg_collapsed_reverse)
+		return samplepair_zygosity[2:-2]
 
 	@staticmethod
 	def build_classifier():
@@ -114,6 +119,11 @@ class GenotypePrediction:
 
 	@staticmethod
 	def predict_CCG_zygosity(classifier, encoder, forward_reads, reverse_reads):
+
+		"""
+		Function which does the actual prediction versus the zyg model
+		"""
+
 		hashed_forward_zygstate = classifier.predict(forward_reads)
 		hashed_reverse_zygstate = classifier.predict(reverse_reads)
 
@@ -121,12 +131,16 @@ class GenotypePrediction:
 		reverse_zygstate = str(encoder.inverse_transform(hashed_reverse_zygstate))
 
 		if not forward_zygstate == reverse_zygstate:
-			PRD_REPORT.append('CCG Zygosity different. Error.')
+			PRD_REPORT.append('CCG Zygosity difference. Error.')
 		else:
 			return forward_zygstate
 
 	def homozygous_workflow(self):
-		print 'working on a CCG homozygous indiviudal'
+
+		##
+		## Working on a homozygous patient sample, thus...
+		print self.ccg_collapsed_forward
+		print self.ccg_collapsed_reverse
 
 	def heterozygous_workflow(self):
 		print 'working on a CCG heterozygous individual'

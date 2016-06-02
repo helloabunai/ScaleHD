@@ -611,20 +611,11 @@ def sanitise_alignment_output(input_object, input_list, stage):
 
 	if type(input_object) is int:
 
-		if stage == 0:
-			cleanse_target = input_list[input_object].lstrip().rstrip().split(' ')[0:2]
-			return ' '.join(cleanse_target)
-
-		if stage == 1:
-			cleanse_target = input_list[input_object].lstrip().rstrip().split(' ')[0:2]
-			return ' '.join(cleanse_target)
-
-		if stage == 2:
-			cleanse_target = input_list[input_object].lstrip().rstrip().split(' ')[0:2]
-			return ' '.join(cleanse_target)
-
 		if stage == 3:
 			cleanse_target = input_list[input_object].lstrip().rstrip().split(' ')[0:1]
 			return ''.join(cleanse_target)
+		else:
+			cleanse_target = input_list[input_object].lstrip().rstrip().split(' ')[0:2]
+			return ' '.join(cleanse_target)
 	else:
 		return 'N/A'
