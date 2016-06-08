@@ -320,6 +320,14 @@ class ScaleHD:
 				self.instance_summary[sequence_label] = datapair_summary
 
 				##
+				## Clear the report lists before next iteration
+				## iteritems results in next sample_pair files being appended
+				## so indexing of lists breaks -- hence wipe
+				del trim_report[:]
+				del	align_report[:]
+				del gtype_report[:]
+
+				##
 				## Finished all desired stages for this file pair, inform user if -v
 				log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence pair workflow complete!\n'))
 
@@ -371,7 +379,6 @@ class ScaleHD:
 		This data is then slotted into the respective location in the master summary file
 		"""
 
-
 		##
 		## Taking summary results dictionary and polishing
 		## into a suitably readable CSV master table
@@ -393,7 +400,6 @@ class ScaleHD:
 			msfile.write(report_headers)
 			msfile.write(report_subheaders)
 			sorted_instance = iter(sorted(self.instance_summary.iteritems()))
-			datasample_string = ''
 
 			for key, child_dictionary in sorted_instance:
 
@@ -452,7 +458,6 @@ class ScaleHD:
 				##
 				## Write line to file
 				msfile.write(datasample_string + '\n')
-				datasample_string = ''
 
 			msfile.close()
 
