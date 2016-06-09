@@ -7,7 +7,6 @@ import sys
 import argparse
 import pkg_resources
 import logging as log
-import glob
 from multiprocessing import cpu_count
 
 ##
