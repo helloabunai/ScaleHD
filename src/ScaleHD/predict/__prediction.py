@@ -24,6 +24,23 @@ PRD_REPORT = []
 class GenotypePrediction:
 	def __init__(self, data_pair, prediction_path, training_data, instance_params):
 
+		"""
+		Prediction stage of the pipeline -- use of SVM and other applications to automatically
+		determine the genotype of a sample. Utilise forward distribution for CAG information,
+		utilise reverse reads for CCG/intervening information
+
+		General workflow of functions within this class:
+
+		-- Start with CCG determination
+		-- Regardless of origin, scrape CCG distribution, then sum each CAG for every CCG aka collapse
+		-- Once collapsed, normalise and feed into SVM model to determine HOMO/HETEROZYGOUS
+			-- If disconnect between forward/reverse zygosity, attempt brute force determination
+		-- From there, tailor behaviour to latter data
+
+		Still a work in progress...
+
+		"""
+
 		##
 		## Paths to files/data
 		self.data_pair = data_pair
@@ -53,6 +70,15 @@ class GenotypePrediction:
 
 		##
 		## We've determined the zygstate, so we can tailor our behaviour from here
+		self.workflow_guide()
+
+	def workflow_guide(self):
+
+		"""
+		Flow function which directs behaviour based on zygosity of CCG
+		-- removed from __init__ as required to be re-called in disconnect status
+		"""
+
 		if self.ccgzygosity == 'HOMO':
 			self.homozygous_workflow()
 		if self.ccgzygosity == 'HETERO':
@@ -163,14 +189,6 @@ class GenotypePrediction:
 
 	def analyse_disconnect(self):
 
-		"""
-		## For each distribution
-		## Roughly determine absolute zygstate (two peaks? >> het)
-		## look at N-1/N+1, ratio to N
-		## spread of entire distribution (broad 'peaks' >> bad
-		## try to force proper zygstate based on this/more
-		"""
-
 		def get_indices(input_distribution, n):
 
 			index = input_distribution.tolist().index(n)
@@ -232,7 +250,6 @@ class GenotypePrediction:
 
 			##
 			## Highest and second highest value in distribution
-			##
 			major_estimate = max(distribution)
 			minor_estimate = max(n for n in distribution if n!=major_estimate)
 
@@ -253,8 +270,7 @@ class GenotypePrediction:
 				peak_distance = check_peak_distance(major_index, minor_index)
 				if peak_distance == 1:
 					if minor_index == major_nminus:
-						minor_estimate, minor_index,\
-						minor_nminus, minor_nplus = edit_minor_estimate(distribution, major_estimate, minor_estimate)
+						minor_estimate, minor_index, minor_nminus, minor_nplus = edit_minor_estimate(distribution, major_estimate, minor_estimate)
 
 				##
 				## Now assuming that the major and minor estimates are ""OK"" at best
@@ -283,10 +299,28 @@ class GenotypePrediction:
 				print 'Maj pos/ant: ', major_posterior_change, ' ', major_anterior_change
 				print 'Min pos/ant: ', minor_posterior_change, ' ', minor_anterior_change
 
+				##
+				## Percentage change between major/minor
+				major_minor_change = ((major_estimate - minor_estimate) / major_estimate) * 100
+				print 'Maj to min: ', major_minor_change
+
+				##
+				## Determine behaviour based on these results..
+				## Different threshold priorities results in flow change
+				## 1) overrall spread of distro
+				## 2) pcnt of mean to 'peaks'
+				## 3) pcnt of n-1/n+1 to 'peaks'
+				## 4) failure
+
+				##TODO HEHE WRITE THAT
+				##TODO adjust scalars, re-call workflow_guide()
+
 			##
 			## maybe check spread around the points.. just for confidence
 			if not major_index > minor_index:
 				print 'Assuming distribution OK'
+				##TODO from red-lined function here, but less confidence
+				##TODO adjust scalars, re-call workflow_guide()
 
 			print '\n'
 
