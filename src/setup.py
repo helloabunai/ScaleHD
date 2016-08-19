@@ -85,6 +85,7 @@ setup(
 					  'sklearn',
 					  'scipy',
 					  'pandas',
+					  'peakutils',
 					  ],
 
     # These are the data files to be included in the package
