@@ -29,7 +29,6 @@ from .seq_qc.__quality_control import get_trimreport
 from . import align
 from .align.__alignment import get_alignreport
 from . import predict
-from .predict.__prediction import get_predictionreport
 
 ##
 ## Globals
@@ -145,7 +144,6 @@ class ScaleHD:
 				## Used to scrape later on for instance summary
 				trim_report = []
 				align_report = []
-				gtype_report = []
 
 				##
 				## Specific paths to pass to distribution scraper
@@ -168,7 +166,7 @@ class ScaleHD:
 
 				## Prediction Stage
 				log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing genotyping workflow..'))
-				predict.GenotypePrediction(assembly_data, predict_path, self.training_data, instance_params)
+				report = predict.GenotypePrediction(assembly_data, predict_path, self.training_data, instance_params).get_report()
 				log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
 
 				##
@@ -178,7 +176,6 @@ class ScaleHD:
 				r2_trimming = ''
 				r1_align = ''
 				r2_align = ''
-				gtype_prediction = ''
 
 				if trim_report:
 					r1_trimming = self.scrape_summary_data('trim', trim_report[0])
@@ -186,8 +183,7 @@ class ScaleHD:
 				if align_report:
 					r1_align = self.scrape_summary_data('align', align_report[0])
 					r2_align = self.scrape_summary_data('align', align_report[1])
-				if gtype_report:
-					gtype_prediction = self.scrape_summary_data('gtype', gtype_report)
+
 				##
 				## Collating the required information for this data pair into a summary dictionary
 				## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
@@ -195,7 +191,7 @@ class ScaleHD:
 									'R1_Alignment':r1_align,
 									'R2_Trimming':r2_trimming,
 									'R2_Alignment':r2_align,
-									'Sample_Genotype':gtype_prediction}
+									'Sample_Genotype':report}
 				self.instance_summary[assembly_label] = datapair_summary
 
 				##
@@ -254,7 +250,6 @@ class ScaleHD:
 				## Used to scrape later on for instance summary
 				trim_report = []
 				align_report = []
-				gtype_report = []
 
 				##
 				## Stage 1: QC and subflags
@@ -285,8 +280,7 @@ class ScaleHD:
 				genotyping_flag = self.instance_params.config_dict['instance_flags']['@genotype_prediction']
 				if genotyping_flag == 'True':
 					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing genotyping workflow..'))
-					predict.GenotypePrediction(sequencepair_data, predict_path, self.training_data, self.instance_params)
-					gtype_report = get_predictionreport()
+					gtype_report = predict.GenotypePrediction(sequencepair_data, predict_path, self.training_data, self.instance_params).get_report()
 					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
 
 				##
@@ -296,25 +290,24 @@ class ScaleHD:
 				r2_trimming = ''
 				r1_align = ''
 				r2_align = ''
-				gtype_prediction = ''
 
 				##
 				## If the stage has been specified, get the report from that stage
 				## If sliced, that report is a list indicating fw/rv files
+				## Genotype stage not required, due to us directly cleaning results
+				## as they were generated; just scrape from relevant array indice
 				if seq_qc_flag == 'True':
 					r1_trimming = self.scrape_summary_data('trim', trim_report[0])
 					r2_trimming = self.scrape_summary_data('trim', trim_report[1])
 				if alignment_flag == 'True':
 					r1_align = self.scrape_summary_data('align', align_report[0])
 					r2_align = self.scrape_summary_data('align', align_report[1])
-				if genotyping_flag == 'True':
-					gtype_prediction = self.scrape_summary_data('gtype', gtype_report)
 
 				datapair_summary = {'R1_Trimming':r1_trimming,
 									'R1_Alignment':r1_align,
 									'R2_Trimming':r2_trimming,
 									'R2_Alignment':r2_align,
-									'Sample_Genotype':gtype_prediction}
+									'Sample_Genotype':gtype_report}
 
 				self.instance_summary[sequence_label] = datapair_summary
 
@@ -366,9 +359,10 @@ class ScaleHD:
 			return align_lines[1:]
 
 		##
-		## If the argument input_report_file is from genotyping..
-		if stage == '\ngtype':
-			return 'WorkInProgress'
+		## No need to tidy up report for genotyping
+		## since we already have the data from our own objects
+		if stage == 'gtype':
+			pass
 
 	def process_report(self):
 
@@ -387,11 +381,16 @@ class ScaleHD:
 		report_subheaders = '{}\t{}\t{}\t{}\t{}\t' \
 							'{}\t{}\t{}\t{}\t{}\t' \
 							'{}\t{}\t{}\t{}\t{}\t' \
-							'{}\t{}\t{}\t{}\t{}\n'.format('','Total reads processed','Quality-trimmed','Adapter-trimmed','Total written',
-													  'Aligned 0 times','Aligned 1 time', 'Aligned >1 time','Overall alignment rate',
-													  'Total reads processed','Quality-trimmed','Adapter-trimmed','Total written',
-													  'Aligned 0 times','Aligned 1 time', 'Aligned >1 time','Overall alignment rate',
-													  'Genotype','Confidence','Next prediction','Raw distance')
+							'{}\t{}\t{}\t{}\t{}\t' \
+							'{}\t{}\t{}\t{}\t{}\t' \
+							'{}\t{}\t{}\n'.format('','Total reads processed','Quality-trimmed','Adapter-trimmed','Total written',
+												  'Aligned 0 times','Aligned 1 time', 'Aligned >1 time','Overall alignment rate',
+												  'Total reads processed','Quality-trimmed','Adapter-trimmed','Total written',
+												  'Aligned 0 times','Aligned 1 time', 'Aligned >1 time','Overall alignment rate',
+												  'Allele one','Allele two','CCG Zygosity Disconnect','CCG Expansion Skew',
+												  'CCG Peak Ambiguity', 'CCG Density Ambiguity', 'CCG Recall Warning',
+												  'CCG Peak Out Of Bounds', 'CAG Recall Warning', 'CAG Consensus Warning',
+												  'FP/SP Disconnect')
 		##
 		## Writing to the summary file all of the information gathered previously
 		## Some stages missing from instance/n.a. so check & act accordingly
@@ -447,12 +446,16 @@ class ScaleHD:
 									'{}\t{}\t{}\t{}\t' \
 									'{}\t{}\t{}\t{}\t' \
 									'{}\t{}\t{}\t{}\t' \
+									'{}\t{}\t{}\t{}\t' \
+									'{}\t{}\t{}\t{}\t' \
 									'{}\t{}\t{}'.format(key,
 													  fw_total_reads, fw_quality_trimmed, fw_adapter_trimmed, fw_total_written,
 													  fw_zero_align, fw_one_align, fw_onepl_align, fw_overall_align,
 													  rv_total_reads, rv_quality_trimmed, rv_adapter_trimmed, rv_total_written,
 													  rv_zero_align, rv_one_align, rv_onepl_align, rv_overall_align,
-													  'WiP','WiP','WiP')
+													  genotype_results[0],genotype_results[1],genotype_results[2],genotype_results[3],
+													  genotype_results[4],genotype_results[5],genotype_results[6],genotype_results[7],
+													  genotype_results[8],genotype_results[9],genotype_results[10])
 
 				##
 				## Write line to file

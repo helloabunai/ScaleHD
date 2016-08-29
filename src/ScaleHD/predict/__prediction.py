@@ -24,8 +24,6 @@ from matplotlib import pyplot
 from ..__backend import Colour as clr
 from ..__backend import DataLoader
 
-PRD_REPORT = []
-
 class GenotypePrediction:
 	def __init__(self, data_pair, prediction_path, training_data, instance_params):
 
@@ -80,6 +78,10 @@ class GenotypePrediction:
 		## 		Peaks differed between first/second pass, accuracy may be an issue for this particular sample.
 		## --CCGPeak_oob: more than two peaks were returned from the FOD function
 		## 		If this happens, something fucked up.
+		## --CAGConsensusSpread_warning: Forward reads were very broad peaks; consensus CAG from FW+RV used
+		##  	If this is used, quality of prediction is going to be very poor. Brute force last ditch attempt at genotyping.
+		## --FPSP_Disconnect: Prediction between first and second pass of algorithm differ
+		## 		If this happens, minor warning. Expected to happen occasionally. Doesn't hurt accuracy.
 
 		self.prediction_confidence = 0
 		self.cag_intermediate = [0,0]
@@ -92,7 +94,8 @@ class GenotypePrediction:
 							   'CCGRecall_warning':False,
 							   'CCGPeak_oob':False,
 							   'CAGRecall_warning':False,
-							   'CAGConsensusSpread_warning':False}
+							   'CAGConsensusSpread_warning':False,
+							   'FPSP_Disconnect':False}
 
 		##
 		## Unlabelled distributions to utilise for prediction
@@ -117,8 +120,6 @@ class GenotypePrediction:
 
 		self.genotype_flags['Primary_Allele'][1] = ccg_genotype[0]
 		self.genotype_flags['Secondary_Allele'][1] = ccg_genotype[1]
-		print 'After CCG calling (primary): ', self.genotype_flags['Primary_Allele']
-		print 'After CCG calling (secondary): ', self.genotype_flags['Secondary_Allele']
 
 		##
 		## !! STAGE THREE !!
@@ -132,8 +133,7 @@ class GenotypePrediction:
 
 		self.genotype_flags['Primary_Allele'][0] = cag_genotype[0]
 		self.genotype_flags['Secondary_Allele'][0] = cag_genotype[1]
-		print 'After CAG calling (primary): ', self.genotype_flags['Primary_Allele']
-		print 'After CAG calling (secondary): ', self.genotype_flags['Secondary_Allele']
+		self.gtype_report = self.generate_report()
 
 	def build_zygosity_model(self):
 
@@ -304,8 +304,6 @@ class GenotypePrediction:
 
 	def determine_cag_genotype(self, genotype_pass=True, threshold_bias=False):
 
-		##TODO re-do warnings (differentiate cag/ccg)
-
 		##
 		## Target peak count
 		## We're looking at CAG distributions for a specific CAG..
@@ -327,9 +325,6 @@ class GenotypePrediction:
 		##
 		## Iterate over distributions that we are looking at
 		for cag_key, distro_value in target_distribution.iteritems():
-
-			print '\n!! WORKING ON: CCG' + str(cag_key)
-
 			graph_parameters = [20, 'CAG'+str(cag_key)+'DensityEstimation.png','CAG Density Distribution',['Read Count','Bin Density']]
 			cag_inspector = PredictionTwoPass(prediction_path=self.prediction_path,
 											  input_distribution=distro_value,
@@ -344,81 +339,66 @@ class GenotypePrediction:
 			pre_pass = cag_inspector.investigate_spread()
 			if pre_pass:
 				self.genotype_flags['CAGConsensusSpread_warning'] = True
-				print 'Make consensus sequence'
-				print 'call cag_inspector.set_distribution(consensus_distribution)'
+				bruteforce_consensus = cag_inspector.generate_consensus(self.split_cag_target(self.forward_distribution, cag_key),
+																		self.split_cag_target(self.reverse_distribution, cag_key))
+				cag_inspector.set_distribution(bruteforce_consensus)
 
 			##
 			## Density, first pass
 			first_pass = cag_inspector.density_estimation(plot_flag=False)
-			print 'First Pass: ', first_pass
 
 			##
 			## FOD, second pass
+			fod_parameters = [[0,199,200],'CAG Peaks',['CAG Value','Read Count'],'CAG'+str(cag_key)+'PeakDetection.png']
+			second_pass = cag_inspector.differential_peaks(first_pass, fod_parameters, threshold_bias)
 
 			##
 			## Concat results
 			first_pass_estimate = [first_pass['PrimaryPeak'],first_pass['SecondaryPeak']]
-			#second_pass_estimate = [second_pass['PrimaryPeak'],second_pass['SecondaryPeak']]
-			#if not first_pass_estimate == second_pass_estimate or len(second_pass_estimate)>len(first_pass_estimate):
-			#	genotype_pass = False
+			second_pass_estimate = [second_pass['PrimaryPeak'],second_pass['SecondaryPeak']]
+			if not first_pass_estimate == second_pass_estimate or len(second_pass_estimate)>len(first_pass_estimate):
+				genotype_pass = False
 
 			##
 			## Ensure the right CAG is assigned to the right CCG
-			## TODO change from fpe to spe when done
-			if cag_key == self.genotype_flags['Primary_Allele'][1]:
-				self.cag_intermediate[0] = first_pass_estimate[0]
-			if cag_key == self.genotype_flags['Secondary_Allele'][1]:
-				self.cag_intermediate[1] = first_pass_estimate[0]
-
-
-		###
-		### Look at the CCG genotypes to determine which CAG distribution to exploit
-		#for allele in [self.genotype_flags['Primary_Allele'], self.genotype_flags['Secondary_Allele']]:
-		#
-		#	##
-		#	## Scrape CAG distribution for the current CCG target
-		#	current_ccg = allele[1]
-		#	print '\nCurrent CCG scrape_target: ', current_ccg
-		#	cag_target_distribution = self.split_cag_target(self.forward_distribution, current_ccg)
-		#
-		#	##
-		#	## Create object/graph info for THIS cag dist
-		#	graph_parameters = [20, 'CAG'+str(current_ccg)+'DensityEstimation.png','CAG Density Distribution',['Read Count','Bin Density']]
-		#	cag_inspector = PredictionTwoPass(prediction_path=self.prediction_path,
-		#									  input_distribution=cag_target_distribution,
-		#									  target_peak_count=target_peak_count,
-		#									  graph_parameters=graph_parameters)
-		#
-		#	##
-		#	## Density, first pass
-		#	## Update instance dictionary of any error flags returned from density stage
-		#	first_pass = cag_inspector.density_estimation(plot_flag=False)
-		#	print 'here: ', first_pass
-
-			###
-			### First order differentials
-			### Update instance dictionary of any error flags returned from FOD stage
-			#fod_parameters = [[0,199,200],'CAG Peaks',['CAG Value','Read Count'],'CAG'+str(current_ccg)+'PeakDetection.png']
-			#second_pass = cag_inspector.differential_peaks(first_pass, fod_parameters, threshold_bias)
-			#
-			###
-			### Print results?
-			#print 'First Pass: ', first_pass
-			#print 'Second Pass: ', second_pass, '\n'
-			#
-			#first_pass_estimate = [first_pass['PrimaryPeak'],first_pass['SecondaryPeak']]
-			#second_pass_estimate = [second_pass['PrimaryPeak'],second_pass['SecondaryPeak']]
-			#
-			#if not first_pass_estimate == second_pass_estimate or len(second_pass_estimate)>len(first_pass_estimate):
-			#	genotype_pass = False
-			#
-			#self.cag_intermediate.append(second_pass_estimate[0])
-
+			if self.zygosity_state == 'HOMO':
+				if cag_key == self.genotype_flags['Primary_Allele'][1]:
+					self.cag_intermediate[0] = second_pass_estimate[0]
+					self.cag_intermediate[1] = second_pass_estimate[1]
+			if self.zygosity_state == 'HETERO':
+				if cag_key == self.genotype_flags['Primary_Allele'][1]:
+					self.cag_intermediate[0] = second_pass_estimate[0]
+				if cag_key == self.genotype_flags['Secondary_Allele'][1]:
+					self.cag_intermediate[1] = second_pass_estimate[0]
 
 
 		cag_genotype = [self.cag_intermediate[0],self.cag_intermediate[1]]
 		if threshold_bias: return cag_genotype
 		else: return genotype_pass, cag_genotype
+
+	def generate_report(self):
+
+		##
+		## Mini function to generate the report to be written in sample folder
+		## And later utilised in the 'instance wide' report
+
+		report = [self.genotype_flags['Primary_Allele'],
+				  self.genotype_flags['Secondary_Allele'],
+				  self.genotype_flags['CCGZyg_disconnect'],
+				  self.genotype_flags['CCGExpansion_skew'],
+				  self.genotype_flags['CCGPeak_ambiguous'],
+				  self.genotype_flags['CCGDensity_ambiguous'],
+				  self.genotype_flags['CCGRecall_warning'],
+				  self.genotype_flags['CCGPeak_oob'],
+				  self.genotype_flags['CAGRecall_warning'],
+				  self.genotype_flags['CAGConsensusSpread_warning'],
+				  self.genotype_flags['FPSP_Disconnect']]
+
+		return report
+
+	def get_report(self):
+
+		return self.gtype_report
 
 class PredictionTwoPass:
 	def __init__(self, prediction_path, input_distribution, target_peak_count, graph_parameters):
@@ -492,21 +472,23 @@ class PredictionTwoPass:
 		## Used as a pre-screen since CAG distributions are much longer (200 vs 20)
 		## And mosaicism/etc is more prevalent in CAG distributions
 
-		print self.input_distribution
-		print 'use np or pystats to get variance of distribution'
-		print 'if < threshold or whatever, set inspection_failure to true'
-
-
-
-
-
-
-
-
-
-
+		max_variance = np.var(self.input_distribution) / max(self.input_distribution)
+		if max_variance < 20.00:
+			inspection_failure = True
 
 		return inspection_failure
+
+	@staticmethod
+	def generate_consensus(forward_dist, reverse_dist):
+
+		##
+		## For each position in both fw/rv
+		## total up readcount, produce into 'consensus' distr
+		consensus = []
+		for f, r in zip(forward_dist, reverse_dist):
+			c = f + r
+			consensus.append(c)
+		return np.asarray(consensus)
 
 	def density_estimation(self, plot_flag):
 
@@ -633,8 +615,6 @@ class PredictionTwoPass:
 		## If threshold_bias is true, we're in a re-call, reduce threshold
 		## If threshold happens to go < 0, set to 0 (why would it ever get that far?)
 
-		print 'AttribDict: ', attribute_dict
-
 		peak_distance = attribute_dict['PeakDistance']
 		if not peak_distance:
 			peak_distance = 1
@@ -688,10 +668,6 @@ class PredictionTwoPass:
 
 		##
 		## Method for returning warnings raised in this instance of the object
-
 		return {'Expansion_skew': self.expansion_skew,
 				'Peak_ambiguous':self.peak_ambiguous,
 				'Density_ambiguous':self.density_ambiguity}
-
-def get_predictionreport():
-	return PRD_REPORT

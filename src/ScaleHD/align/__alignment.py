@@ -182,10 +182,6 @@ class SeqAlign:
 		## -c input utilises the distribution_files list and the below getter function
 		return csv_path
 
-	def render_distributions(self):
-		##TODO graph the distributions (individual graph per ccg contig probably)
-		pass
-
 def get_alignreport():
 	return ALN_REPORT
 
