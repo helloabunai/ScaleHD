@@ -18,6 +18,7 @@ from sklearn import preprocessing
 from sklearn.multiclass import OneVsOneClassifier
 from peakutils.plot import plot as pplot
 from matplotlib import pyplot
+import pandas as pd
 
 ##
 ## Backend Junk
@@ -87,6 +88,7 @@ class GenotypePrediction:
 		self.cag_intermediate = [0,0]
 		self.genotype_flags = {'Primary_Allele':[0,0],
 							   'Secondary_Allele':[0,0],
+							   'PeakOverPopulation':False,
 							   'CCGZyg_disconnect':False,
 							   'CCGExpansion_skew':False,
 							   'CCGPeak_ambiguous':False,
@@ -95,7 +97,9 @@ class GenotypePrediction:
 							   'CCGPeak_oob':False,
 							   'CAGRecall_warning':False,
 							   'CAGConsensusSpread_warning':False,
-							   'FPSP_Disconnect':False}
+							   'FPSP_Disconnect':False,
+							   'Primary_Mosaicism':[],
+							   'Secondary_Mosaicism':[]}
 
 		##
 		## Unlabelled distributions to utilise for prediction
@@ -116,7 +120,7 @@ class GenotypePrediction:
 		ccg_pass, ccg_genotype = self.determine_ccg_genotype()
 		while not ccg_pass:
 			self.genotype_flags['CCGRecall_warning'] = True
-			ccg_genotype = self.determine_ccg_genotype(threshold_bias=True)
+			ccg_pass, ccg_genotype = self.determine_ccg_genotype(threshold_bias=True)
 
 		self.genotype_flags['Primary_Allele'][1] = ccg_genotype[0]
 		self.genotype_flags['Secondary_Allele'][1] = ccg_genotype[1]
@@ -129,10 +133,20 @@ class GenotypePrediction:
 		cag_pass, cag_genotype = self.determine_cag_genotype()
 		while not cag_pass:
 			self.genotype_flags['CAGRecall_warning'] = True
-			cag_genotype = self.determine_cag_genotype(threshold_bias=True)
+			cag_pass, cag_genotype = self.determine_cag_genotype(threshold_bias=True)
+
+		if cag_genotype == ['err','err']:
+			raise Exception
 
 		self.genotype_flags['Primary_Allele'][0] = cag_genotype[0]
 		self.genotype_flags['Secondary_Allele'][0] = cag_genotype[1]
+
+		##
+		## !! STAGE FOUR !!
+		## Do simple somatic mosaicism calculations
+		## Then append all information to the report to be returned to shd.sherpa
+		self.genotype_flags['Primary_Mosaicism'] = self.somatic_calculations(self.genotype_flags['Primary_Allele'])
+		self.genotype_flags['Secondary_Mosaicism'] = self.somatic_calculations(self.genotype_flags['Secondary_Allele'])
 		self.gtype_report = self.generate_report()
 
 	def build_zygosity_model(self):
@@ -262,11 +276,16 @@ class GenotypePrediction:
 		density_warnings = ccg_inspector.get_warnings()
 		self.update_flags(density_warnings)
 
+
 		##
 		## First order differentials
 		## Update instance dictionary of any error flags returned from FOD stage
 		fod_parameters = [[0,19,20],'CCG Peaks',['CCG Value','Read Count'], 'CCGPeakDetection.png']
-		second_pass = ccg_inspector.differential_peaks(first_pass, fod_parameters, threshold_bias)
+		try:
+			second_pass = ccg_inspector.differential_peaks(first_pass, fod_parameters, threshold_bias)
+		except ValueError:
+			return False, [0,0]
+
 		fod_warnings = ccg_inspector.get_warnings()
 		self.update_flags(fod_warnings)
 
@@ -277,14 +296,12 @@ class GenotypePrediction:
 		second_pass_estimate = [second_pass['PrimaryPeak'],second_pass['SecondaryPeak']]
 
 		if len(second_pass_estimate)>len(first_pass_estimate): self.genotype_flags['CCGTriplet_warning'] = True
-		##TODO Check error cycling on the function re-call
 		if not first_pass_estimate == second_pass_estimate or len(second_pass_estimate)>len(first_pass_estimate):
 			genotype_pass = False
 
 		##
 		## Return when done
-		if threshold_bias: return second_pass_estimate
-		else: return genotype_pass, second_pass_estimate
+		return genotype_pass, second_pass_estimate
 
 	@staticmethod
 	def split_cag_target(input_distribution, ccg_target):
@@ -325,6 +342,7 @@ class GenotypePrediction:
 		##
 		## Iterate over distributions that we are looking at
 		for cag_key, distro_value in target_distribution.iteritems():
+
 			graph_parameters = [20, 'CAG'+str(cag_key)+'DensityEstimation.png','CAG Density Distribution',['Read Count','Bin Density']]
 			cag_inspector = PredictionTwoPass(prediction_path=self.prediction_path,
 											  input_distribution=distro_value,
@@ -347,10 +365,17 @@ class GenotypePrediction:
 			## Density, first pass
 			first_pass = cag_inspector.density_estimation(plot_flag=False)
 
+			if first_pass['PeakThreshold'] is None:
+				log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Density Estimation failed. Alignment must be low quality.'))
+				return True, ['err','err']
+
 			##
 			## FOD, second pass
 			fod_parameters = [[0,199,200],'CAG Peaks',['CAG Value','Read Count'],'CAG'+str(cag_key)+'PeakDetection.png']
-			second_pass = cag_inspector.differential_peaks(first_pass, fod_parameters, threshold_bias)
+			try:
+				second_pass = cag_inspector.differential_peaks(first_pass, fod_parameters, threshold_bias)
+			except ValueError:
+				return False, [0,0]
 
 			##
 			## Concat results
@@ -376,6 +401,38 @@ class GenotypePrediction:
 		if threshold_bias: return cag_genotype
 		else: return genotype_pass, cag_genotype
 
+	def somatic_calculations(self, genotype):
+
+		"""
+		Function to acquire N-1/N/N+1 distribution values for the acquired genotype
+		Calculations carried out on these values and returned for report append
+		"""
+
+		##
+		## Create object of mosaicism investigator to begin calculation prep
+		## Takes raw 200x20 distribution and slices into 20 arrays of 200
+		## Orders into a dataframe object with CCG<val> labels
+		## Scrapes appropriate N-1/N/N+1 based on genotype for this instance
+		mosaicism_object = MosaicismInvestigator(genotype, self.forward_distribution)
+		ccg_slices = mosaicism_object.chunks(200)
+		ccg_ordered = mosaicism_object.arrange_chunks(ccg_slices)
+		allele_values = mosaicism_object.get_nvals(ccg_ordered, genotype)
+
+		##
+		## Now we have the values, just calculate and return
+		allele_calculations = mosaicism_object.calculate_mosaicism(allele_values)
+
+		##
+		## Generate a padded/aligned distribution for the current instance
+		## so that for each sample in the report, N will be at the same position
+		padded_distribution = mosaicism_object.distribution_padder(ccg_ordered, genotype)
+
+		##
+		## Combine calculation dict and distribution into object
+		## Return object
+		mosaicism_values = [allele_calculations, padded_distribution]
+		return mosaicism_values
+
 	def generate_report(self):
 
 		##
@@ -384,6 +441,7 @@ class GenotypePrediction:
 
 		report = [self.genotype_flags['Primary_Allele'],
 				  self.genotype_flags['Secondary_Allele'],
+				  self.genotype_flags['PeakOverPopulation'],
 				  self.genotype_flags['CCGZyg_disconnect'],
 				  self.genotype_flags['CCGExpansion_skew'],
 				  self.genotype_flags['CCGPeak_ambiguous'],
@@ -392,7 +450,9 @@ class GenotypePrediction:
 				  self.genotype_flags['CCGPeak_oob'],
 				  self.genotype_flags['CAGRecall_warning'],
 				  self.genotype_flags['CAGConsensusSpread_warning'],
-				  self.genotype_flags['FPSP_Disconnect']]
+				  self.genotype_flags['FPSP_Disconnect'],
+				  self.genotype_flags['Primary_Mosaicism'],
+				  self.genotype_flags['Secondary_Mosaicism']]
 
 		return report
 
@@ -401,6 +461,7 @@ class GenotypePrediction:
 		return self.gtype_report
 
 class PredictionTwoPass:
+
 	def __init__(self, prediction_path, input_distribution, target_peak_count, graph_parameters):
 		"""
 		Intro spiel for two-pass object
@@ -422,6 +483,7 @@ class PredictionTwoPass:
 		self.density_ambiguity = False
 		self.expansion_skew = False
 		self.peak_ambiguous = False
+		self.peak_overpopulated = False
 
 	def histogram_generator(self, filename, graph_title, axes, plot_flag):
 
@@ -580,9 +642,9 @@ class PredictionTwoPass:
 		major_drop_evaluation = self.drop_calc(self.input_distribution, major_estimate, major_index)
 		minor_drop_evaluation = self.drop_calc(self.input_distribution, minor_estimate, minor_index)
 		evaluation_total = major_drop_evaluation+minor_drop_evaluation
-		if evaluation_total == 2: peak_threshold = 0.45
-		if evaluation_total == 1: peak_threshold = 0.55
-		if evaluation_total == 0: peak_threshold = 0.65
+		if evaluation_total == 2: peak_threshold = 0.35
+		if evaluation_total == 1: peak_threshold = 0.45
+		if evaluation_total == 0: peak_threshold = 0.55
 
 		##
 		## if histogram[estimate's bin] == value found from sparsity, ok
@@ -620,8 +682,8 @@ class PredictionTwoPass:
 			peak_distance = 1
 		peak_threshold = attribute_dict['PeakThreshold']
 		if threshold_bias:
-			peak_threshold += 0.05
-			peak_threshold = max(peak_threshold, 1.00)
+			peak_threshold -= 0.35
+			peak_threshold = min(peak_threshold, 0.25)
 
 		##
 		## Graph parameters
@@ -635,6 +697,10 @@ class PredictionTwoPass:
 		x = np.linspace(linspace_dim[0],linspace_dim[1],linspace_dim[2])
 		y = np.asarray(self.input_distribution)
 		peak_indexes = peakutils.indexes(y, thres=peak_threshold, min_dist=peak_distance)
+
+		if not len(peak_indexes) == self.target_peak_count:
+			peak_indexes = peak_indexes[:1]
+			self.peak_overpopulated = True
 		fixed_indexes = peak_indexes+1
 
 		##
@@ -648,12 +714,15 @@ class PredictionTwoPass:
 		pyplot.savefig(os.path.join(self.prediction_path, filename), format='png')
 		pyplot.close()
 
-		if self.target_peak_count == 1:
-			attribute_dict['PrimaryPeak'] = fixed_indexes[0]
-			attribute_dict['SecondaryPeak'] = fixed_indexes[0]
-		if self.target_peak_count == 2:
-			attribute_dict['PrimaryPeak'] = fixed_indexes[0]
-			attribute_dict['SecondaryPeak'] = fixed_indexes[1]
+		if not len(peak_indexes) == self.target_peak_count:
+			raise ValueError
+		else:
+			if self.target_peak_count == 1:
+				attribute_dict['PrimaryPeak'] = fixed_indexes[0]
+				attribute_dict['SecondaryPeak'] = fixed_indexes[0]
+			if self.target_peak_count == 2:
+				attribute_dict['PrimaryPeak'] = fixed_indexes[0]
+				attribute_dict['SecondaryPeak'] = fixed_indexes[1]
 
 		return attribute_dict
 
@@ -670,4 +739,118 @@ class PredictionTwoPass:
 		## Method for returning warnings raised in this instance of the object
 		return {'Expansion_skew': self.expansion_skew,
 				'Peak_ambiguous':self.peak_ambiguous,
-				'Density_ambiguous':self.density_ambiguity}
+				'Density_ambiguous':self.density_ambiguity,
+				'PeakOverPopulation':self.peak_overpopulated}
+
+class MosaicismInvestigator:
+
+	def __init__(self, genotype, distribution):
+
+		"""
+		Class with functions for investigation somatic mosaicism
+		"""
+
+		self.genotype = genotype
+		self.distribution = distribution
+
+	def chunks(self, n):
+
+		"""
+		Yield successive n-sized chunks from input distribution.
+		"""
+
+		for i in xrange(0, len(self.distribution), n):
+			yield self.distribution[i:i + n]
+
+	@staticmethod
+	def arrange_chunks(ccg_slices):
+
+		"""
+		Take distribution lists that have been split into 20 CCG
+		Organise into a pandas dataframe for later use
+		"""
+
+		arranged_rows = []
+		for ccg_value in ccg_slices:
+			column = []
+			for i in range(0, len(ccg_value)):
+				column.append(ccg_value[i])
+			arranged_rows.append(column)
+
+		df = pd.DataFrame({'CCG1': arranged_rows[0], 'CCG2': arranged_rows[1], 'CCG3': arranged_rows[2],
+						   'CCG4': arranged_rows[3], 'CCG5': arranged_rows[4], 'CCG6': arranged_rows[5],
+						   'CCG7': arranged_rows[6], 'CCG8': arranged_rows[7], 'CCG9': arranged_rows[8],
+						   'CCG10': arranged_rows[9], 'CCG11': arranged_rows[10], 'CCG12': arranged_rows[11],
+						   'CCG13': arranged_rows[12], 'CCG14': arranged_rows[13], 'CCG15': arranged_rows[14],
+						   'CCG16': arranged_rows[15], 'CCG17': arranged_rows[16], 'CCG18': arranged_rows[17],
+						   'CCG19': arranged_rows[18], 'CCG20': arranged_rows[19]})
+
+		return df
+
+	@staticmethod
+	def get_nvals(df, input_allele):
+
+		"""
+		Take specific CCG sub-list from dataframe
+		based on genotype taken from GenotypePrediction
+		Extract n-1/n/n+1
+		"""
+		allele_nvals = {}
+		cag_value = input_allele[0]
+		ccgframe = df['CCG'+str(input_allele[1])]
+
+		try:
+			nminus = str(ccgframe[int(cag_value)-2])
+			nvalue = str(ccgframe[int(cag_value)-1])
+			nplus = str(ccgframe[int(cag_value)])
+		except KeyError:
+			log.info('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'N-Value scraping Out of Bounds.'))
+
+		allele_nvals['NMinusOne'] = nminus
+		allele_nvals['NValue'] = nvalue
+		allele_nvals['NPlusOne'] = nplus
+
+		return allele_nvals
+
+	@staticmethod
+	def calculate_mosaicism(allele_values):
+
+		"""
+		Add additional calculations here..
+		"""
+
+		nmo = allele_values['NMinusOne']
+		n = allele_values['NValue']
+		npo = allele_values['NPlusOne']
+		nmo_over_n = 0
+		npo_over_n = 0
+
+		try:
+			nmo_over_n = int(nmo) / int(n)
+			npo_over_n = int(npo) / int(n)
+		except ZeroDivisionError:
+			log.info('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,' Divide by 0 attempted in Mosaicism Calculation.'))
+
+		calculations = {'NMinusOne':nmo,'NValue':n,'NPlusOne':npo,'NMinusOne-Over-N': nmo_over_n, 'NPlusOne-Over-N': npo_over_n}
+		return calculations
+
+	@staticmethod
+	def distribution_padder(ccg_dataframe, genotype):
+
+		"""
+		Ensure that all distribution's N will be in the same position
+		in a null-padded larger distribution
+		for manual comparison of larger somatic mosaicism trends
+		"""
+
+		unpadded_distribution = list(ccg_dataframe['CCG'+str(genotype[1])])
+		n_value = genotype[0]
+
+		anchor = 203
+		anchor_to_left = anchor - n_value
+		anchor_to_right	= anchor_to_left + 200
+		left_buffer = ['-'] * anchor_to_left
+		right_buffer = ['-'] * (403-anchor_to_right)
+		padded_distribution = left_buffer + unpadded_distribution + right_buffer
+
+		return padded_distribution

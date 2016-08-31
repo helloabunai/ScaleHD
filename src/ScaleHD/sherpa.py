@@ -7,6 +7,7 @@ import sys
 import argparse
 import pkg_resources
 import logging as log
+import pandas as pd
 from multiprocessing import cpu_count
 
 ##
@@ -99,8 +100,10 @@ class ScaleHD:
 		## Depending on input mode, direct flow of functions
 		## -b == multiple files, loop files to class
 		## -c == config, do as config parsed flags
-		if not self.args.config: self.assembly_workflow()
-		else: self.sequence_workflow()
+		if not self.args.config:
+			self.assembly_workflow()
+		else:
+			self.sequence_workflow()
 
 		##
 		## Print all the information from this
@@ -133,70 +136,82 @@ class ScaleHD:
 			for assembly_label, assembly_data in assembly_pairs[i].iteritems():
 
 				##
-				## Required data to process
-				forward_assembly = assembly_data[0]
-				reverse_assembly = assembly_data[1]
-				predict_path = assembly_data[2]
-				instance_params = self.set_prediction_params()
+				## Super fucking ugly generic exception catcher (FOR NOW -- CHANGE LATER)
+				try:
 
-				##
-				## List of paths to report files which may or may not be written to
-				## Used to scrape later on for instance summary
-				trim_report = []
-				align_report = []
+					##
+					## Required data to process
+					forward_assembly = assembly_data[0]
+					reverse_assembly = assembly_data[1]
+					predict_path = assembly_data[2]
+					instance_params = self.set_prediction_params()
 
-				##
-				## Specific paths to pass to distribution scraper
-				## In instance_workflow these would've been created for alignment, but since we don't align here
-				## They have to be made in this location instead
-				forward_filename = forward_assembly.split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
-				reverse_filename = reverse_assembly.split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
-				forward_path = os.path.join(predict_path,forward_filename)
-				reverse_path = os.path.join(predict_path,reverse_filename)
-				if not os.path.exists(forward_path): os.makedirs(forward_path)
-				if not os.path.exists(reverse_path): os.makedirs(reverse_path)
+					##
+					## List of paths to report files which may or may not be written to
+					## Used to scrape later on for instance summary
+					trim_report = []
+					align_report = []
 
-				##
-				## Pre stage -- extract distributions from input sam files
-				## Update assembly_data list; replacing forward/reverse assemblys with respective repeat distributions
-				log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Extracting repeat distributions from pre-assembled data..'))
-				assembly_data[0] = align.SeqAlign.extract_repeat_distributions(assembly_label,forward_path,forward_assembly)
-				assembly_data[1] = align.SeqAlign.extract_repeat_distributions(assembly_label,reverse_path,reverse_assembly)
-				log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Repeat distribution extraction complete!'))
+					##
+					## Specific paths to pass to distribution scraper
+					## In instance_workflow these would've been created for alignment, but since we don't align here
+					## They have to be made in this location instead
+					forward_filename = forward_assembly.split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
+					reverse_filename = reverse_assembly.split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
+					forward_path = os.path.join(predict_path,forward_filename)
+					reverse_path = os.path.join(predict_path,reverse_filename)
+					if not os.path.exists(forward_path): os.makedirs(forward_path)
+					if not os.path.exists(reverse_path): os.makedirs(reverse_path)
 
-				## Prediction Stage
-				log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing genotyping workflow..'))
-				report = predict.GenotypePrediction(assembly_data, predict_path, self.training_data, instance_params).get_report()
-				log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
+					##
+					## Pre stage -- extract distributions from input sam files
+					## Update assembly_data list; replacing forward/reverse assemblys with respective repeat distributions
+					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Extracting repeat distributions from pre-assembled data..'))
+					assembly_data[0] = align.SeqAlign.extract_repeat_distributions(assembly_label,forward_path,forward_assembly)
+					assembly_data[1] = align.SeqAlign.extract_repeat_distributions(assembly_label,reverse_path,reverse_assembly)
+					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Repeat distribution extraction complete!'))
 
-				##
-				## Collating the required information for this data pair into a summary dictionary
-				## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
-				r1_trimming = ''
-				r2_trimming = ''
-				r1_align = ''
-				r2_align = ''
+					## Prediction Stage
+					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing genotyping workflow..'))
+					genotype_report = predict.GenotypePrediction(assembly_data, predict_path, self.training_data, instance_params).get_report()
+					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
 
-				if trim_report:
-					r1_trimming = self.scrape_summary_data('trim', trim_report[0])
-					r2_trimming = self.scrape_summary_data('trim', trim_report[1])
-				if align_report:
-					r1_align = self.scrape_summary_data('align', align_report[0])
-					r2_align = self.scrape_summary_data('align', align_report[1])
+					##
+					## Collating the required information for this data pair into a summary dictionary
+					## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
+					r1_trimming = ''
+					r2_trimming = ''
+					r1_align = ''
+					r2_align = ''
 
-				##
-				## Collating the required information for this data pair into a summary dictionary
-				## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
-				datapair_summary = {'R1_Trimming':r1_trimming,
-									'R1_Alignment':r1_align,
-									'R2_Trimming':r2_trimming,
-									'R2_Alignment':r2_align,
-									'Sample_Genotype':report}
-				self.instance_summary[assembly_label] = datapair_summary
+					if trim_report:
+						r1_trimming = self.scrape_summary_data('trim', trim_report[0])
+						r2_trimming = self.scrape_summary_data('trim', trim_report[1])
+					if align_report:
+						r1_align = self.scrape_summary_data('align', align_report[0])
+						r2_align = self.scrape_summary_data('align', align_report[1])
 
-				##
-				## Finished all desired stages for this file pair, inform user if -v
-				log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Assembly pair workflow complete!\n'))
+					##
+					## Collating the required information for this data pair into a summary dictionary
+					## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
+					datapair_summary = {'R1_Trimming':r1_trimming,
+										'R1_Alignment':r1_align,
+										'R2_Trimming':r2_trimming,
+										'R2_Alignment':r2_align,
+										'Sample_Genotype':genotype_report,
+										'Pass':True}
+					self.instance_summary[assembly_label] = datapair_summary
+
+					##
+					## Finished all desired stages for this file pair, inform user if -v
+					log.info('{}{}{}{}\n'.format(clr.green, 'shd__ ', clr.end, 'Assembly pair workflow complete!'))
+
+				except Exception:
+
+					datapair_summary = {'Pass':False}
+					self.instance_summary[assembly_label] = datapair_summary
+					log.info('{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on: ', assembly_label))
+					continue
 
 	def sequence_workflow(self):
 
@@ -239,89 +254,101 @@ class ScaleHD:
 			for sequence_label, sequencepair_data in data_pairs[i].iteritems():
 
 				##
-				## For the Sequence Pair dictionary we're currently in
-				## create object of the desired stage paths..
-				qc_path = sequencepair_data[2]
-				align_path = sequencepair_data[3]
-				predict_path = sequencepair_data[4]
+				## Super fucking ugly generic exception catcher (FOR NOW -- CHANGE LATER)
+				try:
 
-				##
-				## List of paths to report files which may or may not be written to
-				## Used to scrape later on for instance summary
-				trim_report = []
-				align_report = []
+					##
+					## For the Sequence Pair dictionary we're currently in
+					## create object of the desired stage paths..
+					qc_path = sequencepair_data[2]
+					align_path = sequencepair_data[3]
+					predict_path = sequencepair_data[4]
 
-				##
-				## Stage 1: QC and subflags
-				seq_qc_flag = self.instance_params.config_dict['instance_flags']['@quality_control']
-				seq_qc_trim = self.instance_params.config_dict['trim_flags']['@trim_data']
+					##
+					## List of paths to report files which may or may not be written to
+					## Used to scrape later on for instance summary
+					trim_report = []
+					align_report = []
 
-				if seq_qc_flag == 'True':
-					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing sequence quality control workflow..'))
-					if seq_qc.SeqQC(sequencepair_data, qc_path, 'valid', self.instance_params):
+					##
+					## Stage 1: QC and subflags
+					seq_qc_flag = self.instance_params.config_dict['instance_flags']['@quality_control']
+					seq_qc_trim = self.instance_params.config_dict['trim_flags']['@trim_data']
 
-						if seq_qc_trim == 'True':
-							log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising trimming.'))
-							seq_qc.SeqQC(sequencepair_data, qc_path, 'trim', self.instance_params)
-							trim_report = get_trimreport()
-							log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Trimming complete!'))
+					if seq_qc_flag == 'True':
+						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing sequence quality control workflow..'))
+						if seq_qc.SeqQC(sequencepair_data, qc_path, 'valid', self.instance_params):
 
-				##
-				## Stage 2: Alignment flags
-				alignment_flag = self.instance_params.config_dict['instance_flags']['@sequence_alignment']
-				if alignment_flag == 'True':
-					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing alignment workflow..'))
-					align.SeqAlign(sequence_label, sequencepair_data, align_path, reference_indexes, self.instance_params)
-					align_report = get_alignreport()
-					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence alignment workflow complete!'))
+							if seq_qc_trim == 'True':
+								log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising trimming.'))
+								seq_qc.SeqQC(sequencepair_data, qc_path, 'trim', self.instance_params)
+								trim_report = get_trimreport()
+								log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Trimming complete!'))
 
-				##
-				## Stage 3: Genotyping flags
-				genotyping_flag = self.instance_params.config_dict['instance_flags']['@genotype_prediction']
-				if genotyping_flag == 'True':
-					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing genotyping workflow..'))
-					gtype_report = predict.GenotypePrediction(sequencepair_data, predict_path, self.training_data, self.instance_params).get_report()
-					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
+					##
+					## Stage 2: Alignment flags
+					alignment_flag = self.instance_params.config_dict['instance_flags']['@sequence_alignment']
+					if alignment_flag == 'True':
+						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing alignment workflow..'))
+						align.SeqAlign(sequence_label, sequencepair_data, align_path, reference_indexes, self.instance_params)
+						align_report = get_alignreport()
+						log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence alignment workflow complete!'))
 
-				##
-				## Collating the required information for this data pair into a summary dictionary
-				## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
-				r1_trimming = ''
-				r2_trimming = ''
-				r1_align = ''
-				r2_align = ''
+					##
+					## Stage 3: Genotyping flags
+					genotyping_flag = self.instance_params.config_dict['instance_flags']['@genotype_prediction']
+					if genotyping_flag == 'True':
+						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing genotyping workflow..'))
+						genotype_report = predict.GenotypePrediction(sequencepair_data, predict_path, self.training_data, self.instance_params).get_report()
+						log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
 
-				##
-				## If the stage has been specified, get the report from that stage
-				## If sliced, that report is a list indicating fw/rv files
-				## Genotype stage not required, due to us directly cleaning results
-				## as they were generated; just scrape from relevant array indice
-				if seq_qc_flag == 'True':
-					r1_trimming = self.scrape_summary_data('trim', trim_report[0])
-					r2_trimming = self.scrape_summary_data('trim', trim_report[1])
-				if alignment_flag == 'True':
-					r1_align = self.scrape_summary_data('align', align_report[0])
-					r2_align = self.scrape_summary_data('align', align_report[1])
+					##
+					## Collating the required information for this data pair into a summary dictionary
+					## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
+					r1_trimming = ''
+					r2_trimming = ''
+					r1_align = ''
+					r2_align = ''
 
-				datapair_summary = {'R1_Trimming':r1_trimming,
-									'R1_Alignment':r1_align,
-									'R2_Trimming':r2_trimming,
-									'R2_Alignment':r2_align,
-									'Sample_Genotype':gtype_report}
+					##
+					## If the stage has been specified, get the report from that stage
+					## If sliced, that report is a list indicating fw/rv files
+					## Genotype stage not required, due to us directly cleaning results
+					## as they were generated; just scrape from relevant array indice
+					if seq_qc_flag == 'True':
+						r1_trimming = self.scrape_summary_data('trim', trim_report[0])
+						r2_trimming = self.scrape_summary_data('trim', trim_report[1])
+					if alignment_flag == 'True':
+						r1_align = self.scrape_summary_data('align', align_report[0])
+						r2_align = self.scrape_summary_data('align', align_report[1])
 
-				self.instance_summary[sequence_label] = datapair_summary
+					datapair_summary = {'R1_Trimming':r1_trimming,
+										'R1_Alignment':r1_align,
+										'R2_Trimming':r2_trimming,
+										'R2_Alignment':r2_align,
+										'Sample_Genotype':genotype_report,
+										'Pass':True}
 
-				##
-				## Clear the report lists before next iteration
-				## iteritems results in next sample_pair files being appended
-				## so indexing of lists breaks -- hence wipe
-				del trim_report[:]
-				del	align_report[:]
-				del gtype_report[:]
+					self.instance_summary[sequence_label] = datapair_summary
 
-				##
-				## Finished all desired stages for this file pair, inform user if -v
-				log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence pair workflow complete!\n'))
+					##
+					## Clear the report lists before next iteration
+					## iteritems results in next sample_pair files being appended
+					## so indexing of lists breaks -- hence wipe
+					del trim_report[:]
+					del	align_report[:]
+					del genotype_report[:]
+
+					##
+					## Finished all desired stages for this file pair, inform user if -v
+					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence pair workflow complete!\n'))
+
+				except Exception:
+
+					datapair_summary = {'Pass':False}
+					self.instance_summary[sequence_label] = datapair_summary
+					log.info('{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on: ', sequence_label))
+					continue
 
 	@staticmethod
 	def scrape_summary_data(stage, input_report_file):
@@ -367,39 +394,46 @@ class ScaleHD:
 	def process_report(self):
 
 		"""
-		A very large and ugly method which scrapes required strings from the instance dictionary
-		Within each scraped string, some backend methods further scrape specific values
-		This data is then slotted into the respective location in the master summary file
+		A large and very ugly function to take all information gathered from this instance of ScaleHD
+		Convert into a formatted pandas dataframe, that is readable and clear
+		Save as CSV for on-the-fly look at instance results in one instance-wide table
 		"""
 
 		##
-		## Taking summary results dictionary and polishing
-		## into a suitably readable CSV master table
-		## Huge ass headers string for columns
-		master_summary_file = os.path.join(self.instance_rundir, 'InstanceReport.txt')
-		report_headers = '{}\t{}\t\t\t\t{}\t\t\t\t{}\t\t\t\t{}\t\t\t\t{}\n'.format('Sample Name','Forward Trimming','Forward Alignment','Reverse Trimming','Reverse Alignment','Genotype')
-		report_subheaders = '{}\t{}\t{}\t{}\t{}\t' \
-							'{}\t{}\t{}\t{}\t{}\t' \
-							'{}\t{}\t{}\t{}\t{}\t' \
-							'{}\t{}\t{}\t{}\t{}\t' \
-							'{}\t{}\t{}\t{}\t{}\t' \
-							'{}\t{}\t{}\n'.format('','Total reads processed','Quality-trimmed','Adapter-trimmed','Total written',
-												  'Aligned 0 times','Aligned 1 time', 'Aligned >1 time','Overall alignment rate',
-												  'Total reads processed','Quality-trimmed','Adapter-trimmed','Total written',
-												  'Aligned 0 times','Aligned 1 time', 'Aligned >1 time','Overall alignment rate',
-												  'Allele one','Allele two','CCG Zygosity Disconnect','CCG Expansion Skew',
-												  'CCG Peak Ambiguity', 'CCG Density Ambiguity', 'CCG Recall Warning',
-												  'CCG Peak Out Of Bounds', 'CAG Recall Warning', 'CAG Consensus Warning',
-												  'FP/SP Disconnect')
-		##
-		## Writing to the summary file all of the information gathered previously
-		## Some stages missing from instance/n.a. so check & act accordingly
-		with open(master_summary_file, 'w') as msfile:
-			msfile.write(report_headers)
-			msfile.write(report_subheaders)
-			sorted_instance = iter(sorted(self.instance_summary.iteritems()))
+		## Create formatted headers for columns/subsections
+		## Place into dataframe
+		master_results_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
+		real_columns = ['Sample Name', '',
+						'Forward Trimming', '', '', '', '',
+						'Forward Alignment', '', '', '', '',
+						'Reverse Trimming', '', '', '', '',
+						'Reverse Alignment', '', '', '', '',
+						'Genotype']
+		padded_columns = ['']*382
+		columns = real_columns+padded_columns
+		df = pd.DataFrame(columns=columns)
+		subheaders = ['','','Total reads processed','Quality trimmed','Adapter trimmed','Total written',
+					 '','Aligned 0 times','Aligned 1 time','Aligned >1 time','Overall alignment',
+					 '','Total reads processed','Quality trimmed','Adapter trimmed','Total written',
+					 '','Aligned 0 times','Aligned 1 time','Aligned >1 times','Overall alignment',
+					 '','Allele one','N-1','N','N+1','N-1/N','N+1/N','Allele two','N-1','N','N+1','N-1/N','N+1/N',
+					 'CCG zygosity disconnect','CCG expansion skew','CCG peak ambiguity','CCG density ambiguity',
+					 'CCG recall warning','CCG peak out-of-bounds','CAG recall warning','CAG Consensus warning','FP/SP disconnect']
+		padded_subheaders = ['']*362
+		real_subheaders = subheaders+padded_subheaders
+		df.loc[0] = real_subheaders
 
-			for key, child_dictionary in sorted_instance:
+		##
+		## Sort the dictionary of instance results,
+		## Iterate over dictionary from there, scraping results for each line
+		current_loc = 1
+		sorted_instance = iter(sorted(self.instance_summary.iteritems()))
+		for key, child_dictionary in sorted_instance:
+
+			##
+			## Did this sample pass?
+			pass_state = child_dictionary['Pass']
+			if pass_state:
 
 				##
 				## Forward Trimming information
@@ -435,33 +469,50 @@ class ScaleHD:
 
 				##
 				## Genotype information
-				## Work in progress, so not filled out..
 				genotype_results = child_dictionary['Sample_Genotype']
+				pr_nmo = genotype_results[12][0]['NMinusOne']
+				pr_n = genotype_results[12][0]['NValue']
+				pr_npo = genotype_results[12][0]['NPlusOne']
+				pr_nmo_on = genotype_results[12][0]['NMinusOne-Over-N']
+				pr_npo_on = genotype_results[12][0]['NPlusOne-Over-N']
+
+				sc_nmo = genotype_results[13][0]['NMinusOne']
+				sc_n = genotype_results[13][0]['NValue']
+				sc_npo = genotype_results[13][0]['NPlusOne']
+				sc_nmo_on = genotype_results[13][0]['NMinusOne-Over-N']
+				sc_npo_on = genotype_results[13][0]['NPlusOne-Over-N']
 
 				##
-				## Generate the string
-				## NOTE: Genotype information replaced with WiP for now
-				datasample_string = '{}\t' \
-									'{}\t{}\t{}\t{}\t' \
-									'{}\t{}\t{}\t{}\t' \
-									'{}\t{}\t{}\t{}\t' \
-									'{}\t{}\t{}\t{}\t' \
-									'{}\t{}\t{}\t{}\t' \
-									'{}\t{}\t{}\t{}\t' \
-									'{}\t{}\t{}'.format(key,
-													  fw_total_reads, fw_quality_trimmed, fw_adapter_trimmed, fw_total_written,
-													  fw_zero_align, fw_one_align, fw_onepl_align, fw_overall_align,
-													  rv_total_reads, rv_quality_trimmed, rv_adapter_trimmed, rv_total_written,
-													  rv_zero_align, rv_one_align, rv_onepl_align, rv_overall_align,
-													  genotype_results[0],genotype_results[1],genotype_results[2],genotype_results[3],
-													  genotype_results[4],genotype_results[5],genotype_results[6],genotype_results[7],
-													  genotype_results[8],genotype_results[9],genotype_results[10])
+				## Data formatted for appropriate column state
+				current_sample_array = [key,
+										'',fw_total_reads,fw_quality_trimmed,fw_adapter_trimmed,fw_total_written,
+										'',fw_zero_align,fw_one_align,fw_onepl_align,fw_overall_align,
+										'',rv_total_reads,rv_quality_trimmed,rv_adapter_trimmed,rv_total_written,
+										'',rv_zero_align,rv_one_align,rv_onepl_align,rv_overall_align,
+										'',str(genotype_results[0]),pr_nmo,pr_n,pr_npo,pr_nmo_on,pr_npo_on,
+										str(genotype_results[1]),sc_nmo,sc_n,sc_npo,sc_nmo_on,sc_npo_on,
+										genotype_results[2],genotype_results[3],genotype_results[4],
+										genotype_results[5],genotype_results[6],genotype_results[7],
+										genotype_results[8],genotype_results[9],genotype_results[10]]
 
 				##
-				## Write line to file
-				msfile.write(datasample_string + '\n')
+				## Add to dataframe
+				## First = trim/align/genotype
+				## Second = Primary Allele padded distribution (somatic mosaicism)
+				## Third = Secondary Allele padded distribution (somatic mosaicism)
+				df.loc[current_loc] = current_sample_array + ['']*362
+				locp1 = [key, str(genotype_results[0])] + genotype_results[12][1]
+				locp2 = [key, str(genotype_results[1])] + genotype_results[13][1]
+				df.loc[current_loc+1] = locp1
+				df.loc[current_loc+2] = locp2
+				current_loc += 3
 
-			msfile.close()
+			else:
+
+				df.loc[current_loc] = [key]+['err']*404
+				current_loc += 3
+
+		df.to_csv(master_results_file, index=False)
 
 def main():
 	try:

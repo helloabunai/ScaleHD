@@ -605,7 +605,7 @@ def sanitise_trimming_output(input_object, input_list):
 		cleanse_target = input_list[input_object].split(':')[1].lstrip().rstrip()
 		return cleanse_target
 	else:
-		return 'N/A'
+		return '*'
 
 def sanitise_alignment_output(input_object, input_list, stage):
 
@@ -618,4 +618,4 @@ def sanitise_alignment_output(input_object, input_list, stage):
 			cleanse_target = input_list[input_object].lstrip().rstrip().split(' ')[0:2]
 			return ' '.join(cleanse_target)
 	else:
-		return 'N/A'
+		return '*'
