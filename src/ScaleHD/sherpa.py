@@ -137,7 +137,7 @@ class ScaleHD:
 
 				##
 				## Super fucking ugly generic exception catcher (FOR NOW -- CHANGE LATER)
-				try:
+				#try:
 
 					##
 					## Required data to process
@@ -206,11 +206,11 @@ class ScaleHD:
 					## Finished all desired stages for this file pair, inform user if -v
 					log.info('{}{}{}{}\n'.format(clr.green, 'shd__ ', clr.end, 'Assembly pair workflow complete!'))
 
-				except Exception:
+				#except Exception:
 
-					datapair_summary = {'Pass':False}
-					self.instance_summary[assembly_label] = datapair_summary
-					log.info('{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on: ', assembly_label))
+				#	datapair_summary = {'Pass':False}
+				#	self.instance_summary[assembly_label] = datapair_summary
+				#	log.info('{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on: ', assembly_label))
 					continue
 
 	def sequence_workflow(self):
@@ -419,8 +419,9 @@ class ScaleHD:
 					 '','Allele one','N-1','N','N+1','N-1/N','N+1/N','Allele two','N-1','N','N+1','N-1/N','N+1/N',
 					 'CCG zygosity disconnect','CCG expansion skew','CCG peak ambiguity','CCG density ambiguity',
 					 'CCG recall warning','CCG peak out-of-bounds','CAG recall warning','CAG Consensus warning','FP/SP disconnect']
-		padded_subheaders = ['']*362
-		real_subheaders = subheaders+padded_subheaders
+		padded_subheaders = ['']*161 + ['N-Anchor']
+		right_subheaderpad = ['']*200
+		real_subheaders = subheaders+padded_subheaders+right_subheaderpad
 		df.loc[0] = real_subheaders
 
 		##
@@ -503,14 +504,16 @@ class ScaleHD:
 				df.loc[current_loc] = current_sample_array + ['']*362
 				locp1 = [key, str(genotype_results[0])] + genotype_results[12][1]
 				locp2 = [key, str(genotype_results[1])] + genotype_results[13][1]
+				locp3 = ['']*405
 				df.loc[current_loc+1] = locp1
 				df.loc[current_loc+2] = locp2
-				current_loc += 3
+				df.loc[current_loc+3] = locp3
+				current_loc += 4
 
 			else:
 
 				df.loc[current_loc] = [key]+['err']*404
-				current_loc += 3
+				current_loc += 4
 
 		df.to_csv(master_results_file, index=False)
 

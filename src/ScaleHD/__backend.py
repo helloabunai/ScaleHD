@@ -455,14 +455,14 @@ def sequence_pairings(data_path, instance_rundir, workflow_type):
 		##
 		## Check forward ends with R1
 		forward_data_name = input_files[i].split('/')[-1].split('.')[0]
-		if not forward_data_name.endswith('R1'):
+		if not forward_data_name.endswith('_R1'):
 			log.error('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'I/O: Forward input file does not end in _R1. ', forward_data))
 			sys.exit(2)
 
 		##
 		## Check reverse ends with R2
 		reverse_data_name = input_files[i+1].split('/')[-1].split('.')[0]
-		if not reverse_data_name.endswith('R2'):
+		if not reverse_data_name.endswith('_R2'):
 			log.error('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'I/O: Reverse input file does not end in _R2. ', reverse_data))
 			sys.exit(2)
 

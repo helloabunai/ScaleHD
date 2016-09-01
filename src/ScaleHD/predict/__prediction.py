@@ -135,7 +135,7 @@ class GenotypePrediction:
 			self.genotype_flags['CAGRecall_warning'] = True
 			cag_pass, cag_genotype = self.determine_cag_genotype(threshold_bias=True)
 
-		if cag_genotype == ['err','err']:
+		if cag_genotype is ['err','err']:
 			raise Exception
 
 		self.genotype_flags['Primary_Allele'][0] = cag_genotype[0]
@@ -396,10 +396,8 @@ class GenotypePrediction:
 				if cag_key == self.genotype_flags['Secondary_Allele'][1]:
 					self.cag_intermediate[1] = second_pass_estimate[0]
 
-
 		cag_genotype = [self.cag_intermediate[0],self.cag_intermediate[1]]
-		if threshold_bias: return cag_genotype
-		else: return genotype_pass, cag_genotype
+		return genotype_pass, cag_genotype
 
 	def somatic_calculations(self, genotype):
 
