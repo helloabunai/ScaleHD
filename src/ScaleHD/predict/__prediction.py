@@ -366,12 +366,12 @@ class GenotypePrediction:
 			first_pass = cag_inspector.density_estimation(plot_flag=False)
 
 			if first_pass['PeakThreshold'] is None:
-				log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Density Estimation failed. Alignment must be low quality.'))
+				log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Density Estimation failed. Alignment must be worse than low quality.'))
 				return True, ['err','err']
 
 			##
 			## FOD, second pass
-			fod_parameters = [[0,199,200],'CAG Peaks',['CAG Value','Read Count'],'CAG'+str(cag_key)+'PeakDetection.png']
+			fod_parameters = [[0,199,200],'CAG'+str(cag_key)+' Peaks',['CAG Value','Read Count'],'CAG'+str(cag_key)+'PeakDetection.png']
 			try:
 				second_pass = cag_inspector.differential_peaks(first_pass, fod_parameters, threshold_bias)
 			except ValueError:
@@ -703,14 +703,15 @@ class PredictionTwoPass:
 
 		##
 		## Plot graph
-		##TODO plot peak label onto graph
 		pyplot.figure(figsize=(10,6))
 		pyplot.title(graph_title)
 		pyplot.xlabel(axes[0])
 		pyplot.ylabel(axes[1])
+		formatted_label = '{}{}'.format('Allele(s): ', str(fixed_indexes))
+		pyplot.plot(x,y, label=formatted_label, markevery=peak_indexes)
 		pplot(x,y,peak_indexes)
+		pyplot.legend(loc='upper right', shadow=True)
 		pyplot.savefig(os.path.join(self.prediction_path, filename), format='png')
-		pyplot.close()
 
 		if not len(peak_indexes) == self.target_peak_count:
 			raise ValueError
