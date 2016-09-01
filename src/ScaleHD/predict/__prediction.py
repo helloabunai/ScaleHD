@@ -118,6 +118,7 @@ class GenotypePrediction:
 		## Determine CCG peak(s)/genotype(s)
 		## Call generic two-pass algorithm: Density estimation/First order differentials
 		ccg_pass, ccg_genotype = self.determine_ccg_genotype()
+
 		while not ccg_pass:
 			self.genotype_flags['CCGRecall_warning'] = True
 			ccg_pass, ccg_genotype = self.determine_ccg_genotype(threshold_bias=True)
@@ -131,9 +132,15 @@ class GenotypePrediction:
 		## And utilise the same generic functions to call the peaks for CAG
 		## Once combined, we can call our genotype
 		cag_pass, cag_genotype = self.determine_cag_genotype()
+		self.recall_count = 0
 		while not cag_pass:
 			self.genotype_flags['CAGRecall_warning'] = True
 			cag_pass, cag_genotype = self.determine_cag_genotype(threshold_bias=True)
+			self.recall_count += 1
+
+			if self.recall_count > 5:
+				log.info('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Sample Recall count too high. Failure.'))
+				raise Exception
 
 		if cag_genotype is ['err','err']:
 			raise Exception
@@ -364,7 +371,6 @@ class GenotypePrediction:
 			##
 			## Density, first pass
 			first_pass = cag_inspector.density_estimation(plot_flag=False)
-
 			if first_pass['PeakThreshold'] is None:
 				log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Density Estimation failed. Alignment must be worse than low quality.'))
 				return True, ['err','err']
@@ -375,6 +381,14 @@ class GenotypePrediction:
 			try:
 				second_pass = cag_inspector.differential_peaks(first_pass, fod_parameters, threshold_bias)
 			except ValueError:
+				return False, [0,0]
+
+			##
+			## DIRTY FIX to constant re-call loop bug
+			## TODO fix peak threshold instantiation instead of just failing
+			## TODO stuck in loop because threshold too inaccurate to get number of expected peaks
+			if self.recall_count > 5:
+				log.info('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Distribution differential function re-called too many times. Sample failure!'))
 				return False, [0,0]
 
 			##
@@ -674,13 +688,15 @@ class PredictionTwoPass:
 		## Get relevance distribution info from previous density pass
 		## If threshold_bias is true, we're in a re-call, reduce threshold
 		## If threshold happens to go < 0, set to 0 (why would it ever get that far?)
-
 		peak_distance = attribute_dict['PeakDistance']
 		if not peak_distance:
 			peak_distance = 1
 		peak_threshold = attribute_dict['PeakThreshold']
 		if threshold_bias:
-			peak_threshold -= 0.35
+			print 'modifying threshold'
+			print 'old ', peak_threshold
+			peak_threshold -= 0.375
+			print 'new ', peak_threshold
 			peak_threshold = min(peak_threshold, 0.25)
 
 		##
@@ -712,6 +728,7 @@ class PredictionTwoPass:
 		pplot(x,y,peak_indexes)
 		pyplot.legend(loc='upper right', shadow=True)
 		pyplot.savefig(os.path.join(self.prediction_path, filename), format='png')
+		pyplot.close()
 
 		if not len(peak_indexes) == self.target_peak_count:
 			raise ValueError
