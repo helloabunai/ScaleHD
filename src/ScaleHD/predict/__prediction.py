@@ -16,401 +16,501 @@ from collections import Counter
 from sklearn import svm
 from sklearn import preprocessing
 from sklearn.multiclass import OneVsOneClassifier
+import matplotlib
+matplotlib.use('Agg') #servers/clients without x-11
 from peakutils.plot import plot as pplot
-from matplotlib import pyplot
+import matplotlib.pyplot as plt
+import pandas as pd
 
 ##
 ## Backend Junk
 from ..__backend import Colour as clr
 from ..__backend import DataLoader
 
+
 class GenotypePrediction:
 	def __init__(self, data_pair, prediction_path, training_data, instance_params):
-
 		"""
-		Prediction stage of the pipeline -- use of SVM, density estimation and First Order Differentials
-		to automate calling of a sample's genotype based on data information derived from alignment read counts.
-		Utilises forward reads for CAG information, reverse reads for CCG information
+		Prediction stage of the pipeline -- use of SVM, density estimation and first order differentials.
+		Automates calling of sample's genotype based on data information dervied from aligned read counts.
+		Utilises forward reads for CAG information, reverse reads for CCG information. Combine for genotype.
 
-		General workflow of the process:
-		--Take reverse reads, aggregate every CAG count for each CCG
+		General workflow overview:
+		--Take reverse reads, aggregate every CAG for each CCG bin
 		--Use unlabelled sample into CCG zygosity SVM for het/hom prediction
 		--Data cleaning/normalisation/etc
-		--Two pass algorithm searches over CCG distribution with SVM result in mind
-		--Density estimation for peak estimate/location estimate/clarity estimate
-		--F.O.D. for more specific peak calling in particular distribution
-		--Get appropriate CAG distribution for the current CCG distribution
-		--Repeat two-pass algorithm for this distribution
-		--Return allele
-		--Repeat for second allele
-		--Combine and return genotype
+		--Two Pass algorithm to determine genotype
+		--1) Density Estimation on distribution to gauge where the peaks may be/peak distances
+		--2) Peak Detection via first order differentials, taking into account density results for tailoring
+		--Repeat process for relevant CAG distribution(s) taking CCG het/hom into account
+		--Return genotype
 
-		Work in progress
-		Things to improve:
-		--Error flagging for manual inspection
-		--Alternate performant mechanisms?
+		:param data_pair: Files to be used for scraping
+		:param prediction_path: Output path to save all resultant files from this process
+		:param training_data: Data to be used in building CCG SVM model
+		:param instance_params: redundant parameters--unused in this build
 		"""
 
 		##
-		## Paths to files/data required
+		## Paths and files to be used in this instance
 		self.data_pair = data_pair
 		self.prediction_path = prediction_path
 		self.training_data = training_data
 		self.instance_params = instance_params
 
 		##
-		## Arrays of the current sample's CCG (aggregated)
-		## Used in SVM classifier for predicting unlabelled state
+		## Build a classifier and class label hash-encoder for CCG SVM
 		self.classifier, self.encoder = self.build_zygosity_model()
 
-		##
-		## Confidence flags (subject to change)
-		## Flag meanings:
-		## --CCGZyg_disconnect: between forward/reverse zygosity, a difference is recorded.
-		## 		We only care about reverse read zygosity, but it's still a good QOL metric
-		## --CCGExpansion_skew: Of the 'major' (first) peak, n-1 was > in value than the 'minor' peak.
-		## 		Not explicitly bad, as sometimes mosaicism means n-1 is >> expanded peak. Innocent informative warning.
-		## --CCGPeak_ambiguous: Similar to density_ambiguous;; specifically lots of low density values NEXT to a peak
-		## 		For an automated system we want clean peaks, so inform the user when this is not the case
-		## --CCGDensity_ambiguous: A lot of similar (low) densities were detected in the distribution.
-		## 		In our data, the sparsest value == peak. Lots of low values == messy data, which is bad.
-		## --CCGRecall_warning: first/second passes on CCG genotyping mismatched, had to re-call with lower threshold
-		## 		Peaks differed between first/second pass, accuracy may be an issue for this particular sample.
-		## --CCGPeak_oob: more than two peaks were returned from the FOD function
-		## 		If this happens, something fucked up.
-		## --CAGConsensusSpread_warning: Forward reads were very broad peaks; consensus CAG from FW+RV used
-		##  	If this is used, quality of prediction is going to be very poor. Brute force last ditch attempt at genotyping.
-		## --FPSP_Disconnect: Prediction between first and second pass of algorithm differ
-		## 		If this happens, minor warning. Expected to happen occasionally. Doesn't hurt accuracy.
+		"""
+		Information/Error flags that exist within this class::
+		--CCGZygDisconnect
+		--CCGExpansionSkew
+		--CCGPeakAmbiguous
+		--CCGDensityAmbiguous
+		--CCGRecallWarning
+		--CCGPeakOOB
+		--CAGConsensusSpreadWarning
+		--CAGRecallWarning
+		--FPSPDisconnect
 
+		And data attributes that are used as output::
+		PrimaryAllele = [CAGa, CCGb]
+		SecondaryAllele = [CAGc, CCGd]
+		PrimaryMosaicism = [<values>]
+		SecondaryMosaicism = [<values>]
+		"""
 		self.prediction_confidence = 0
 		self.cag_intermediate = [0,0]
-		self.genotype_flags = {'Primary_Allele':[0,0],
-							   'Secondary_Allele':[0,0],
-							   'CCGZyg_disconnect':False,
-							   'CCGExpansion_skew':False,
-							   'CCGPeak_ambiguous':False,
-							   'CCGDensity_ambiguous':False,
-							   'CCGRecall_warning':False,
-							   'CCGPeak_oob':False,
-							   'CAGRecall_warning':False,
-							   'CAGConsensusSpread_warning':False,
-							   'FPSP_Disconnect':False}
+		self.genotype_flags = {'PrimaryAllele':[0,0],
+							   'SecondaryAllele':[0,0],
+							   'PrimaryMosaicism':[],
+							   'SecondaryMosaicism':[],
+							   'CCGZygDisconnect':False,
+							   'CCGExpansionSkew':False,
+							   'CCGPeakAmbiguous':False,
+							   'CCGDensityAmbiguous':False,
+							   'CCGRecallWarning':False,
+							   'CCGPeakOOB':False,
+							   'CAGConsensusSpreadWarning':False,
+							   'CAGRecallWarning':False,
+							   'FPSPDisconnect':False}
 
 		##
-		## Unlabelled distributions to utilise for prediction
+		## Unlabelled distributions to utilise for SVM prediction
 		self.forward_distribution = self.scrape_distro(self.data_pair[0])
 		self.reverse_distribution = self.scrape_distro(self.data_pair[1])
 
-		##
-		## !! STAGE ONE !!
-		## Determine Zygosity of input distributions
+		"""
+		!! Stage one !!
+		Determine Zygosity of CCG from input distribution
+		-- Aggregate CCG reads from 200x20 to 1x20
+		-- Feed into SVM
+		-- Compare results between forward and reverse (reverse takes priority)
+		"""
 		self.forwardccg_aggregate = self.distribution_collapse(self.forward_distribution)
 		self.reverseccg_aggregate = self.distribution_collapse(self.reverse_distribution)
 		self.zygosity_state = self.predict_zygstate()
 
-		##
-		## !! STAGE TWO !!
-		## Determine CCG peak(s)/genotype(s)
-		## Call generic two-pass algorithm: Density estimation/First order differentials
-		ccg_pass, ccg_genotype = self.determine_ccg_genotype()
-		while not ccg_pass:
-			self.genotype_flags['CCGRecall_warning'] = True
-			ccg_genotype = self.determine_ccg_genotype(threshold_bias=True)
+		"""
+		!! Stage two !!
+		Determine CCG Peak(s)/Genotype(s) via 2-Pass Algorithm
+		Run first attempt with no clauses; if pass, continue to next stage
+		However, if something fails, a loop will trigger until the function passes
+		"""
+		ccg_failstate, ccg_genotype = self.determine_ccg_genotype()
+		while ccg_failstate:
+			self.genotype_flags['CCGRecallWarning'] = True
+			ccg_failstate, ccg_genotype = self.determine_ccg_genotype(threshold_bias=True)
 
-		self.genotype_flags['Primary_Allele'][1] = ccg_genotype[0]
-		self.genotype_flags['Secondary_Allele'][1] = ccg_genotype[1]
+		self.genotype_flags['PrimaryAllele'][1] = ccg_genotype[0]
+		self.genotype_flags['SecondaryAllele'][1] = ccg_genotype[1]
 
-		##
-		## !! STAGE THREE !!
-		## Now we have CCG identified, we can get the relevant CAG distribution for that CCG
-		## And utilise the same generic functions to call the peaks for CAG
-		## Once combined, we can call our genotype
-		cag_pass, cag_genotype = self.determine_cag_genotype()
-		while not cag_pass:
-			self.genotype_flags['CAGRecall_warning'] = True
-			cag_genotype = self.determine_cag_genotype(threshold_bias=True)
+		"""
+		!! Stage three !!
+		Now we have identified the CCG peaks (successfully), we can investigate the appropriate
+		CAG distributions for these CCG distribution(s). The same generic functions will be called
+		for CAG determination, and results from CCG and CAG are combined to produce a genotype for this sample
+		"""
+		cag_failstate, cag_genotype = self.determine_cag_genotype()
+		while cag_failstate:
+			self.genotype_flags['CAGRecallWarning'] = True
+			cag_failstate, cag_genotype = self.determine_cag_genotype(threshold_bias=True)
 
-		self.genotype_flags['Primary_Allele'][0] = cag_genotype[0]
-		self.genotype_flags['Secondary_Allele'][0] = cag_genotype[1]
+		self.genotype_flags['PrimaryAllele'][0] = cag_genotype[0]
+		self.genotype_flags['SecondaryAllele'][0] = cag_genotype[1]
+
+		"""
+		!! Stage four !!
+		Simple Somatic Mosaicism calculations are done here
+		Append all information to the report to be returned to shd.sherpa for output
+		"""
+		self.genotype_flags['PrimaryMosaicism'] = self.somatic_calculations(self.genotype_flags['PrimaryAllele'])
+		self.genotype_flags['SecondaryMosaicism'] = self.somatic_calculations(self.genotype_flags['SecondaryAllele'])
 		self.gtype_report = self.generate_report()
 
 	def build_zygosity_model(self):
+		"""
+		Function to build a SVM (wrapped into OvO class) for determining CCG zygosity
+		:return: svm object wrapped into OvO, class-label hash-encoder object
+		"""
 
 		##
-		## Classifier object to be wrapped into One vs One classifier
-		svc_object = svm.LinearSVC(C=1.0, loss='squared_hinge', penalty='l2',
-								   dual=False, tol=1e-4, multi_class='crammer_singer',
-								   fit_intercept=True, intercept_scaling=1, verbose=0,
-								   random_state=0, max_iter=-1)
+		## Classifier object and relevant parameters for our CCG prediction
+		svc_object = svm.LinearSVC(C=1.0, loss='squared_hinge', penalty='l2', dual=False,
+								   tol=1e-4, multi_class='crammer_singer', fit_intercept=True,
+								   intercept_scaling=1, verbose=0, random_state=0, max_iter=-1)
 
 		##
-		## Take raw training data into object
-		trainingdat_collapsed_ccg = self.training_data['CollapsedCCGZygosity']
-		trainingdat_descriptionfi = self.training_data['GenericDescriptor']
-		training_model = DataLoader(trainingdat_collapsed_ccg, trainingdat_descriptionfi).load_model()
+		## Take raw training data (CCG zygosity data) into DataLoader model object
+		traindat_ccg_collapsed = self.training_data['CollapsedCCGZygosity']
+		traindat_descriptionfi = self.training_data['GenericDescriptor']
+		traindat_model = DataLoader(traindat_ccg_collapsed, traindat_descriptionfi).load_model()
 
 		##
-		## Model data taken into array, fit to classifier
-		## return objects
-		X = preprocessing.normalize(training_model.DATA)
-		Y = training_model.TARGET
+		## Model data fitting to SVM
+		X = preprocessing.normalize(traindat_model.DATA)
+		Y = traindat_model.TARGET
 		ovo_svc = OneVsOneClassifier(svc_object).fit(X,Y)
-		encoder = training_model.ENCDR
+		encoder = traindat_model.ENCDR
 
+		##
+		## Return the fitted OvO(SVM) and Encoder
 		return ovo_svc, encoder
 
 	@staticmethod
-	def scrape_distro(distribution_file):
+	def scrape_distro(distributionfi):
+		"""
+		Function to take the aligned read-count distribution from CSV into a numpy array
+		:param distributionfi:
+		:return: np.array(data_from_csv_file)
+		"""
 
 		##
-		## Scrapes the read distribution from the input file
+		## Open CSV file with information within; append to temp list
+		## Scrape information, cast to np.array(), return
 		placeholder_array = []
-		with open(distribution_file) as csv_file:
-			source = csv.reader(csv_file, delimiter=',')
-			next(source)  # skipping header
+		with open(distributionfi) as dfi:
+			source = csv.reader(dfi, delimiter=',')
+			next(source) #skip header
 			for row in source:
 				placeholder_array.append(int(row[2]))
-			csv_file.close()
-
-		novel_distro = np.array(placeholder_array)
-		return novel_distro
+			dfi.close()
+		unlabelled_distro = np.array(placeholder_array)
+		return unlabelled_distro
 
 	@staticmethod
 	def distribution_collapse(distribution_array):
+		"""
+		Function to take a full 200x20 array (struc: CAG1-200,CCG1 -- CAG1-200CCG2 -- etc CCG20)
+		and aggregate all CAG values for each CCG
+		:param distribution_array:
+		:return: 1x20D np(array)
+		"""
 
 		##
-		## Assume there is 20 CCG
-		try:
-			ccg_arrays = np.split(distribution_array, 20)
-		except ValueError:
-			log.critical('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Repeat distribution not evenly divided by 20. Aligned to non CAG1-200/CCG1-20 reference?'))
-			sys.exit(2)
+		## Ensure there are 20CCG bins in our distribution
+		try: ccg_arrays = np.split(distribution_array, 20)
+		except ValueError: raise ValueError('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Unable to split array into 20 CCG bins.'))
 
 		##
-		## Sum the values for each ccg
+		## Aggregate each CCG
 		ccg_counter = 1
 		collapsed_array = []
 		for ccg_array in ccg_arrays:
 			collapsed_array.append(np.sum(ccg_array))
 			ccg_counter+=1
-
 		return np.asarray(collapsed_array)
 
 	def predict_zygstate(self):
+		"""
+		Function which takes the newly collapsed CCG distribution and executes SVM prediction
+		to determine the zygosity state of this sample's CCG value(s). Data is reshaped
+		and normalised to ensure more reliable results. A check is executed between the results of
+		forward and reverse zygosity; if a match, great; if not, not explicitly bad but inform user.
+		:return: zygosity[2:-2] (trimming unrequired characters)
+		"""
 
 		##
-		## Reshape the input distributions so skl doesn't complain about 1D
-		## normalise too, as in tandem with training data -- requires casting to float64
+		## Reshape the input distribution so SKL doesn't complain about 1D vectors
+		## Normalise data in addition; cast to float64 for this to be permitted
 		forward_reshape = preprocessing.normalize(np.float64(self.forwardccg_aggregate.reshape(1,-1)))
 		reverse_reshape = preprocessing.normalize(np.float64(self.reverseccg_aggregate.reshape(1,-1)))
 
 		##
-		## Predict the zygstate, then decode from hash into literal label value
+		## Predict the zygstate of these reshapen, noramlised 20D CCG arrays using SVM object earlier
+		## Results from self.classifier are #encoded; so convert with our self.encoder.inverse_transform
 		forward_zygstate = str(self.encoder.inverse_transform(self.classifier.predict(forward_reshape)))
 		reverse_zygstate = str(self.encoder.inverse_transform(self.classifier.predict(reverse_reshape)))
 
 		##
-		## We only really care about the zygosity from reverse reads, but for a QOL metric
-		## we can take the value from the forward reads in addition -- if match, great
-		## if disconnect, fine, but set bool to be used in confidence algorithm later on..
+		## We only particularly care about the reverse zygosity (CCG reads are higher quality in reverse data)
+		## However, for a QoL metric, compare fw/rv results. If match, good! If not, who cares!
 		if not forward_zygstate == reverse_zygstate:
-			self.genotype_flags['CCGZyg_disconnect'] = True
+			self.genotype_flags['CCGZygDisconnect'] = True
 			return reverse_zygstate[2:-2]
 		else:
 			self.genotype_flags['CCGZyg_disconnect'] = False
 			return reverse_zygstate[2:-2]
 
-	def update_flags(self, updated_flags):
-
+	def update_flags(self, target_updates):
 		"""
-		Compares keys between instance-wide self.genotype_flags and updated values
-		which can originate from various methods in the pipeline
-		When a key is matched, the value is updated to represent the current state of play
+		Function that will take a list of flags that were raised from the 2-Pass algorithm
+		and update this pipeline's instance of self.genotype_flags accordingly.
+		This allows us to keep a current state-of-play of this sample's prediction.
+		:param target_updates: List of flags from the 2-Pass algorithm
+		:return: None
 		"""
 
-		for updated_key, updated_value in updated_flags.iteritems():
+		for update_key, update_value in target_updates.iteritems():
 			for initial_key, initial_value in self.genotype_flags.iteritems():
-				if initial_key == updated_key:
-					self.genotype_flags[initial_key] = updated_value
+				if initial_key == update_key:
+					self.genotype_flags[initial_key] = update_value
 
-	def determine_ccg_genotype(self, genotype_pass=True, threshold_bias=False):
-
+	def determine_ccg_genotype(self, fail_state=False, threshold_bias=False):
 		"""
-		Workflow director for the CCG genotype stage
-		Fill this out..
+		Function to determine the genotype of this sample's CCG alleles
+		Ideally this function will be called one time, but where exceptions occur
+		it may be re-called with a lower quality threshold -- inform user when this occurs
+		:param fail_state: optional flag for re-calling when a previous call failed
+		:param threshold_bias: optional flag for lowering FOD threshold when a previous called failed
+		:return: failure state, CCG genotype data ([None,X],[None,Y])
 		"""
-
-		target_peak_count = 0
-		if self.zygosity_state == 'HOMO':
-			target_peak_count = 1
-		if self.zygosity_state == 'HETERO':
-			target_peak_count = 2
+		peak_target = 0
+		if self.zygosity_state == 'HOMO': peak_target = 1
+		if self.zygosity_state == 'HETERO': peak_target = 2
 
 		##
-		## Create object for two-pass algorithm
-		graph_parameters = [20,'CCGDensityEstimation.png','CCG Density Distribution',['Read Count', 'Bin Density']]
-		ccg_inspector = PredictionTwoPass(prediction_path=self.prediction_path,
-										  input_distribution=self.reverseccg_aggregate,
-										  target_peak_count=target_peak_count,
-										  graph_parameters=graph_parameters)
+		## Create object for 2-Pass algorithm to use with CCG
+		graph_parameters = [20, 'CCGDensityEstimation.png', 'CCG Density Distribution', ['Read Count', 'Bin Density']]
+		ccg_inspector = SequenceTwoPass(prediction_path=self.prediction_path,
+										input_distribution=self.reverseccg_aggregate,
+										peak_target=peak_target,
+										graph_parameters=graph_parameters)
 
-		##
-		## Density, first pass
-		## Update instance dictionary of any error flags returned from density stage
-		first_pass = ccg_inspector.density_estimation(plot_flag=True)
+		"""
+		!! Sub-Stage one !!
+		Now that we've made an object with the settings for this instance..
+		Density estimation of the CCG distribution..
+		Get warnings encountered by this instance of SequenceTwoPass
+		Update equivalent warning flags within GenotypePrediction
+		"""
+		first_pass = ccg_inspector.density_estimation(plot_flag = True)
 		density_warnings = ccg_inspector.get_warnings()
 		self.update_flags(density_warnings)
 
-		##
-		## First order differentials
-		## Update instance dictionary of any error flags returned from FOD stage
-		fod_parameters = [[0,19,20],'CCG Peaks',['CCG Value','Read Count'], 'CCGPeakDetection.png']
-		second_pass = ccg_inspector.differential_peaks(first_pass, fod_parameters, threshold_bias)
-		fod_warnings = ccg_inspector.get_warnings()
-		self.update_flags(fod_warnings)
+		"""
+		!! Sub-Stage two !!
+		Now we have our estimates from the KDE sub-stage, we can use these findings
+		in our FOD peak identification for more specific peak calling and thus, genotyping
+		"""
+		fod_param = [[0,19,20],'CCG Peaks',['CCG Value', 'Read Count'], 'CCGPeakDetection.png']
+		fod_failstate, second_pass = ccg_inspector.differential_peaks(first_pass, fod_param, threshold_bias)
+		while fod_failstate:
+			fod_failstate, second_pass = ccg_inspector.differential_peaks(first_pass, fod_param, threshold_bias, fod_recall=True)
+		differential_warnings = ccg_inspector.get_warnings()
+		self.update_flags(differential_warnings)
 
 		##
-		## Check first pass results == second pass results
-		## if not, genotype_pass = False
+		## Check if First Pass Estimates == Second Pass Results
+		## If there is a mismatch, genotype calling has failed and thus re-call will be required
 		first_pass_estimate = [first_pass['PrimaryPeak'],first_pass['SecondaryPeak']]
-		second_pass_estimate = [second_pass['PrimaryPeak'],second_pass['SecondaryPeak']]
+		second_pass_estimate = [second_pass['PrimaryPeak'], second_pass['SecondaryPeak']]
 
-		if len(second_pass_estimate)>len(first_pass_estimate): self.genotype_flags['CCGTriplet_warning'] = True
-		##TODO Check error cycling on the function re-call
 		if not first_pass_estimate == second_pass_estimate or len(second_pass_estimate)>len(first_pass_estimate):
-			genotype_pass = False
+			fail_state = True
 
 		##
-		## Return when done
-		if threshold_bias: return second_pass_estimate
-		else: return genotype_pass, second_pass_estimate
+		## Return whether this process passed or not, and the CURRENTLY PLACEHOLDER gtype
+		return fail_state, second_pass_estimate
 
 	@staticmethod
 	def split_cag_target(input_distribution, ccg_target):
+		"""
+		Function to gather the relevant CAG distribution for the specified CCG value
+		We gather this information from the forward distribution of this sample pair as CCG reads are
+		of higher quality in the forward sequencing direction.
+		We split the entire fw_dist into contigs/bins for each CCG (4000 -> 200*20)
+		:param input_distribution: input forward distribution (4000d)
+		:param ccg_target: target value we want to select the 200 values for
+		:return: the sliced CAG distribution for our specified CCG value
+		"""
 
-		##
-		## We need to take the relevant information from forward HD sequence
-		## as it is better quality for the target CAG repeat region
-		## Split the entire distribution per sample into contigs for each CCG (4000 -> 200*20)
+		cag_split = [input_distribution[i:i+200] for i in xrange(0, len(input_distribution), 200)]
+		distribution_dict = {}
+		for i in range(0, len(cag_split)):
+			distribution_dict['CCG'+str(i+1)] = cag_split[i]
 
-		cag_split = [input_distribution[i:i + 200] for i in xrange(0, len(input_distribution), 200)]
-		distribution_dictionary = {}
-		for i in range(0,len(cag_split)):
-			distribution_dictionary['CCG'+str(i+1)] = cag_split[i]
-
-		current_target_distribution = distribution_dictionary['CCG' + str(ccg_target)]
+		current_target_distribution = distribution_dict['CCG' + str(ccg_target)]
 		return current_target_distribution
 
-	def determine_cag_genotype(self, genotype_pass=True, threshold_bias=False):
+	def determine_cag_genotype(self, fail_state=False, threshold_bias=False):
+		"""
+		Function to determine the genotype of this sample's CAG alleles
+		Ideally this function will be called one time, but where exceptions occur,
+		it may be re-caled with a lower quality-threshold -- inform user when this occurs
+
+		If CCG was homozygous (i.e. one CCG distro) -- there will be 2 CAG peaks to investigate
+		If CCG was heterozygous (i.e. two CCG distro) -- there will be 1 CAG peak in each CCG to investigate
+
+		:param fail_state: optional flag for re-calling when a previous call failed
+		:param threshold_bias: optional flag for lowering FOD threshold when a previous call failed
+		:return: failure state, CAG genotype data ([X,None],[Y,None])
+		"""
 
 		##
-		## Target peak count
-		## We're looking at CAG distributions for a specific CAG..
-		## If CCG is homozygous (i.e., one CCG distribution), there will be two CAG peaks on that single distribution
-		## If CCG is heterozygous (i.e., two CCG distribtuions), there will be one peak on each CCG distribution
-		target_peak_count = 0
+		## Set up distributions we require to investigate
+		## If Homozygous, we have one CCG distribution that will contain 2 CAG peaks to investigate
+		## If Heterozygous, we have two CCG distributions, each with 1 CAG peak to investigate
+		peak_target = 0
 		target_distribution = {}
 		if self.zygosity_state == 'HOMO':
-			target_peak_count = 2
-			cag_target = self.split_cag_target(self.forward_distribution, self.genotype_flags['Primary_Allele'][1])
-			target_distribution[self.genotype_flags['Primary_Allele'][1]] = cag_target
+			peak_target = 2
+			cag_target = self.split_cag_target(self.forward_distribution, self.genotype_flags['PrimaryAllele'][1])
+			target_distribution[self.genotype_flags['PrimaryAllele'][1]] = cag_target
 		if self.zygosity_state == 'HETERO':
-			target_peak_count = 1
-			cag_target_major = self.split_cag_target(self.forward_distribution, self.genotype_flags['Primary_Allele'][1])
-			cag_target_minor = self.split_cag_target(self.forward_distribution, self.genotype_flags['Secondary_Allele'][1])
-			target_distribution[self.genotype_flags['Primary_Allele'][1]] = cag_target_major
-			target_distribution[self.genotype_flags['Secondary_Allele'][1]] = cag_target_minor
+			peak_target = 1
+			cag_target_major = self.split_cag_target(self.forward_distribution, self.genotype_flags['PrimaryAllele'][1])
+			cag_target_minor = self.split_cag_target(self.forward_distribution, self.genotype_flags['SecondaryAllele'][1])
+			target_distribution[self.genotype_flags['PrimaryAllele'][1]] = cag_target_major
+			target_distribution[self.genotype_flags['SecondaryAllele'][1]] = cag_target_minor
 
 		##
-		## Iterate over distributions that we are looking at
+		## Now iterate over our scraped distributions with our 2 pass algorithm
 		for cag_key, distro_value in target_distribution.iteritems():
-			graph_parameters = [20, 'CAG'+str(cag_key)+'DensityEstimation.png','CAG Density Distribution',['Read Count','Bin Density']]
-			cag_inspector = PredictionTwoPass(prediction_path=self.prediction_path,
-											  input_distribution=distro_value,
-											  target_peak_count=target_peak_count,
-											  graph_parameters=graph_parameters)
 
 			##
-			## Check distribution spread
-			## Pre-stage to 2-pass; CAG distributions are longer so spread is more likely
-			## Check quality of peaks before progressing; if super-poor quality,
-			## Combine FW+RV for this CCG; attempt brute force genotyping on consensus sequence
-			pre_pass = cag_inspector.investigate_spread()
-			if pre_pass:
-				self.genotype_flags['CAGConsensusSpread_warning'] = True
-				bruteforce_consensus = cag_inspector.generate_consensus(self.split_cag_target(self.forward_distribution, cag_key),
-																		self.split_cag_target(self.reverse_distribution, cag_key))
-				cag_inspector.set_distribution(bruteforce_consensus)
+			## Generate KDE graph parameters
+			## Generate CAG inspector Object for 2Pass-Algorithm
+			graph_parameters = [20, 'CAG'+str(cag_key)+'DensityEstimation.png', 'CAG Density Distribution', ['Read Count', 'Bin Density']]
+			cag_inspector = SequenceTwoPass(prediction_path=self.prediction_path,
+											input_distribution=distro_value,
+											peak_target=peak_target,
+											graph_parameters=graph_parameters)
 
-			##
-			## Density, first pass
+			##TODO CAG Spread investigation, do we bother?
+
+			"""
+			!! Sub-stage one !!
+			Now that we've made an object with the settings for this instance..
+			Density estimation of the CCG distribution..
+			Get warnings encountered by this instance of SequenceTwoPass
+			Update equivalent warning flags within GenotypePrediction
+			"""
 			first_pass = cag_inspector.density_estimation(plot_flag=False)
 
-			##
-			## FOD, second pass
-			fod_parameters = [[0,199,200],'CAG Peaks',['CAG Value','Read Count'],'CAG'+str(cag_key)+'PeakDetection.png']
-			second_pass = cag_inspector.differential_peaks(first_pass, fod_parameters, threshold_bias)
+			"""
+			!! Sub-stage two !!
+			Now we have our estimates from the KDE sub-stage, we can use these findings
+			in our FOD peak identification for more specific peak calling and thus, genotyping
+			"""
+			fod_param = [[0,199,200],'CAG Peaks',['CAG Value', 'Read Count'], 'CAG'+str(cag_key)+'PeakDetection.png']
+			fod_failstate, second_pass = cag_inspector.differential_peaks(first_pass, fod_param, threshold_bias)
+			while fod_failstate:
+				fod_failstate, second_pass = cag_inspector.differential_peaks(first_pass, fod_param, threshold_bias, fod_recall=True)
 
 			##
-			## Concat results
-			first_pass_estimate = [first_pass['PrimaryPeak'],first_pass['SecondaryPeak']]
-			second_pass_estimate = [second_pass['PrimaryPeak'],second_pass['SecondaryPeak']]
+			## Concatenate results into a sample-wide genotype format
+			first_pass_estimate = [first_pass['PrimaryPeak'], first_pass['SecondaryPeak']]
+			second_pass_estimate = [second_pass['PrimaryPeak'], second_pass['SecondaryPeak']]
+
 			if not first_pass_estimate == second_pass_estimate or len(second_pass_estimate)>len(first_pass_estimate):
-				genotype_pass = False
+				fail_state = True
 
 			##
-			## Ensure the right CAG is assigned to the right CCG
+			## Ensure the correct CAG is assigned to the appropriate CCG
 			if self.zygosity_state == 'HOMO':
-				if cag_key == self.genotype_flags['Primary_Allele'][1]:
+				if cag_key == self.genotype_flags['PrimaryAllele'][1]:
 					self.cag_intermediate[0] = second_pass_estimate[0]
 					self.cag_intermediate[1] = second_pass_estimate[1]
 			if self.zygosity_state == 'HETERO':
-				if cag_key == self.genotype_flags['Primary_Allele'][1]:
+				if cag_key == self.genotype_flags['PrimaryAllele'][1]:
 					self.cag_intermediate[0] = second_pass_estimate[0]
-				if cag_key == self.genotype_flags['Secondary_Allele'][1]:
+				if cag_key == self.genotype_flags['SecondaryAllele'][1]:
 					self.cag_intermediate[1] = second_pass_estimate[0]
 
-
+		##
+		## Generate object and return
 		cag_genotype = [self.cag_intermediate[0],self.cag_intermediate[1]]
-		if threshold_bias: return cag_genotype
-		else: return genotype_pass, cag_genotype
+		return fail_state, cag_genotype
 
-	def generate_report(self):
+	def somatic_calculations(self, genotype):
+		"""
+		Fill this out later
+		:param genotype:
+		:return:
+		"""
 
 		##
-		## Mini function to generate the report to be written in sample folder
-		## And later utilised in the 'instance wide' report
+		## Create mosaicism investigator object to begin calculation prep
+		## Takes raw 200x20 dist and slices into 20 discrete 200d arrays
+		## Orders into a dataframe with CCG<val> labels
+		## Scrapes appropriate values for SomMos calculations
+		mosaicism_object = MosaicismInvestigator(genotype, self.forward_distribution)
+		ccg_slices = mosaicism_object.chunks(200)
+		ccg_ordered = mosaicism_object.arrange_chunks(ccg_slices)
+		allele_values = mosaicism_object.get_nvals(ccg_ordered, genotype)
 
-		report = [self.genotype_flags['Primary_Allele'],
-				  self.genotype_flags['Secondary_Allele'],
-				  self.genotype_flags['CCGZyg_disconnect'],
-				  self.genotype_flags['CCGExpansion_skew'],
-				  self.genotype_flags['CCGPeak_ambiguous'],
-				  self.genotype_flags['CCGDensity_ambiguous'],
-				  self.genotype_flags['CCGRecall_warning'],
-				  self.genotype_flags['CCGPeak_oob'],
-				  self.genotype_flags['CAGRecall_warning'],
-				  self.genotype_flags['CAGConsensusSpread_warning'],
-				  self.genotype_flags['FPSP_Disconnect']]
+		##
+		## With these values, we can calculate and return
+		allele_calcs = mosaicism_object.calculate_mosaicism(allele_values)
+
+		##
+		## Generate a padded distribution (aligned to N=GTYPE)
+		padded_distro = mosaicism_object.distribution_padder(ccg_ordered, genotype)
+
+		##
+		## Combine calculation dictionary and distribution into object, return
+		mosaicism_values = [allele_calcs, padded_distro]
+		return mosaicism_values
+
+	def generate_report(self):
+		"""
+		Mini function for report generation.. fill this out later
+		:return:
+		"""
+
+		report = [self.genotype_flags['PrimaryAllele'],
+				  self.genotype_flags['SecondaryAllele'],
+				  self.genotype_flags['CCGZygDisconnect'],
+				  self.genotype_flags['CCGExpansionSkew'],
+				  self.genotype_flags['CCGPeakAmbiguous'],
+				  self.genotype_flags['CCGDensityAmbiguous'],
+				  self.genotype_flags['CCGRecallWarning'],
+				  self.genotype_flags['CCGPeakOOB'],
+				  self.genotype_flags['CAGRecallWarning'],
+				  self.genotype_flags['CAGConsensusSpreadWarning'],
+				  self.genotype_flags['FPSPDisconnect'],
+				  self.genotype_flags['PrimaryMosaicism'],
+				  self.genotype_flags['SecondaryMosaicism']]
 
 		return report
 
 	def get_report(self):
-
+		"""
+		Mini function for report generation
+		:return:
+		"""
 		return self.gtype_report
 
-class PredictionTwoPass:
-	def __init__(self, prediction_path, input_distribution, target_peak_count, graph_parameters):
+class SequenceTwoPass:
+	def __init__(self, prediction_path, input_distribution, peak_target, graph_parameters):
 		"""
-		Intro spiel for two-pass object
-		fill this out..
+		Class that will be used as an object for each genotyping stage of the GenotypePrediction pipe
+		Each function within this class has it's own doctstring for further explanation
+		This class is called into an object for each of CCG/CAG deterministic stages
+
+		:param prediction_path: Output path to save all resultant files from this process
+		:param input_distribution: Distribution to put through the two-pass (CAG or CCG..)
+		:param peak_target: Number of peaks we expect to see in this current distribution
+		:param graph_parameters: Parameters (names of axes etc..) for saving results to graph
 		"""
+
 		##
-		## Variables for the instance of this object
+		## Variables for this instance of this object
 		self.prediction_path = prediction_path
 		self.input_distribution = input_distribution
-		self.target_peak_count = target_peak_count
+		self.peak_target = peak_target
 		self.bin_count = graph_parameters[0]
 		self.filename = graph_parameters[1]
 		self.graph_title = graph_parameters[2]
@@ -418,256 +518,370 @@ class PredictionTwoPass:
 		self.instance_parameters = {}
 
 		##
-		## Warnings raised during processing of this instance
+		## Potential warnings raised in this instance
 		self.density_ambiguity = False
 		self.expansion_skew = False
-		self.peak_ambiguous = False
+		self.peak_ambiguity = False
 
 	def histogram_generator(self, filename, graph_title, axes, plot_flag):
+		"""
+		Generate histogrm of kernel density estimation for this instance of 2PA
+		:param filename: Filename for graph to be saved as..
+		:param graph_title: self explanatory
+		:param axes: self explanatory
+		:param plot_flag: CCG? Plot KDE. CAG? Don't.
+		:return: histogram, bins
+		"""
 
-		density_histo, density_bins = np.histogram(self.input_distribution, bins=self.bin_count, density=True)
+		##
+		## Generate KDE histogram and plot to graph
+		hist, bins = np.histogram(self.input_distribution, bins=self.bin_count, density=True)
 		if plot_flag:
-			pyplot.figure(figsize=(10,6))
-			bin_width = 0.7 * (density_bins[1] - density_bins[0])
-			center = (density_bins[:-1] + density_bins[1:]) / 2
-			pyplot.title(graph_title)
-			pyplot.xlabel(axes[0])
-			pyplot.ylabel(axes[1])
-			pyplot.bar(center, density_histo, width=bin_width)
-			pyplot.savefig(os.path.join(self.prediction_path, filename), format='png')
-			pyplot.close()
+			plt.figure(figsize=(10,6))
+			bin_width = 0.7 * (bins[1] - bins[0])
+			center = (bins[:-1] + bins[1:]) / 2
+			plt.title(graph_title)
+			plt.xlabel(axes[0])
+			plt.ylabel(axes[1])
+			plt.bar(center, hist, width=bin_width)
+			plt.savefig(os.path.join(self.prediction_path, filename), format='png')
+			plt.close()
 
-		density_frequency = Counter(density_histo)
+		##
+		## Check the number of densities that exist within our histogram
+		## If there are many (>2) values that are very low density (i.e. relevant)
+		## then raise the flag for density ambiguity -- there shouldn't be many values so issue with data
+		density_frequency = Counter(hist)
 		for key, value in density_frequency.iteritems():
 			if not key == np.float64(0.0) and value > 2:
 				self.density_ambiguity = True
 
-		return density_histo, density_bins
+		##
+		## Return histogram and bins to where this function was called
+		return hist, bins
 
 	@staticmethod
-	def drop_calc(distribution, peak_estimate, peak_index):
-
+	def peak_clarity(peak_target, hist_list, major_bin, major_sparsity, minor_bin=None, minor_sparsity=None):
 		"""
-		Submethod used to determine % drop around a peak_estimate
-		if the drop of nm1/np1 is < 40%, we're not happy it's a clean peak
+		Function to determine how clean a peak is (homo/hetero)
+		Look at densities around each supposed peak, and if the value is close then increment a count
+		if the count is above a threshold, return False to indicate failure (and raise a flag)
+		:param peak_target: hetero/homo
+		:param hist_list: list of histogram under investigation
+		:param major_bin: bin of hist of major peak
+		:param major_sparsity: sparsity value of that
+		:param minor_bin: bin of hist of minor peak
+		:param minor_sparsity: sparsity value of that
+		:return: True/False
 		"""
 
-		nm1 = peak_index-1
-		np1 = peak_index+1
-		peak_nm1 = distribution[nm1]
-		peak_np1 = distribution[np1]
-		nm1_drop = ((peak_estimate - peak_nm1) / peak_estimate) * 100
-		np1_drop = ((peak_estimate - peak_np1) / peak_estimate) * 100
-
-		for drop in [nm1_drop, np1_drop]:
-			if drop < 40.00:
-				return 1
-			else:
-				return 0
-
-	def investigate_spread(self, inspection_failure=False):
-
-		##
-		## Function to investigate how spread a CAG distribution is
-		## Used as a pre-screen since CAG distributions are much longer (200 vs 20)
-		## And mosaicism/etc is more prevalent in CAG distributions
-
-		max_variance = np.var(self.input_distribution) / max(self.input_distribution)
-		if max_variance < 20.00:
-			inspection_failure = True
-
-		return inspection_failure
-
-	@staticmethod
-	def generate_consensus(forward_dist, reverse_dist):
-
-		##
-		## For each position in both fw/rv
-		## total up readcount, produce into 'consensus' distr
-		consensus = []
-		for f, r in zip(forward_dist, reverse_dist):
-			c = f + r
-			consensus.append(c)
-		return np.asarray(consensus)
+		clarity_count = 0
+		if peak_target == 1:
+			major_slice = hist_list[major_bin - 2:major_bin + 2]
+			for density in major_slice:
+				if np.isclose(major_sparsity, density):
+					clarity_count += 1
+			if clarity_count > 3:
+				return False
+		if peak_target == 2:
+			major_slice = hist_list[major_bin - 2:major_bin + 2]
+			minor_slice = hist_list[minor_bin - 2:minor_bin + 2]
+			for density in major_slice:
+				if np.isclose(major_sparsity, density):
+					clarity_count += 1
+			for density in minor_slice:
+				if np.isclose(minor_sparsity, density):
+					clarity_count += 1
+			if clarity_count > 5:
+				return False
+		return True
 
 	def density_estimation(self, plot_flag):
+		"""
+		Denisity estimate for a given input distribution (self.input_distribution)
+		Use KDE to determine roughly where peaks should be located, peak distances, etc
+		Plot graphs for visualisation, return information to origin of call
+		:param plot_flag: do we plot a graph or not? (CCG:Yes,CAG:No)
+		:return: {dictionary of estimated attributes for this input}
+		"""
 
 		##
-		## Take distro from input (to this object instance)
-		## List for indexing functions; major = normal peak; minor = expanded peak
+		## Set up variables for this instance's run of density estimation
+		## and generate a dictionary to be modified/returned
 		distro_list = list(self.input_distribution)
-		major_estimate = None
-		minor_estimate = None
-		peak_distance = None
-		peak_threshold = None
+		major_estimate = None; minor_estimate = None
+		peak_distance = None; peak_threshold = None
+		estimated_attributes = {'PrimaryPeak':major_estimate,
+								'SecondaryPeak':minor_estimate,
+								'PeakDistance':peak_distance,
+								'PeakThreshold':peak_threshold}
 
 		##
-		## Create dictionary for variables to returned
-		estimated_attributes = {'PrimaryPeak': major_estimate,
-								'SecondaryPeak': minor_estimate,
-								'PeakDistance': peak_distance,
-								'PeakThreshold': peak_threshold}
+		## Begin density estimation!
+		## By default, runs in heterozygous assumption
+		## If instance requires homozygous then tailor output instead of re-running
+		major_estimate = max(self.input_distribution); major_index = distro_list.index(major_estimate)
+		minor_estimate = max(n for n in distro_list if n!=major_estimate); minor_index = distro_list.index(minor_estimate)
 
 		##
-		## Begin estimating density for this distribution
-		## Default behaviour is to do everything as if heterozygous distribution
-		## If this is not required, only output is tailored (least computational work)
-		major_estimate = max(self.input_distribution)
-		major_index = distro_list.index(major_estimate)
-		minor_estimate = max(n for n in distro_list if n!=major_estimate)
-		minor_index = distro_list.index(minor_estimate)
-
-		## Check that major(n-1) is not minor peak
-		## Raise warning flag if this is the case
+		## Check that N-1 of <MAJOR> is not <MINOR> (i.e. slippage)
+		## If so, correct for minor == 3rd highest and raise error flag!
 		if minor_index == major_index-1:
-			real_minor_estimate = max(n for n in distro_list if n!=major_estimate and n!=minor_estimate)
-			real_minor_index = distro_list.index(real_minor_estimate)
-			minor_estimate = real_minor_estimate
-			minor_index = real_minor_index
+			literal_minor_estimate = max(n for n in distro_list if n!=major_estimate and n!=minor_estimate)
+			literal_minor_index = distro_list.index(literal_minor_estimate)
+			minor_estimate = literal_minor_estimate
+			minor_index = literal_minor_index
 			self.expansion_skew = True
 
 		##
-		## Density Histogram
+		## Actual execution of the Kernel Density Estimation histogram
 		hist, bins = self.histogram_generator(self.filename, self.graph_title, self.axes, plot_flag)
-		histo_list = list(hist)
+		hist_list = list(hist)
 
 		##
-		## Bins is len(hist+1) & 0 indexed.. correct
-		major_estimate_bin = np.digitize(major_estimate, bins)-2
-		minor_estimate_bin = np.digitize(minor_estimate, bins)-1
+		## Determine which bin in the density histogram our estimate values reside within
+		## -1 because for whatever reason np.digitize adds one to the literal index
+		major_estimate_bin = np.digitize([major_estimate], bins)-2
+		minor_estimate_bin = np.digitize([minor_estimate], bins)-1
 
 		##
-		## If two peaks are identical sparsity, set it as such
-		## Otherwise, major = most sparse, minor = 2nd most sparse
-		if histo_list[major_estimate_bin] == histo_list[minor_estimate_bin]:
+		## Relevant densities depending on zygosity of the current sample
+		major_estimate_sparsity = None; minor_estimate_sparsity = None
+		if self.peak_target == 1:
 			major_estimate_sparsity = min(n for n in hist if n!=0)
-			minor_estimate_sparsity = major_estimate_sparsity
-		else:
+			minor_estimate_sparsity = min(n for n in hist if n!=0)
+			peak_distance = 0
+			if not self.peak_clarity(self.peak_target, hist_list, major_estimate_bin, major_estimate_sparsity):
+				self.peak_ambiguity = True
+		if self.peak_target == 2:
 			major_estimate_sparsity = min(n for n in hist if n!=0)
 			minor_estimate_sparsity = min(n for n in hist if n!=0 and n!=major_estimate_sparsity)
+			peak_distance = np.absolute(major_index - minor_index)
+			if not self.peak_clarity(self.peak_target, hist_list, major_estimate_bin, major_estimate_sparsity, minor_estimate_bin, minor_estimate_sparsity):
+				self.peak_ambiguity = True
 
 		##
-		## Peak Distance
-		peak_distance = np.absolute(major_index-minor_index)
-
-		##
-		## Multiple low densities within distribution check
+		## Check for multiple low densities in distribution
 		fuzzy_count = 0
-		for density in histo_list:
+		for density in hist_list:
 			if np.isclose(major_estimate_sparsity, density):
 				fuzzy_count+=1
 		if fuzzy_count > 3:
 			self.density_ambiguity = True
 
 		##
-		## Peak clarity check
-		## Slice around peaks, check fuzzy similarity of densities
-		clarity_count = 0
-		major_slice = histo_list[major_estimate_bin-2:major_estimate_bin+2]
-		minor_slice = histo_list[minor_estimate_bin-2:minor_estimate_bin+2]
-		for density in major_slice:
-			if np.isclose(major_estimate_sparsity, density):
-				clarity_count+=1
-		for density in minor_slice:
-			if np.isclose(minor_estimate_sparsity, density):
-				clarity_count+=1
-		if clarity_count > 4:
-			self.peak_ambiguous = True
+		## Determine Thresholds for this instance sample
+		## TODO MORE THRESHOLD MODIFIERS
+		peak_threshold = 0.50
+		if self.expansion_skew: peak_threshold -= 0.05
+		if self.density_ambiguity: peak_threshold -= 0.075
+		if self.peak_ambiguity: peak_threshold -= 0.10
 
 		##
-		## Threshold setting
-		## Peaks are unclear? Alter threshold accordingly
-		major_drop_evaluation = self.drop_calc(self.input_distribution, major_estimate, major_index)
-		minor_drop_evaluation = self.drop_calc(self.input_distribution, minor_estimate, minor_index)
-		evaluation_total = major_drop_evaluation+minor_drop_evaluation
-		if evaluation_total == 2: peak_threshold = 0.45
-		if evaluation_total == 1: peak_threshold = 0.55
-		if evaluation_total == 0: peak_threshold = 0.65
-
-		##
-		## if histogram[estimate's bin] == value found from sparsity, ok
-		## increment index from 0 indexed into real CCG val
-		## create objects of rounded -- precision not requried to 100s of 0.0
-		histogram_derived_major_estimate = np.around(histo_list[major_estimate_bin], 15)
-		sparsity_derived_major_estimate = np.around(major_estimate_sparsity, 15)
-		histogram_derived_minor_estimate = np.around(histo_list[minor_estimate_bin], 15)
-		sparsity_derived_minor_estimate = np.around(minor_estimate_sparsity, 15)
-
-		if self.target_peak_count == 1:
-			if histogram_derived_major_estimate == sparsity_derived_major_estimate:
-				estimated_attributes['PrimaryPeak'] = major_index+1
-				estimated_attributes['SecondaryPeak'] = major_index+1
-				estimated_attributes['PeakDistance'] = 0
-				estimated_attributes['PeakThreshold'] = peak_threshold
-		if self.target_peak_count == 2:
-			if (histogram_derived_major_estimate == sparsity_derived_major_estimate) and (histogram_derived_minor_estimate == sparsity_derived_minor_estimate):
-				estimated_attributes['PrimaryPeak'] = major_index+1
-				estimated_attributes['SecondaryPeak'] = minor_index+1
-				estimated_attributes['PeakDistance'] = peak_distance-1
-				estimated_attributes['PeakThreshold'] = peak_threshold
+		## Preparing estimated attributes for return
+		if self.peak_target == 1:
+			estimated_attributes['PrimaryPeak'] = major_index+1
+			estimated_attributes['SecondaryPeak'] = major_index+1
+		if self.peak_target == 2:
+			estimated_attributes['PrimaryPeak'] = major_index+1
+			estimated_attributes['SecondaryPeak'] = minor_index+1
+		estimated_attributes['PeakDistance'] = peak_distance
+		estimated_attributes['PeakThreshold'] = peak_threshold
 
 		return estimated_attributes
 
-	def differential_peaks(self, attribute_dict, inherited_parameters, threshold_bias):
+	def differential_peaks(self, first_pass, fod_params, threshold_bias, fail_state=False, fod_recall=False):
+		"""
+		Function which takes in parameters gathered from density estimation
+		and applies them to a First Order Differential peak detection algorithm
+		to more precisely determine the peak (and thus, genotype) of a sample
+		:param first_pass: Dictionary of results from KDE
+		:param fod_params: Parameters for graphs made in this function
+		:param threshold_bias: Bool for whether this call is a re-call or not (lower threshold if True)
+		:param fail_state: did this FOD fail or not?
+		:param fod_recall: do we need to do a local re-call?
+		:return: dictionary of results from KDE influenced FOD
+		"""
 
 		##
-		## Get relevance distribution info from previous density pass
-		## If threshold_bias is true, we're in a re-call, reduce threshold
-		## If threshold happens to go < 0, set to 0 (why would it ever get that far?)
-
-		peak_distance = attribute_dict['PeakDistance']
-		if not peak_distance:
-			peak_distance = 1
-		peak_threshold = attribute_dict['PeakThreshold']
-		if threshold_bias:
-			peak_threshold += 0.05
-			peak_threshold = max(peak_threshold, 1.00)
+		## Get Peak information from the KDE dictionary
+		## If threshold_bias == True, this is a recall, so lower threshold
+		## but ensure the threshold stays within the expected ranges
+		peak_distance = first_pass['PeakDistance']
+		peak_threshold = first_pass['PeakThreshold']
+		if threshold_bias or fod_recall:
+			first_pass['PeakThreshold'] -= 0.10
+			peak_threshold -= 0.10
+			peak_threshold = max(peak_threshold,0.05)
 
 		##
-		## Graph parameters
-		linspace_dim = inherited_parameters[0]
-		graph_title = inherited_parameters[1]
-		axes = inherited_parameters[2]
-		filename = inherited_parameters[3]
+		## Graph Parameters expansion
+		linspace_dimensionality = fod_params[0]
+		graph_title = fod_params[1]
+		axes = fod_params[2]
+		filename = fod_params[3]
 
 		##
-		## Create plane for calculation/plotting
-		x = np.linspace(linspace_dim[0],linspace_dim[1],linspace_dim[2])
+		## Create planar space for plotting
+		## Send paramters to FOD
+		## Increment results by 1 (to resolve 0 indexing)
+		x = np.linspace(linspace_dimensionality[0], linspace_dimensionality[1], linspace_dimensionality[2])
 		y = np.asarray(self.input_distribution)
-		peak_indexes = peakutils.indexes(y, thres=peak_threshold, min_dist=peak_distance)
+		peak_indexes = peakutils.indexes(y, thres=peak_threshold, min_dist=peak_distance-1)
 		fixed_indexes = peak_indexes+1
 
 		##
-		## Plot graph
-		##TODO plot peak label onto graph
-		pyplot.figure(figsize=(10,6))
-		pyplot.title(graph_title)
-		pyplot.xlabel(axes[0])
-		pyplot.ylabel(axes[1])
+		## Plot Graph!
+		## TODO plot peak label onto graph for QOL
+		plt.figure(figsize=(10,6))
+		plt.title(graph_title)
+		plt.xlabel(axes[0])
+		plt.ylabel(axes[1])
 		pplot(x,y,peak_indexes)
-		pyplot.savefig(os.path.join(self.prediction_path, filename), format='png')
-		pyplot.close()
-
-		if self.target_peak_count == 1:
-			attribute_dict['PrimaryPeak'] = fixed_indexes[0]
-			attribute_dict['SecondaryPeak'] = fixed_indexes[0]
-		if self.target_peak_count == 2:
-			attribute_dict['PrimaryPeak'] = fixed_indexes[0]
-			attribute_dict['SecondaryPeak'] = fixed_indexes[1]
-
-		return attribute_dict
-
-	def set_distribution(self, new_distribution):
+		plt.savefig(os.path.join(self.prediction_path,filename), format='png')
+		plt.close()
 
 		##
-		## In the case where we needed to make a consensus sequence
-		## the object's input distribution is changed to the new distribution here
-		self.input_distribution = new_distribution
+		## Try to assign peaks to the appropriate indexes
+		## If there is an IndexError, we have too few peaks called
+		## I.E. failure, and we need to lower the threshold (re-call)
+		if self.peak_target == 1:
+			try:
+				first_pass['PrimaryPeak'] = fixed_indexes[0]
+				first_pass['SecondaryPeak'] = fixed_indexes[0]
+			except IndexError:
+				fail_state = True
+
+		if self.peak_target == 2:
+			try:
+				first_pass['PrimaryPeak'] = fixed_indexes[0]
+				first_pass['SecondaryPeak'] = fixed_indexes[1]
+			except IndexError:
+				fail_state = True
+
+		return fail_state, first_pass
 
 	def get_warnings(self):
+		"""
+		Function which generates a dictionary of warnings encountered in this instance of SequenceTwoPass
+		Dictionary is later sorted into the GenotypePrediction equivalency for returning into a report file
+		:return: {warnings}
+		"""
 
-		##
-		## Method for returning warnings raised in this instance of the object
-		return {'Expansion_skew': self.expansion_skew,
-				'Peak_ambiguous':self.peak_ambiguous,
-				'Density_ambiguous':self.density_ambiguity}
+		return {'ExpansionSkew':self.expansion_skew,
+				'PeakAmbiguity':self.peak_ambiguity,
+				'DensityAmbiguity':self.density_ambiguity}
+
+
+class MosaicismInvestigator:
+
+	def __init__(self, genotype, distribution):
+
+		"""
+		Class with functions for investigation somatic mosaicism
+		"""
+
+		self.genotype = genotype
+		self.distribution = distribution
+
+	def chunks(self, n):
+
+		"""
+		Yield successive n-sized chunks from input distribution.
+		"""
+
+		for i in xrange(0, len(self.distribution), n):
+			yield self.distribution[i:i + n]
+
+	@staticmethod
+	def arrange_chunks(ccg_slices):
+
+		"""
+		Take distribution lists that have been split into 20 CCG
+		Organise into a pandas dataframe for later use
+		"""
+
+		arranged_rows = []
+		for ccg_value in ccg_slices:
+			column = []
+			for i in range(0, len(ccg_value)):
+				column.append(ccg_value[i])
+			arranged_rows.append(column)
+
+		df = pd.DataFrame({'CCG1': arranged_rows[0], 'CCG2': arranged_rows[1], 'CCG3': arranged_rows[2],
+						   'CCG4': arranged_rows[3], 'CCG5': arranged_rows[4], 'CCG6': arranged_rows[5],
+						   'CCG7': arranged_rows[6], 'CCG8': arranged_rows[7], 'CCG9': arranged_rows[8],
+						   'CCG10': arranged_rows[9], 'CCG11': arranged_rows[10], 'CCG12': arranged_rows[11],
+						   'CCG13': arranged_rows[12], 'CCG14': arranged_rows[13], 'CCG15': arranged_rows[14],
+						   'CCG16': arranged_rows[15], 'CCG17': arranged_rows[16], 'CCG18': arranged_rows[17],
+						   'CCG19': arranged_rows[18], 'CCG20': arranged_rows[19]})
+
+		return df
+
+	@staticmethod
+	def get_nvals(df, input_allele):
+
+		"""
+		Take specific CCG sub-list from dataframe
+		based on genotype taken from GenotypePrediction
+		Extract n-1/n/n+1
+		"""
+		allele_nvals = {}
+		cag_value = input_allele[0]
+		ccgframe = df['CCG'+str(input_allele[1])]
+
+		try:
+			nminus = str(ccgframe[int(cag_value)-2])
+			nvalue = str(ccgframe[int(cag_value)-1])
+			nplus = str(ccgframe[int(cag_value)])
+		except KeyError:
+			log.info('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'N-Value scraping Out of Bounds.'))
+
+		allele_nvals['NMinusOne'] = nminus
+		allele_nvals['NValue'] = nvalue
+		allele_nvals['NPlusOne'] = nplus
+
+		return allele_nvals
+
+	@staticmethod
+	def calculate_mosaicism(allele_values):
+
+		"""
+		Add additional calculations here..
+		"""
+
+		nmo = allele_values['NMinusOne']
+		n = allele_values['NValue']
+		npo = allele_values['NPlusOne']
+		nmo_over_n = 0
+		npo_over_n = 0
+
+		try:
+			nmo_over_n = int(nmo) / int(n)
+			npo_over_n = int(npo) / int(n)
+		except ZeroDivisionError:
+			log.info('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,' Divide by 0 attempted in Mosaicism Calculation.'))
+
+		calculations = {'NMinusOne':nmo,'NValue':n,'NPlusOne':npo,'NMinusOne-Over-N': nmo_over_n, 'NPlusOne-Over-N': npo_over_n}
+		return calculations
+
+	@staticmethod
+	def distribution_padder(ccg_dataframe, genotype):
+
+		"""
+		Ensure that all distribution's N will be in the same position
+		in a null-padded larger distribution
+		for manual comparison of larger somatic mosaicism trends
+		"""
+
+		unpadded_distribution = list(ccg_dataframe['CCG'+str(genotype[1])])
+		n_value = genotype[0]
+
+		anchor = 203
+		anchor_to_left = anchor - n_value
+		anchor_to_right	= anchor_to_left + 200
+		left_buffer = ['-'] * anchor_to_left
+		right_buffer = ['-'] * (403-anchor_to_right)
+		padded_distribution = left_buffer + unpadded_distribution + right_buffer
+
+		return padded_distribution

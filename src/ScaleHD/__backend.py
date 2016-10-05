@@ -323,7 +323,7 @@ class DataClump(dict):
 		self.__dict__ = self
 
 
-class DataLoader():
+class DataLoader:
 
 	def __init__(self, database, descriptor):
 
@@ -437,31 +437,35 @@ def extract_data(input_data_directory):
 
 def sequence_pairings(data_path, instance_rundir, workflow_type):
 
+	##
+	## Get input files from data path
+	## Sort so that ordering isn't screwy on linux
 	input_files = glob.glob(os.path.join(data_path, '*'))
+	sorted_input = sorted(input_files)
 	sequence_pairs = []
 
-	file_count = len(input_files)
+	file_count = len(sorted_input)
 	if not file_count % 2 == 0:
 		log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'I/O: Non-even number of input files specified. Cannot continue without pairing!'))
 		sys.exit(2)
 
 	##
 	## Optimise so code isn't recycled
-	for i in range(0, len(input_files), 2):
+	for i in range(0, len(sorted_input), 2):
 		file_pair = {}
-		forward_data = input_files[i]
-		reverse_data = input_files[i+1]
+		forward_data = sorted_input[i]
+		reverse_data = sorted_input[i+1]
 
 		##
 		## Check forward ends with R1
-		forward_data_name = input_files[i].split('/')[-1].split('.')[0]
+		forward_data_name = sorted_input[i].split('/')[-1].split('.')[0]
 		if not forward_data_name.endswith('R1'):
 			log.error('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'I/O: Forward input file does not end in _R1. ', forward_data))
 			sys.exit(2)
 
 		##
 		## Check reverse ends with R2
-		reverse_data_name = input_files[i+1].split('/')[-1].split('.')[0]
+		reverse_data_name = sorted_input[i+1].split('/')[-1].split('.')[0]
 		if not reverse_data_name.endswith('R2'):
 			log.error('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'I/O: Reverse input file does not end in _R2. ', reverse_data))
 			sys.exit(2)
@@ -605,7 +609,7 @@ def sanitise_trimming_output(input_object, input_list):
 		cleanse_target = input_list[input_object].split(':')[1].lstrip().rstrip()
 		return cleanse_target
 	else:
-		return 'N/A'
+		return '*'
 
 def sanitise_alignment_output(input_object, input_list, stage):
 
@@ -618,4 +622,4 @@ def sanitise_alignment_output(input_object, input_list, stage):
 			cleanse_target = input_list[input_object].lstrip().rstrip().split(' ')[0:2]
 			return ' '.join(cleanse_target)
 	else:
-		return 'N/A'
+		return '*'
