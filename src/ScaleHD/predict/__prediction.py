@@ -436,7 +436,7 @@ class GenotypePrediction:
 
 	def somatic_calculations(self, genotype):
 		"""
-		Fill this out later
+		Fill this out later haha
 		:param genotype:
 		:return:
 		"""
@@ -450,7 +450,7 @@ class GenotypePrediction:
 		ccg_slices = mosaicism_object.chunks(200)
 		ccg_ordered = mosaicism_object.arrange_chunks(ccg_slices)
 		allele_values = mosaicism_object.get_nvals(ccg_ordered, genotype)
-
+		print ''
 		##
 		## With these values, we can calculate and return
 		allele_calcs = mosaicism_object.calculate_mosaicism(allele_values)
