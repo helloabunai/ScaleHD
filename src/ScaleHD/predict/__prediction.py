@@ -591,18 +591,17 @@ class SequenceTwoPass:
 		:param minor_sparsity: sparsity value of that
 		:return: True/False
 		"""
-
 		clarity_count = 0
 		if peak_target == 1:
-			major_slice = hist_list[major_bin - 2:major_bin + 2]
+			major_slice = hist_list[int(major_bin) - 2:int(major_bin) + 2]
 			for density in major_slice:
 				if np.isclose(major_sparsity, density):
 					clarity_count += 1
 			if clarity_count > 3:
 				return False
 		if peak_target == 2:
-			major_slice = hist_list[major_bin - 2:major_bin + 2]
-			minor_slice = hist_list[minor_bin - 2:minor_bin + 2]
+			major_slice = hist_list[int(major_bin) - 2:int(major_bin) + 2]
+			minor_slice = hist_list[int(minor_bin) - 2:int(minor_bin) + 2]
 			for density in major_slice:
 				if np.isclose(major_sparsity, density):
 					clarity_count += 1
