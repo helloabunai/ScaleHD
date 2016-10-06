@@ -436,9 +436,14 @@ class GenotypePrediction:
 
 	def somatic_calculations(self, genotype):
 		"""
-		Fill this out later haha
-		:param genotype:
-		:return:
+		Function for basic somatic mosaicism calculations; featureset will be expanded upon later
+		For now; N-1 / N, N+1 / N calculations are executed on arranged contigs where the N value is known
+		(from genotype prediction -- assumed to be correct)
+		In addition, the read count distribution for the forward and reverse reads in a sample pair are both
+		aligned so that their N value is in the same position; lets end-user investigate manual distribution
+		data quality etc.
+		:param genotype: value of predicted genotype from the SVM/2PA stages of GenotypePrediction()
+		:return: mosaicism_values; results of simple sommos calculations :))))))
 		"""
 
 		##
@@ -450,7 +455,7 @@ class GenotypePrediction:
 		ccg_slices = mosaicism_object.chunks(200)
 		ccg_ordered = mosaicism_object.arrange_chunks(ccg_slices)
 		allele_values = mosaicism_object.get_nvals(ccg_ordered, genotype)
-		print ''
+
 		##
 		## With these values, we can calculate and return
 		allele_calcs = mosaicism_object.calculate_mosaicism(allele_values)
@@ -466,9 +471,15 @@ class GenotypePrediction:
 
 	def generate_report(self):
 		"""
-		Mini function for report generation.. fill this out later
-		:return:
+		Function which will, eventually, calculate the confidence score of this genotype prediction
+		by taking into account flags raised, and meta-data about the current sample distribution etc
+		:return: For now, a list of report flags. eventually, probably a dictionary with more info within
 		"""
+
+		##
+		## TODO Calculate genotype confidence score based on flags, raw read count, density estimation clarity..
+		## TODO ..somatic mosaicism, how many times particular functions were re-called..
+		## TODO other factors to involve into the confidence scoring?
 
 		report = [self.genotype_flags['PrimaryAllele'],
 				  self.genotype_flags['SecondaryAllele'],
@@ -488,8 +499,8 @@ class GenotypePrediction:
 
 	def get_report(self):
 		"""
-		Mini function for report generation
-		:return:
+		Function to just return the report for this class object from the point of calling
+		:return: a report. wow
 		"""
 		return self.gtype_report
 
@@ -774,20 +785,21 @@ class SequenceTwoPass:
 
 
 class MosaicismInvestigator:
-
 	def __init__(self, genotype, distribution):
-
 		"""
-		Class with functions for investigation somatic mosaicism
+		A class which is called when the functions within are required for somatic mosaicism calculations
+		As of now there is only a basic implementation of somatic mosaicism studies but it's WIP
 		"""
 
 		self.genotype = genotype
 		self.distribution = distribution
 
 	def chunks(self, n):
-
 		"""
-		Yield successive n-sized chunks from input distribution.
+		Function which takes an entire sample's distribution (200x20) and split into respective 'chunks'
+		I.E. slice one distribution into contigs for each CCG (200x1 x 20)
+		:param n: number to slice the "parent" distribution into
+		:return: CHUNKZ
 		"""
 
 		for i in xrange(0, len(self.distribution), n):
@@ -795,10 +807,12 @@ class MosaicismInvestigator:
 
 	@staticmethod
 	def arrange_chunks(ccg_slices):
-
 		"""
-		Take distribution lists that have been split into 20 CCG
-		Organise into a pandas dataframe for later use
+		Function which takes the sliced contig chunks and orders them into a dataframe for ease of
+		interpretation later on in the application. Utilises pandas for the dataframe class since
+		it's the easiest to use.
+		:param ccg_slices: The sliced CCG contigs
+		:return: df: a dataframe which is ordered with appropriate CCG labels.
 		"""
 
 		arranged_rows = []
@@ -820,11 +834,12 @@ class MosaicismInvestigator:
 
 	@staticmethod
 	def get_nvals(df, input_allele):
-
 		"""
-		Take specific CCG sub-list from dataframe
-		based on genotype taken from GenotypePrediction
-		Extract n-1/n/n+1
+		Function to take specific CCG contig sub-distribution from dataframe
+		Extract appropriate N-anchored values for use in sommos calculations
+		:param df: input dataframe consisting of all CCG contig distributions
+		:param input_allele: genotype derived from GenotypePrediction (i.e. scrape target)
+		:return: allele_nvals: dictionary of n-1/n/n+1
 		"""
 		allele_nvals = {}
 		cag_value = input_allele[0]
@@ -845,9 +860,12 @@ class MosaicismInvestigator:
 
 	@staticmethod
 	def calculate_mosaicism(allele_values):
-
 		"""
-		Add additional calculations here..
+		Function to execute the actual calculations
+		Perhaps float64 precision is better? Might not matter for us
+		Also required to add additional calculations here to make the 'suite' more robust
+		:param allele_values: dictionary of this sample's n-1/n/n+1
+		:return: dictionary of calculated values
 		"""
 
 		nmo = allele_values['NMinusOne']
@@ -867,13 +885,14 @@ class MosaicismInvestigator:
 
 	@staticmethod
 	def distribution_padder(ccg_dataframe, genotype):
-
 		"""
-		Ensure that all distribution's N will be in the same position
-		in a null-padded larger distribution
-		for manual comparison of larger somatic mosaicism trends
+		Function to ensure all distribution's N will be anchored to the same position in a file
+		This is to allow the end user manual insight into the nature of the data (requested for now)
+		E.G. larger somatic mosaicism spreads/trends in a distribution + quick sample-wide comparison
+		:param ccg_dataframe: dataframe with all CCG contigs
+		:param genotype: genotype derived from GenotypePrediction i.e. scrape target
+		:return: distribution with appropriate buffers on either side so that N is aligned to same position as all others
 		"""
-
 		unpadded_distribution = list(ccg_dataframe['CCG'+str(genotype[1])])
 		n_value = genotype[0]
 
