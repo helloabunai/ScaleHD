@@ -549,19 +549,19 @@ def initialise_libraries(instance_params):
 		alignment = instance_params['sequence_alignment']
 		genotyping = instance_params['genotype_prediction']
 
-	if quality_control:
+	if quality_control == 'True':
 		try:which('fastqc')
 		except ScaleHDException: trigger=True
 		try:which('cutadapt')
 		except ScaleHDException: trigger=True
-	if alignment:
+	if alignment == 'True':
 		try:which('bowtie2')
 		except ScaleHDException: trigger=True
 		try:which('bowtie2-build')
 		except ScaleHDException: trigger=True
 		try:which('samtools')
 		except ScaleHDException: trigger=True
-	if genotyping:
+	if genotyping == 'True':
 		try:which('samtools')
 		except ScaleHDException: trigger=True
 

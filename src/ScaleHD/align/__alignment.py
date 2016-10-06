@@ -171,7 +171,7 @@ class SeqAlign:
 
 		filestring = sample_root + '\n'
 		filestring += data_string
-		csv_path = os.path.join(alignment_outdir,'RepeatDistribution.csv')
+		csv_path = os.path.join(alignment_outdir, sample_root+'_RepeatDistribution.csv')
 		csv_file = open(csv_path, 'w')
 		csv_file.write(filestring)
 		csv_file.close()

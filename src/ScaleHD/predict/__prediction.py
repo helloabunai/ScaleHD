@@ -6,7 +6,6 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
 ## Generic imports
-import sys
 import os
 import csv
 import peakutils
@@ -484,6 +483,35 @@ class GenotypePrediction:
 		## TODO ..somatic mosaicism, how many times particular functions were re-called..
 		## TODO other factors to involve into the confidence scoring?
 
+		##
+		## Hideous string based report for individual samples
+		## Will get changed at a later date
+		sample_name = self.prediction_path.split('/')[-2]
+		sample_report_name = os.path.join(self.prediction_path, sample_name+'QuickReport.txt')
+		sample_report = '{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}'.format('File Name', sample_name,
+										  'Primary Allele', self.genotype_flags['PrimaryAllele'],
+										  'Secondary Allele', self.genotype_flags['SecondaryAllele'],
+										  'Confidence', 'Work In Progress :)',
+										  '\nFlags', '',
+										  'CCG Zygosity Disconnect', self.genotype_flags['CCGZygDisconnect'],
+										  'CCG Expansion Skew', self.genotype_flags['CCGExpansionSkew'],
+										  'CCG Peak Ambiguity', self.genotype_flags['CCGPeakAmbiguous'],
+										  'CCG Density Ambiguity', self.genotype_flags['CCGDensityAmbiguous'],
+										  'CCG Recall Warning', self.genotype_flags['CCGRecallWarning'],
+										  'CCG Peak OOB', self.genotype_flags['CCGPeakOOB'],
+										  'CAG Recall Warning', self.genotype_flags['CAGRecallWarning'],
+										  'CAG Consensus Spread Warning', self.genotype_flags['CAGConsensusSpreadWarning'],
+										  'FPSP Disconnect', self.genotype_flags['FPSPDisconnect'])
+		sample_file = open(sample_report_name, 'w')
+		sample_file.write(sample_report)
+		sample_file.close()
+
 		report = [self.genotype_flags['PrimaryAllele'],
 				  self.genotype_flags['SecondaryAllele'],
 				  self.genotype_flags['CCGZygDisconnect'],
@@ -728,6 +756,8 @@ class SequenceTwoPass:
 		peak_threshold = first_pass['PeakThreshold']
 		if threshold_bias or fod_recall:
 			self.recall_count+=1
+			if self.recall_count > 5:
+				raise EnvironmentError('Re-called 5+ times. Possible incorrect reference alignment.')
 			first_pass['PeakThreshold'] -= 0.10
 			peak_threshold -= 0.10
 			peak_threshold = max(peak_threshold,0.05)

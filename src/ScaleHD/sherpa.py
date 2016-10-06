@@ -36,7 +36,6 @@ from . import predict
 THREADS = cpu_count()
 
 class ScaleHD:
-
 	def __init__(self):
 
 		"""
@@ -342,7 +341,7 @@ class ScaleHD:
 				except Exception, e:
 
 					print str(e)
-					log.info('{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on: ', sequence_label))
+					log.info('{}{}{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on ', sequence_label, ': ', str(e)))
 					continue
 
 	@staticmethod
