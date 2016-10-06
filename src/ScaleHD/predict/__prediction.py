@@ -86,6 +86,7 @@ class GenotypePrediction:
 							   'SecondaryAllele':[0,0],
 							   'PrimaryMosaicism':[],
 							   'SecondaryMosaicism':[],
+							   'RecallCount':0,
 							   'CCGZygDisconnect':False,
 							   'CCGExpansionSkew':False,
 							   'CCGPeakAmbiguous':False,
@@ -286,7 +287,8 @@ class GenotypePrediction:
 		ccg_inspector = SequenceTwoPass(prediction_path=self.prediction_path,
 										input_distribution=self.reverseccg_aggregate,
 										peak_target=peak_target,
-										graph_parameters=graph_parameters)
+										graph_parameters=graph_parameters,
+										zygosity_state = self.zygosity_state)
 
 		"""
 		!! Sub-Stage one !!
@@ -304,10 +306,10 @@ class GenotypePrediction:
 		Now we have our estimates from the KDE sub-stage, we can use these findings
 		in our FOD peak identification for more specific peak calling and thus, genotyping
 		"""
-		fod_param = [[0,19,20],'CCG Peaks',['CCG Value', 'Read Count'], 'CCGPeakDetection.png']
-		fod_failstate, second_pass = ccg_inspector.differential_peaks(first_pass, fod_param, threshold_bias)
+		fod_param = [[0,20,21],'CCG Peaks',['CCG Value', 'Read Count'], 'CCGPeakDetection.png']
+		fod_failstate, second_pass = ccg_inspector.differential_peaks(first_pass, fod_param, threshold_bias, contig_stage='CCG')
 		while fod_failstate:
-			fod_failstate, second_pass = ccg_inspector.differential_peaks(first_pass, fod_param, threshold_bias, fod_recall=True)
+			fod_failstate, second_pass = ccg_inspector.differential_peaks(first_pass, fod_param, threshold_bias, fod_recall=True, contig_stage='CCG')
 		differential_warnings = ccg_inspector.get_warnings()
 		self.update_flags(differential_warnings)
 
@@ -321,7 +323,7 @@ class GenotypePrediction:
 			fail_state = True
 
 		##
-		## Return whether this process passed or not, and the CURRENTLY PLACEHOLDER gtype
+		## Return whether this process passed or not, and the genotype
 		return fail_state, second_pass_estimate
 
 	@staticmethod
@@ -386,7 +388,8 @@ class GenotypePrediction:
 			cag_inspector = SequenceTwoPass(prediction_path=self.prediction_path,
 											input_distribution=distro_value,
 											peak_target=peak_target,
-											graph_parameters=graph_parameters)
+											graph_parameters=graph_parameters,
+											zygosity_state=self.zygosity_state)
 
 			##TODO CAG Spread investigation, do we bother?
 
@@ -404,7 +407,7 @@ class GenotypePrediction:
 			Now we have our estimates from the KDE sub-stage, we can use these findings
 			in our FOD peak identification for more specific peak calling and thus, genotyping
 			"""
-			fod_param = [[0,199,200],'CAG Peaks',['CAG Value', 'Read Count'], 'CAG'+str(cag_key)+'PeakDetection.png']
+			fod_param = [[0,200,201],'CAG Peaks (CCG'+str(cag_key)+')',['CAG Value', 'Read Count'], '{}{}{}'.format('CCG',str(cag_key),'-CAGPeakDetection.png')]
 			fod_failstate, second_pass = cag_inspector.differential_peaks(first_pass, fod_param, threshold_bias)
 			while fod_failstate:
 				fod_failstate, second_pass = cag_inspector.differential_peaks(first_pass, fod_param, threshold_bias, fod_recall=True)
@@ -505,7 +508,7 @@ class GenotypePrediction:
 		return self.gtype_report
 
 class SequenceTwoPass:
-	def __init__(self, prediction_path, input_distribution, peak_target, graph_parameters):
+	def __init__(self, prediction_path, input_distribution, peak_target, graph_parameters, zygosity_state):
 		"""
 		Class that will be used as an object for each genotyping stage of the GenotypePrediction pipe
 		Each function within this class has it's own doctstring for further explanation
@@ -515,6 +518,7 @@ class SequenceTwoPass:
 		:param input_distribution: Distribution to put through the two-pass (CAG or CCG..)
 		:param peak_target: Number of peaks we expect to see in this current distribution
 		:param graph_parameters: Parameters (names of axes etc..) for saving results to graph
+		:param zygosity_state: hetero/homozygous (labelling indexing issues require this)
 		"""
 
 		##
@@ -526,6 +530,7 @@ class SequenceTwoPass:
 		self.filename = graph_parameters[1]
 		self.graph_title = graph_parameters[2]
 		self.axes = graph_parameters[3]
+		self.zygosity_state = zygosity_state
 		self.instance_parameters = {}
 
 		##
@@ -533,6 +538,7 @@ class SequenceTwoPass:
 		self.density_ambiguity = False
 		self.expansion_skew = False
 		self.peak_ambiguity = False
+		self.recall_count = 0
 
 	def histogram_generator(self, filename, graph_title, axes, plot_flag):
 		"""
@@ -701,7 +707,7 @@ class SequenceTwoPass:
 
 		return estimated_attributes
 
-	def differential_peaks(self, first_pass, fod_params, threshold_bias, fail_state=False, fod_recall=False):
+	def differential_peaks(self, first_pass, fod_params, threshold_bias, fail_state=False, fod_recall=False, contig_stage=None):
 		"""
 		Function which takes in parameters gathered from density estimation
 		and applies them to a First Order Differential peak detection algorithm
@@ -711,6 +717,7 @@ class SequenceTwoPass:
 		:param threshold_bias: Bool for whether this call is a re-call or not (lower threshold if True)
 		:param fail_state: did this FOD fail or not?
 		:param fod_recall: do we need to do a local re-call?
+		:param contig_stage: for changing xlim of graphs based on CCG (20) or CAG (200)
 		:return: dictionary of results from KDE influenced FOD
 		"""
 
@@ -721,6 +728,7 @@ class SequenceTwoPass:
 		peak_distance = first_pass['PeakDistance']
 		peak_threshold = first_pass['PeakThreshold']
 		if threshold_bias or fod_recall:
+			self.recall_count+=1
 			first_pass['PeakThreshold'] -= 0.10
 			peak_threshold -= 0.10
 			peak_threshold = max(peak_threshold,0.05)
@@ -737,18 +745,31 @@ class SequenceTwoPass:
 		## Send paramters to FOD
 		## Increment results by 1 (to resolve 0 indexing)
 		x = np.linspace(linspace_dimensionality[0], linspace_dimensionality[1], linspace_dimensionality[2])
-		y = np.asarray(self.input_distribution)
+		buffered_y = np.asarray([0] + list(self.input_distribution))
+		y = self.input_distribution
 		peak_indexes = peakutils.indexes(y, thres=peak_threshold, min_dist=peak_distance-1)
 		fixed_indexes = peak_indexes+1
 
 		##
 		## Plot Graph!
-		## TODO plot peak label onto graph for QOL
+		## Set up dimensions for plotting
 		plt.figure(figsize=(10,6))
 		plt.title(graph_title)
 		plt.xlabel(axes[0])
 		plt.ylabel(axes[1])
-		pplot(x,y,peak_indexes)
+		##
+		## Set appropriate range size for CCG/CAG graph dimension
+		if contig_stage == 'CCG':
+			plt.xticks(np.arange(0,21,1))
+			plt.xlim(1,20)
+		if contig_stage == 'CAG':
+			plt.xticks(np.arange(0,201,1))
+			plt.xlim(1,200)
+		##
+		## Plot graph and identified peaks; label appropriately based on size of fixed_indexes
+		pplot(x,buffered_y,fixed_indexes)
+		try: plt.legend(['{}{}{}{}'.format('Genotype: ', str(fixed_indexes.item(0)),', ',str(fixed_indexes.item(1)))])
+		except IndexError: plt.legend(['{}{}'.format('Genotype: ', str(fixed_indexes.item(0)))])
 		plt.savefig(os.path.join(self.prediction_path,filename), format='png')
 		plt.close()
 
@@ -758,15 +779,15 @@ class SequenceTwoPass:
 		## I.E. failure, and we need to lower the threshold (re-call)
 		if self.peak_target == 1:
 			try:
-				first_pass['PrimaryPeak'] = fixed_indexes[0]
-				first_pass['SecondaryPeak'] = fixed_indexes[0]
+				first_pass['PrimaryPeak'] = fixed_indexes.item(0)
+				first_pass['SecondaryPeak'] = fixed_indexes.item(0)
 			except IndexError:
 				fail_state = True
 
 		if self.peak_target == 2:
 			try:
-				first_pass['PrimaryPeak'] = fixed_indexes[0]
-				first_pass['SecondaryPeak'] = fixed_indexes[1]
+				first_pass['PrimaryPeak'] = fixed_indexes.item(0)
+				first_pass['SecondaryPeak'] = fixed_indexes.item(1)
 			except IndexError:
 				fail_state = True
 
@@ -781,7 +802,8 @@ class SequenceTwoPass:
 
 		return {'ExpansionSkew':self.expansion_skew,
 				'PeakAmbiguity':self.peak_ambiguity,
-				'DensityAmbiguity':self.density_ambiguity}
+				'DensityAmbiguity':self.density_ambiguity,
+				'RecallCount':self.recall_count}
 
 
 class MosaicismInvestigator:
