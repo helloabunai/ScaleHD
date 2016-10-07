@@ -26,7 +26,6 @@ import pandas as pd
 from ..__backend import Colour as clr
 from ..__backend import DataLoader
 
-
 class GenotypePrediction:
 	def __init__(self, data_pair, prediction_path, training_data, instance_params):
 		"""
@@ -85,7 +84,9 @@ class GenotypePrediction:
 							   'SecondaryAllele':[0,0],
 							   'PrimaryMosaicism':[],
 							   'SecondaryMosaicism':[],
+							   'ThresholdUsed':0,
 							   'RecallCount':0,
+							   'PotentialHomozygousHaplotype':False,
 							   'CCGZygDisconnect':False,
 							   'CCGExpansionSkew':False,
 							   'CCGPeakAmbiguous':False,
@@ -132,6 +133,7 @@ class GenotypePrediction:
 		CAG distributions for these CCG distribution(s). The same generic functions will be called
 		for CAG determination, and results from CCG and CAG are combined to produce a genotype for this sample
 		"""
+
 		cag_failstate, cag_genotype = self.determine_cag_genotype()
 		while cag_failstate:
 			self.genotype_flags['CAGRecallWarning'] = True
@@ -248,10 +250,9 @@ class GenotypePrediction:
 		## However, for a QoL metric, compare fw/rv results. If match, good! If not, who cares!
 		if not forward_zygstate == reverse_zygstate:
 			self.genotype_flags['CCGZygDisconnect'] = True
-			return reverse_zygstate[2:-2]
 		else:
 			self.genotype_flags['CCGZyg_disconnect'] = False
-			return reverse_zygstate[2:-2]
+		return reverse_zygstate[2:-2]
 
 	def update_flags(self, target_updates):
 		"""
@@ -390,8 +391,6 @@ class GenotypePrediction:
 											graph_parameters=graph_parameters,
 											zygosity_state=self.zygosity_state)
 
-			##TODO CAG Spread investigation, do we bother?
-
 			"""
 			!! Sub-stage one !!
 			Now that we've made an object with the settings for this instance..
@@ -410,6 +409,8 @@ class GenotypePrediction:
 			fod_failstate, second_pass = cag_inspector.differential_peaks(first_pass, fod_param, threshold_bias)
 			while fod_failstate:
 				fod_failstate, second_pass = cag_inspector.differential_peaks(first_pass, fod_param, threshold_bias, fod_recall=True)
+			differential_warnings = cag_inspector.get_warnings()
+			self.update_flags(differential_warnings)
 
 			##
 			## Concatenate results into a sample-wide genotype format
@@ -494,20 +495,24 @@ class GenotypePrediction:
 						'{}: {}\n{}: {}\n' \
 						'{}: {}\n{}: {}\n' \
 						'{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n' \
 						'{}: {}\n{}: {}'.format('File Name', sample_name,
-										  'Primary Allele', self.genotype_flags['PrimaryAllele'],
-										  'Secondary Allele', self.genotype_flags['SecondaryAllele'],
-										  'Confidence', 'Work In Progress :)',
-										  '\nFlags', '',
-										  'CCG Zygosity Disconnect', self.genotype_flags['CCGZygDisconnect'],
-										  'CCG Expansion Skew', self.genotype_flags['CCGExpansionSkew'],
-										  'CCG Peak Ambiguity', self.genotype_flags['CCGPeakAmbiguous'],
-										  'CCG Density Ambiguity', self.genotype_flags['CCGDensityAmbiguous'],
-										  'CCG Recall Warning', self.genotype_flags['CCGRecallWarning'],
-										  'CCG Peak OOB', self.genotype_flags['CCGPeakOOB'],
-										  'CAG Recall Warning', self.genotype_flags['CAGRecallWarning'],
-										  'CAG Consensus Spread Warning', self.genotype_flags['CAGConsensusSpreadWarning'],
-										  'FPSP Disconnect', self.genotype_flags['FPSPDisconnect'])
+												'Primary Allele', self.genotype_flags['PrimaryAllele'],
+												'Secondary Allele', self.genotype_flags['SecondaryAllele'],
+												'Threshold Used', self.genotype_flags['ThresholdUsed'],
+												'Confidence', 'Work In Progress :)',
+												'\nFlags', '',
+												'CCG Zygosity Disconnect', self.genotype_flags['CCGZygDisconnect'],
+												'CCG Expansion Skew', self.genotype_flags['CCGExpansionSkew'],
+												'CCG Peak Ambiguity', self.genotype_flags['CCGPeakAmbiguous'],
+												'CCG Density Ambiguity', self.genotype_flags['CCGDensityAmbiguous'],
+												'CCG Recall Warning', self.genotype_flags['CCGRecallWarning'],
+												'CCG Peak OOB', self.genotype_flags['CCGPeakOOB'],
+												'CAG Recall Warning', self.genotype_flags['CAGRecallWarning'],
+												'CAG Consensus Spread Warning', self.genotype_flags['CAGConsensusSpreadWarning'],
+												'FPSP Disconnect', self.genotype_flags['FPSPDisconnect'],
+												'Homozygous Haplotype', self.genotype_flags['PotentialHomozygousHaplotype'])
+
 		sample_file = open(sample_report_name, 'w')
 		sample_file.write(sample_report)
 		sample_file.close()
@@ -562,10 +567,12 @@ class SequenceTwoPass:
 		self.instance_parameters = {}
 
 		##
-		## Potential warnings raised in this instance
+		## Potential warnings raised in this instance/useful variables
 		self.density_ambiguity = False
 		self.expansion_skew = False
 		self.peak_ambiguity = False
+		self.potential_homozygous_haplotype = False
+		self.threshold_used = 0
 		self.recall_count = 0
 
 	def histogram_generator(self, filename, graph_title, axes, plot_flag):
@@ -757,10 +764,11 @@ class SequenceTwoPass:
 		if threshold_bias or fod_recall:
 			self.recall_count+=1
 			if self.recall_count > 5:
-				raise EnvironmentError('Re-called 5+ times. Possible incorrect reference alignment.')
+				raise AttributeError('Re-called 5+ times. Unable to accurately predict genotype.')
 			first_pass['PeakThreshold'] -= 0.10
 			peak_threshold -= 0.10
 			peak_threshold = max(peak_threshold,0.05)
+		self.threshold_used = peak_threshold
 
 		##
 		## Graph Parameters expansion
@@ -818,9 +826,66 @@ class SequenceTwoPass:
 				first_pass['PrimaryPeak'] = fixed_indexes.item(0)
 				first_pass['SecondaryPeak'] = fixed_indexes.item(1)
 			except IndexError:
-				fail_state = True
+				##
+				## There is a very small chance that we could be looking at a homozygous haplotype
+				## So investigate this potential opportunity before giving up completely..
+
+				haplotype_failure = self.haplotype_deterministic([x,y,peak_indexes])
+				if haplotype_failure:
+					fail_state = True
+				else:
+					self.potential_homozygous_haplotype = True
+					first_pass['PrimaryPeak'] = fixed_indexes.item(0)
+					first_pass['SecondaryPeak'] = fixed_indexes.item(0)
 
 		return fail_state, first_pass
+
+	def haplotype_deterministic(self, peak_info, fail_state=False):
+		"""
+		Function to determine whether a potential heterozygous haplotype is legitimate
+		Peak Clarity... sliding window around peak && comparison of raw read counts to gauge
+		whether a single peak in an expected heterozygous context is legitimate
+		:param peak_info: [x, y, genotype]
+		:param fail_state: whether we pass/fail this deterministic
+		:return: fail_state (boolean for success of homozygous haplotype)
+		"""
+		##
+		## Calculate the percentage drop-off of our suspected peak
+		## If the thresholds are meant, do an interpolation on the peak
+		nmt = self.input_distribution[peak_info[2]-2]
+		nmo = self.input_distribution[peak_info[2]-1]
+		n = self.input_distribution[peak_info[2]]
+		npo = self.input_distribution[peak_info[2]+1]
+		npt = self.input_distribution[peak_info[2]+2]
+		nmt_n = nmt / n; nmo_n = nmo / n
+		npo_n = npo / n; npt_n = npt / n
+
+		##
+		## For N Minus/Plus One/Two, determine whether the dropoff is acceptable for a clean peak
+		## If it is, add to a pass total; if 3/4 tests pass, peak is clean enough to interpolate with confidence
+		pass_total = 0
+		point_tests = [[[nmt_n],[0.35],[0.150]],
+					   [[nmo_n],[0.65],[0.075]],
+					   [[npo_n],[0.50],[0.300]],
+					   [[npt_n],[0.25],[0.250]]]
+		for test in point_tests:
+			if np.isclose(test[0],test[1],atol=test[2]):
+				pass_total += 1
+		##
+		## When the passrate was 3/4, we can interpolate our peak with confidence
+		## Attempt to fit a guassian near our suspected haplotype peak
+		if pass_total >= 3:
+			peaks_interp = peakutils.interpolate(peak_info[0], peak_info[1], ind=peak_info[2])
+			if np.isclose([peaks_interp],[float(peak_info[2])], atol=1.25):
+				pass
+			else:
+				fail_state = True
+		else:
+			fail_state = True
+
+		##
+		## Return whether we think this is a homozygous haplotype or not
+		return fail_state
 
 	def get_warnings(self):
 		"""
@@ -832,8 +897,9 @@ class SequenceTwoPass:
 		return {'ExpansionSkew':self.expansion_skew,
 				'PeakAmbiguity':self.peak_ambiguity,
 				'DensityAmbiguity':self.density_ambiguity,
-				'RecallCount':self.recall_count}
-
+				'ThresholdUsed':self.threshold_used,
+				'RecallCount':self.recall_count,
+				'PotentialHomozygousHaplotype':self.potential_homozygous_haplotype}
 
 class MosaicismInvestigator:
 	def __init__(self, genotype, distribution):
