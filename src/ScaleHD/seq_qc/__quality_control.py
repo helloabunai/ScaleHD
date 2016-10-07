@@ -79,7 +79,7 @@ class SeqQC:
 		## Determine what we want to trim from parameters dictionary
 		## Be paranoid, do if test for trimming just incase
 		## Then go into setting up instance
-		if self.instance_params.config_dict['trim_flags']['@trim_data']:
+		if self.instance_params.config_dict['instance_flags']['@quality_control']:
 			trim_type = self.instance_params.config_dict['trim_flags']['@trim_type']
 			error_tolerance = self.instance_params.config_dict['trim_flags']['@error_tolerance']
 

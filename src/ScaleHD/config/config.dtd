@@ -25,7 +25,6 @@ The Config Element deals with specifying any required sub-configs (elements), an
 
 <!-- TRIM_FLAGS ELEMENT -->
 <!ELEMENT trim_flags (#PCDATA)>
-<!ATTLIST trim_flags trim_data CDATA #REQUIRED>
 <!ATTLIST trim_flags trim_type CDATA #REQUIRED>
 <!ATTLIST trim_flags quality_threshold CDATA #IMPLIED>
 <!ATTLIST trim_flags adapter_flag CDATA #IMPLIED>
@@ -33,25 +32,28 @@ The Config Element deals with specifying any required sub-configs (elements), an
 <!ATTLIST trim_flags error_tolerance CDATA #IMPLIED>
 
 <!-- ALIGNMENT_FLAGS ELEMENT -->
+<!-- alignment parameters -->
 <!ELEMENT alignment_flags (#PCDATA)>
-<!ATTLIST alignment_flags extension_threshold CDATA #REQUIRED>
-<!ATTLIST alignment_flags seed_size CDATA #REQUIRED>
-<!ATTLIST alignment_flags align_mismatch CDATA #REQUIRED>
-<!ATTLIST alignment_flags substr_length CDATA #REQUIRED>
-<!ATTLIST alignment_flags substr_interval_start CDATA #REQUIRED>
-<!ATTLIST alignment_flags substr_interval_end CDATA #REQUIRED>
-<!ATTLIST alignment_flags read_gap_open CDATA #REQUIRED>
-<!ATTLIST alignment_flags read_gap_extend CDATA #REQUIRED>
-<!ATTLIST alignment_flags ref_gap_open CDATA #REQUIRED>
-<!ATTLIST alignment_flags ref_gap_extend CDATA #REQUIRED>
-<!ATTLIST alignment_flags min_mismatch_pen CDATA #REQUIRED>
-<!ATTLIST alignment_flags max_mismatch_pen CDATA #REQUIRED>
+<!ATTLIST alignment_flags min_seed_length CDATA #REQUIRED>
+<!ATTLIST alignment_flags band_width CDATA #REQUIRED>
+<!ATTLIST alignment_flags seed_length_extension CDATA #REQUIRED>
+<!ATTLIST alignment_flags seed_occurrence CDATA #REQUIRED>
+<!ATTLIST alignment_flags skip_seed_with_occurrence CDATA #REQUIRED>
+<!ATTLIST alignment_flags chain_drop CDATA #REQUIRED>
+<!ATTLIST alignment_flags seeded_chain_drop CDATA #REQUIRED>
+<!ATTLIST alignment_flags discard_full_length_match CDATA #IMPLIED>
+<!-- scoring parameters -->
+<!ATTLIST alignment_flags seq_match_score CDATA #REQUIRED>
+<!ATTLIST alignment_flags mismatch_penalty CDATA #REQUIRED>
+<!ATTLIST alignment_flags indel_penalty CDATA #REQUIRED>
+<!ATTLIST alignment_flags gap_extend_penalty CDATA #REQUIRED>
+<!ATTLIST alignment_flags prime_clipping_penalty CDATA #REQUIRED>
+<!ATTLIST alignment_flags unpaired_pairing_penalty CDATA #REQUIRED>
+
 
 <!-- PREDICTION_FLAGS ELEMENT -->
 <!ELEMENT prediction_flags (#PCDATA)>
-<!ATTLIST prediction_flags probablity_estimate CDATA #REQUIRED>
-<!ATTLIST prediction_flags max_iteration CDATA #REQUIRED>
-
+<!ATTLIST prediction_flags plot_graphs CDATA #REQUIRED>
 
 
 

@@ -142,6 +142,14 @@ class GenotypePrediction:
 		self.genotype_flags['PrimaryAllele'][0] = cag_genotype[0]
 		self.genotype_flags['SecondaryAllele'][0] = cag_genotype[1]
 
+		##
+		## Ensure that normal and expanded alleles are located in the correct position
+		## Based on CAG ordering value, NOT CCG ordering value
+		if int(self.genotype_flags['PrimaryAllele'][0]) > int(self.genotype_flags['SecondaryAllele'][0]):
+			intermediate = self.genotype_flags['PrimaryAllele']
+			self.genotype_flags['PrimaryAllele'] = self.genotype_flags['SecondaryAllele']
+			self.genotype_flags['SecondaryAllele'] = intermediate
+
 		"""
 		!! Stage four !!
 		Simple Somatic Mosaicism calculations are done here
@@ -384,7 +392,7 @@ class GenotypePrediction:
 			##
 			## Generate KDE graph parameters
 			## Generate CAG inspector Object for 2Pass-Algorithm
-			graph_parameters = [20, 'CAG'+str(cag_key)+'DensityEstimation.png', 'CAG Density Distribution', ['Read Count', 'Bin Density']]
+			graph_parameters = [20, '{}{}{}'.format('CAG',str(cag_key),'DensityEstimation.png'), 'CAG Density Distribution', ['Read Count', 'Bin Density']]
 			cag_inspector = SequenceTwoPass(prediction_path=self.prediction_path,
 											input_distribution=distro_value,
 											peak_target=peak_target,
@@ -405,7 +413,7 @@ class GenotypePrediction:
 			Now we have our estimates from the KDE sub-stage, we can use these findings
 			in our FOD peak identification for more specific peak calling and thus, genotyping
 			"""
-			fod_param = [[0,200,201],'CAG Peaks (CCG'+str(cag_key)+')',['CAG Value', 'Read Count'], '{}{}{}'.format('CCG',str(cag_key),'-CAGPeakDetection.png')]
+			fod_param = [[0,200,201],'{}{})'.format('CAG Peaks (CCG',str(cag_key)),['CAG Value', 'Read Count'], '{}{}{}'.format('CCG',str(cag_key),'-CAGPeakDetection.png')]
 			fod_failstate, second_pass = cag_inspector.differential_peaks(first_pass, fod_param, threshold_bias)
 			while fod_failstate:
 				fod_failstate, second_pass = cag_inspector.differential_peaks(first_pass, fod_param, threshold_bias, fod_recall=True)

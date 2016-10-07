@@ -107,7 +107,8 @@ class ScaleHD:
 		##
 		## Print all the information from this
 		## whole instance of the application -- 'master summary'
-		self.process_report()
+		##TODO re-work this piece of shit
+		#self.process_report()
 		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'ScaleHD pipeline completed; exiting.'))
 
 	@staticmethod
@@ -269,17 +270,14 @@ class ScaleHD:
 					##
 					## Stage 1: QC and subflags
 					seq_qc_flag = self.instance_params.config_dict['instance_flags']['@quality_control']
-					seq_qc_trim = self.instance_params.config_dict['trim_flags']['@trim_data']
 
 					if seq_qc_flag == 'True':
 						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing sequence quality control workflow..'))
 						if seq_qc.SeqQC(sequencepair_data, qc_path, 'valid', self.instance_params):
-
-							if seq_qc_trim == 'True':
-								log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising trimming.'))
-								seq_qc.SeqQC(sequencepair_data, qc_path, 'trim', self.instance_params)
-								trim_report = get_trimreport()
-								log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Trimming complete!'))
+							log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising trimming.'))
+							seq_qc.SeqQC(sequencepair_data, qc_path, 'trim', self.instance_params)
+							trim_report = get_trimreport()
+							log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Trimming complete!'))
 
 					##
 					## Stage 2: Alignment flags

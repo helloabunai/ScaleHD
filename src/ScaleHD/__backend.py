@@ -183,129 +183,125 @@ class ConfigReader(object):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Genotype Prediction control flag is not True/False.'))
 			trigger = True
 
-		##
-		## SeqQC check
-		trimming_flag = self.config_dict['trim_flags']['@trim_data']
 
 		##
 		## Trimming flag settings
 		if sequence_qc_flag == 'True':
-			if not (trimming_flag == 'True' or trimming_flag == 'False'):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Trimming flag is not True/False.'))
+			trimming_type = self.config_dict['trim_flags']['@trim_type']
+			if not (trimming_type == 'Quality' or trimming_type	== 'Adapter' or trimming_type == 'Both'):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'XML Config: Trimming type is not Quality/Adapter/Both.'))
 				trigger = True
-			if trimming_flag == 'True':
-				trimming_type = self.config_dict['trim_flags']['@trim_type']
-				if not (trimming_type == 'Quality' or trimming_type	== 'Adapter' or trimming_type == 'Both'):
-					log.error('{}{}{}{}'.format(Colour.red, 'shd__  ', Colour.end, 'XML Config: Trimming type is not Quality/Adapter/Both.'))
+			quality_threshold = self.config_dict['trim_flags']['@quality_threshold']
+			if not quality_threshold.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified quality threshold integer is invalid.'))
+				trigger = True
+			elif not int(quality_threshold) in range(0,39):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified quality threshold integer out of range (0-38).'))
+				trigger = True
+			trim_adapters = ['-a','-g','-a$','-g^','-b']
+			adapter_flag = self.config_dict['trim_flags']['@adapter_flag']
+			if not (adapter_flag in trim_adapters):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified trimming adapter not valid selection.'))
+				trigger = True
+			trim_adapter_base = ['A','G','C','T']
+			adapter_sequence = self.config_dict['trim_flags']['@adapter']
+			for charbase in adapter_sequence:
+				if charbase not in trim_adapter_base:
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Invalid character detected in adapter sequence.'))
 					trigger = True
-				quality_threshold = self.config_dict['trim_flags']['@quality_threshold']
-				if not quality_threshold.isdigit():
-					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified quality threshold integer is invalid.'))
-					trigger = True
-				elif not int(quality_threshold) in range(0,39):
-					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified quality threshold integer out of range (0-38).'))
-					trigger = True
-				trim_adapters = ['-a','-g','-a$','-g^','-b']
-				adapter_flag = self.config_dict['trim_flags']['@adapter_flag']
-				if not (adapter_flag in trim_adapters):
-					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified trimming adapter not valid selection.'))
-					trigger = True
-				trim_adapter_base = ['A','G','C','T']
-				adapter_sequence = self.config_dict['trim_flags']['@adapter']
-				for charbase in adapter_sequence:
-					if charbase not in trim_adapter_base:
-						log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Invalid character detected in adapter sequence.'))
-						trigger = True
-				error_tolerance = self.config_dict['trim_flags']['@error_tolerance']
-				if not isinstance(float(error_tolerance), float):
-					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified error tolerance is not a valid float.'))
-					trigger = True
-				if not float(error_tolerance) in np.arange(0,1.1,0.1):
-					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified error tolerance is not 0.0 < x < 1.0.'))
-					trigger = True
-
-		##
-		## SeqQC stage check
-		if sequence_qc_flag == 'True':
-			if not trimming_flag == 'True':
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Sequence Quality Control flag is true, but Trimming is not.'))
+			error_tolerance = self.config_dict['trim_flags']['@error_tolerance']
+			if not isinstance(float(error_tolerance), float):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified error tolerance is not a valid float.'))
+				trigger = True
+			if not float(error_tolerance) in np.arange(0,1.1,0.1):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified error tolerance is not 0.0 < x < 1.0.'))
 				trigger = True
 
 		##
 		## Alignment flag settings
 		if alignment_flag == 'True':
-			extension_threshold = self.config_dict['alignment_flags']['@extension_threshold']
-			if not extension_threshold.isdigit():
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified extension threshold integer is invalid.'))
-				trigger = True
-			seed_size = self.config_dict['alignment_flags']['@seed_size']
-			if not seed_size.isdigit():
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified seed size integer is invalid.'))
-				trigger = True
-			align_mismatch = self.config_dict['alignment_flags']['@align_mismatch']
-			if not align_mismatch.isdigit():
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified align mismatch integer is invalid.'))
-				trigger = True
-			if not int(align_mismatch) in range(0,2):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Align Mismatch integer is out of range (0,1).'))
-				trigger = True
-			substring_length = self.config_dict['alignment_flags']['@substr_length']
-			if not substring_length.isdigit():
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified substring length integer is invalid.'))
-				trigger=True
-			if not int(substring_length) in range(3, 33):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Substring length integer out of range (3,32).'))
-				trigger=True
-			substring_interval_start = self.config_dict['alignment_flags']['@substr_interval_start']
-			if not int(substring_interval_start) in range(0,2):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Seed Substring Interval (start) integer is out of range (0,1).'))
-				trigger = True
-			substring_interval_end = self.config_dict['alignment_flags']['@substr_interval_end']
-			if float(substring_interval_end) in np.arange(0.5,2.55,0.05):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Seed Substring Interval (end) float is out of range (0.50, 2.50).'))
-				trigger = True
-			read_gap_open = self.config_dict['alignment_flags']['@read_gap_open'] ##TODO range check
-			if not read_gap_open.isdigit():
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ',Colour.end, 'XML Config: Read Gap Open value is not an integer.'))
-				trigger=True
-			read_gap_extend = self.config_dict['alignment_flags']['@read_gap_extend'] ## TODO range check
-			if not read_gap_extend.isdigit():
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ',Colour.end, 'XML Config: Read Gap Extend value is not an integer.'))
-				trigger=True
-			ref_gap_open = self.config_dict['alignment_flags']['@ref_gap_open'] ## TODO range check
-			if not ref_gap_open.isdigit():
-				log.error('{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end, 'XML Config: Reference gap open value is not an integer.'))
-				trigger=True
-			ref_gap_extend = self.config_dict['alignment_flags']['@ref_gap_extend'] ## TODO range check
-			if not ref_gap_extend.isdigit():
-				log.error('{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'XML Config: Reference gap extend value is not an integer.'))
-				trigger=True
-			min_mismatch_penality = self.config_dict['alignment_flags']['@min_mismatch_pen'] ##TODO range check
-			if not min_mismatch_penality.isdigit():
-				log.error('{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'XML Config: Minimum mismatch penalty value is not an integer.'))
-				trigger=True
-			max_mismatch_penalty = self.config_dict['alignment_flags']['@max_mismatch_pen'] ##TODO range check
-			if not max_mismatch_penalty.isdigit():
-				log.error('{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'XML Config: Maximum mismatch penalty value is not an integer.'))
+			min_seed_length = self.config_dict['alignment_flags']['@min_seed_length']
+			if not min_seed_length.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified min_seed_length integer is invalid.'))
 				trigger=True
 
-			## TODO Ensure minimums are >> maximum for these todo ranges
+			band_width = self.config_dict['alignment_flags']['@band_width']
+			if not band_width.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified band_width integer is invalid.'))
+				trigger=True
 
+			seed_length_extension = self.config_dict['alignment_flags']['@seed_length_extension']
+			if not seed_length_extension.isfloat():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified seed_length_extension float is invalid.'))
+				trigger=True
+
+			seed_occurrence = self.config_dict['alignment_flags']['@seed_occurrence']
+			if not seed_occurrence.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified seed_occurrence integer is invalid.'))
+				trigger=True
+
+			skip_seed_with_occurrence = self.config_dict['alignment_flags']['@skip_seed_with_occurrence']
+			if not skip_seed_with_occurrence.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified skip_seed_with_occurrence integer is invalid.'))
+				trigger=True
+
+			chain_drop = self.config_dict['alignment_flags']['@chain_drop']
+			if not chain_drop.isfloat():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified chain_drop float is invalid.'))
+				trigger=True
+
+			seeded_chain_drop = self.config_dict['alignment_flags']['@seeded_chain_drop']
+			if not seeded_chain_drop.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified seeded_chain_drop integer is invalid.'))
+				trigger=True
+
+			discard_full_length_match = self.config_dict['alignment_flags']['@discard_full_length_match']
+			if not discard_full_length_match == 'True' or not discard_full_length_match == 'False':
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified discard_full_length_match is not True/False.'))
+				trigger=True
+
+			seq_match_score = self.config_dict['alignment_flags']['@seq_match_score']
+			if not seq_match_score.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified seq_match_score integer is invalid.'))
+				trigger=True
+
+			mismatch_penalty = self.config_dict['alignment_flags']['@mismatch_penalty']
+			if not mismatch_penalty.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified mismatch_penalty integer is invalid.'))
+				trigger=True
+
+			indel_penalty_raw = self.config_dict['alignment_flags']['@indel_penalty']
+			indel_penalty = indel_penalty_raw.split(',')
+			for individual_indelpen in indel_penalty:
+				if not individual_indelpen.isdigit():
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified indel_penalty integer(s) is(are) invalid.'))
+					trigger=True
+
+			gap_extend_penalty_raw = self.config_dict['alignment_flags']['@gap_extend_penalty']
+			gap_extend_penalty = gap_extend_penalty_raw.split(',')
+			for individual_gaextend in gap_extend_penalty:
+				if not individual_gaextend.isdigit():
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified gap_extend_penalty integer(s) is(are) invalid.'))
+					trigger=True
+
+			prime_clipping_penalty_raw = self.config_dict['alignment_flags']['@prime_clipping_penalty']
+			prime_clipping_penalty = prime_clipping_penalty_raw.split(',')
+			for individual_prclip in prime_clipping_penalty:
+				if not individual_prclip.isdigit():
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified prime_clipping_penalty integer(s) is(are) invalid.'))
+					trigger=True
+
+			unpaired_pairing_penalty = self.config_dict['alignment_flags']['@unpaired_pairing_penalty']
+			if not unpaired_pairing_penalty.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified unpaired_pairing_penalty integer is invalid.'))
+				trigger=True
 		##
 		## Genotype prediction flag settings
 		if genotype_flag == 'True':
-			probability_estimate = self.config_dict['prediction_flags']['@probablity_estimate']
-			if not (probability_estimate == 'True' or probability_estimate == 'False'):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Probability estimate is not True/False.'))
+			plot_graphs = self.config_dict['prediction_flags']['@plot_graphs']
+			if not (plot_graphs == 'True' or plot_graphs == 'False'):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Plot graphs flag is not True/False.'))
 				trigger = True
-			max_iteration = self.config_dict['prediction_flags']['@max_iteration']
-			try: int(max_iteration)
-			except ValueError:
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: SVM Max iteration integer is invalid.'))
-				trigger = True
-			if not int(max_iteration) in range(-1, 100001):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: SVM Max iteration integer is out of range (-1, 100000).'))
-				trigger	= True
 
 		if trigger:
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Failure, exiting.'))
@@ -555,9 +551,7 @@ def initialise_libraries(instance_params):
 		try:which('cutadapt')
 		except ScaleHDException: trigger=True
 	if alignment == 'True':
-		try:which('bowtie2')
-		except ScaleHDException: trigger=True
-		try:which('bowtie2-build')
+		try:which('bwa')
 		except ScaleHDException: trigger=True
 		try:which('samtools')
 		except ScaleHDException: trigger=True
