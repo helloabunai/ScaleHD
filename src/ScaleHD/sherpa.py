@@ -169,8 +169,14 @@ class ScaleHD:
 					## Pre stage -- extract distributions from input sam files
 					## Update assembly_data list; replacing forward/reverse assemblys with respective repeat distributions
 					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Extracting repeat distributions from pre-assembled data..'))
-					assembly_data[0] = align.SeqAlign.extract_repeat_distributions(assembly_label,forward_path,forward_assembly)
-					assembly_data[1] = align.SeqAlign.extract_repeat_distributions(assembly_label,reverse_path,reverse_assembly)
+					if self.args.purgesam:
+						purged_fw = align.SeqAlign.purge_alignment_map(forward_path, forward_assembly)
+						purged_rv = align.SeqAlign.purge_alignment_map(reverse_path, reverse_assembly)
+						assembly_data[0] = align.SeqAlign.extract_repeat_distributions(assembly_label, forward_path, purged_fw)
+						assembly_data[1] = align.SeqAlign.extract_repeat_distributions(assembly_label, reverse_path, purged_rv)
+					else:
+						assembly_data[0] = align.SeqAlign.extract_repeat_distributions(assembly_label,forward_path,forward_assembly)
+						assembly_data[1] = align.SeqAlign.extract_repeat_distributions(assembly_label,reverse_path,reverse_assembly)
 					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Repeat distribution extraction complete!'))
 
 					## Prediction Stage

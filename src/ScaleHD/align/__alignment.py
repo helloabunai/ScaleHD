@@ -20,7 +20,7 @@ ALN_REPORT = []
 
 class SeqAlign:
 
-	def __init__(self, sequence_label=None, sequencepair_data=None, target_output=None, reference_indexes=None, instance_params=None):
+	def __init__(self, sequence_label=None, sequencepair_data=None, target_output=None, reference_indexes=None, instance_params=None, purge_flag=None):
 
 		##
 		## Instance data and workflow
@@ -29,6 +29,7 @@ class SeqAlign:
 		self.target_output = target_output
 		self.reference_indexes = reference_indexes
 		self.instance_params = instance_params
+		self.purge_flag = purge_flag
 		self.alignment_reports = []
 		self.alignment_workflow()
 
@@ -119,10 +120,28 @@ class SeqAlign:
 		report_file.write(bwa_error)
 		report_file.close()
 
-		csv_path = self.extract_repeat_distributions(self.sample_root, alignment_outdir, aln_outpath)
-		sys.stdout.flush()
+		##
+		## If the user wants to purge reads which are not uniquely mapped
+		## Then we execute that here..
+		## the respective files are sent for read count extraction as normal
+		if self.purge_flag:
+			purged_sam = self.purge_alignment_map(alignment_outdir, aln_outpath)
+			csv_path = self.extract_repeat_distributions(self.sample_root, alignment_outdir, purged_sam)
+			sys.stdout.flush()
+		else:
+			csv_path = self.extract_repeat_distributions(self.sample_root, alignment_outdir, aln_outpath)
+			sys.stdout.flush()
 
 		return csv_path, alignment_report
+
+	@staticmethod
+	def purge_alignment_map(alignment_outdir, alignment_outfile):
+		purged_assembly = '{}{}'.format(alignment_outdir, '/assembly_unique.bam')
+		purged_file = open(purged_assembly, 'w')
+		view_subprocess = subprocess.Popen(['samtools', 'view', '-bq', '1', '-@', str(THREADS), alignment_outfile], stdout=purged_file)
+		view_subprocess.wait()
+		purged_file.close()
+		return purged_assembly
 
 	@staticmethod
 	def extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfile):

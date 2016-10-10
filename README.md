@@ -87,5 +87,6 @@ ScaleHD flags are:
     -c/--config:: Config mode. Will execute all settings specified in the given ArgumentConfig.xml [filepath].
     -t/--threads:: Number of threads to utilise. Mainly will affect alignment performance [integer].
     -p/--purgesam:: Enables the purging of reads which are not uniquely mapped to a reference. Optional.
-    -j/--jobname:: Specifies a prefix to use for the root output directory. Optional.
+    -j/--jobname:: Specifies a prefix to use for the root output directory. Optional. If you specify a JobName that already
+    exists within your specified -o output folder, ScaleHD will delete the pre-existing folder and replace. Beware.
     -o/--output:: Desired output directory.

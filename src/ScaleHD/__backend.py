@@ -6,7 +6,7 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 ## Imports
 import string
 import os
-import re
+import shutil
 import sys
 import glob
 import datetime
@@ -581,7 +581,11 @@ def sanitise_outputs(jobname, output_argument):
 			run_dir = os.path.join(output_root, jobname)
 			os.mkdir(run_dir)
 		else:
-			log.info('{}{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Prefix jobroot already exists: ', jobname))
+			log.info('{}{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Clearing pre-existing Jobname Prefix: ', jobname))
+			run_dir = os.path.join(output_root, jobname)
+			if os.path.exists(run_dir):
+				shutil.rmtree(run_dir)
+			os.makedirs(run_dir)
 	else:
 		## Ensures root output is a real directory
 		## Generates folder name based on date (for run ident)
