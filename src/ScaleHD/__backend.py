@@ -231,7 +231,7 @@ class ConfigReader(object):
 				trigger=True
 
 			seed_length_extension = self.config_dict['alignment_flags']['@seed_length_extension']
-			if not seed_length_extension.isfloat():
+			if not isinstance(float(seed_length_extension), float):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified seed_length_extension float is invalid.'))
 				trigger=True
 
@@ -246,18 +246,13 @@ class ConfigReader(object):
 				trigger=True
 
 			chain_drop = self.config_dict['alignment_flags']['@chain_drop']
-			if not chain_drop.isfloat():
+			if not isinstance(float(chain_drop), float):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified chain_drop float is invalid.'))
 				trigger=True
 
 			seeded_chain_drop = self.config_dict['alignment_flags']['@seeded_chain_drop']
 			if not seeded_chain_drop.isdigit():
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified seeded_chain_drop integer is invalid.'))
-				trigger=True
-
-			discard_full_length_match = self.config_dict['alignment_flags']['@discard_full_length_match']
-			if not discard_full_length_match == 'True' or not discard_full_length_match == 'False':
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified discard_full_length_match is not True/False.'))
 				trigger=True
 
 			seq_match_score = self.config_dict['alignment_flags']['@seq_match_score']

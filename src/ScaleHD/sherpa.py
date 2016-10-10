@@ -238,8 +238,8 @@ class ScaleHD:
 
 			##
 			## Return all bt2-index indexed files for the input reference(s)
-			forward_index = align.ReferenceIndex(forward_reference, index_path).getIndexPath()
-			reverse_index = align.ReferenceIndex(reverse_reference, index_path).getIndexPath()
+			forward_index = align.ReferenceIndex(forward_reference, index_path).get_index_path()
+			reverse_index = align.ReferenceIndex(reverse_reference, index_path).get_index_path()
 			reference_indexes = [forward_index, reverse_index]
 
 		##
@@ -338,7 +338,6 @@ class ScaleHD:
 
 				except Exception, e:
 
-					print str(e)
 					log.info('{}{}{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on ', sequence_label, ': ', str(e)))
 					continue
 

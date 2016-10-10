@@ -7,6 +7,7 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 import os
 import sys
 import subprocess
+import shutil
 import logging as log
 
 ##
@@ -20,10 +21,6 @@ ALN_REPORT = []
 class SeqAlign:
 
 	def __init__(self, sequence_label=None, sequencepair_data=None, target_output=None, reference_indexes=None, instance_params=None):
-
-		##
-		## Flag
-		self.alignment_errors = False
 
 		##
 		## Instance data and workflow
@@ -64,22 +61,19 @@ class SeqAlign:
 
 		##
 		## So. Many. Flags.
-		extension_threshold = self.instance_params.config_dict['alignment_flags']['@extension_threshold']
-		seed_size = self.instance_params.config_dict['alignment_flags']['@seed_size']
-		align_mismatch = self.instance_params.config_dict['alignment_flags']['@align_mismatch']
-		substring_length = self.instance_params.config_dict['alignment_flags']['@substr_length']
-		substring_interval_start = self.instance_params.config_dict['alignment_flags']['@substr_interval_start']
-		substring_interval_end = self.instance_params.config_dict['alignment_flags']['@substr_interval_end']
-		substring_interval = '{}{}{}{}'.format('S,',substring_interval_start,',',substring_interval_end)
-		read_gap_open = self.instance_params.config_dict['alignment_flags']['@read_gap_open']
-		read_gap_extend = self.instance_params.config_dict['alignment_flags']['@read_gap_extend']
-		read_penalties = '{}{}{}'.format(read_gap_open,',',read_gap_extend)
-		ref_gap_open = self.instance_params.config_dict['alignment_flags']['@ref_gap_open']
-		ref_gap_extend = self.instance_params.config_dict['alignment_flags']['@ref_gap_extend']
-		reference_penalties = '{}{}{}'.format(ref_gap_open,',',ref_gap_extend)
-		max_mismatch_penalties = self.instance_params.config_dict['alignment_flags']['@max_mismatch_pen']
-		min_mismatch_penalties = self.instance_params.config_dict['alignment_flags']['@min_mismatch_pen']
-		mismatch_penalties = '{}{}{}'.format(max_mismatch_penalties,',',min_mismatch_penalties)
+		min_seed_length = self.instance_params.config_dict['alignment_flags']['@min_seed_length']
+		band_width = self.instance_params.config_dict['alignment_flags']['@band_width']
+		seed_length_extension = self.instance_params.config_dict['alignment_flags']['@seed_length_extension']
+		seed_occurrence = self.instance_params.config_dict['alignment_flags']['@seed_occurrence']
+		skip_seed_with_occurrence = self.instance_params.config_dict['alignment_flags']['@skip_seed_with_occurrence']
+		chain_drop = self.instance_params.config_dict['alignment_flags']['@chain_drop']
+		seeded_chain_drop = self.instance_params.config_dict['alignment_flags']['@seeded_chain_drop']
+		seq_match_score = self.instance_params.config_dict['alignment_flags']['@seq_match_score']
+		mismatch_penalty = self.instance_params.config_dict['alignment_flags']['@mismatch_penalty']
+		indel_penalty = self.instance_params.config_dict['alignment_flags']['@indel_penalty']
+		gap_extend_penalty = self.instance_params.config_dict['alignment_flags']['@gap_extend_penalty']
+		prime_clipping_penalty = self.instance_params.config_dict['alignment_flags']['@prime_clipping_penalty']
+		unpaired_pairing_penalty = self.instance_params.config_dict['alignment_flags']['@unpaired_pairing_penalty']
 
 		##
 		##User feedback on alignment progres.. maybe improve later
@@ -87,57 +81,46 @@ class SeqAlign:
 		log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,feedback_string))
 		alignment_outdir = os.path.join(self.target_output, self.sample_root+'_'+io_index)
 		if not os.path.exists(alignment_outdir): os.makedirs(alignment_outdir)
+		aln_outpath = '{}/{}'.format(alignment_outdir, 'assembly.sam')
+		aln_outfi = open(aln_outpath, 'w')
 
-		##THREADS             :: -P             :: CPU threads to utilise
-		##extension_threshold :: -D             :: give up extending after <int> failed extends in a row
-		##seed_size           :: -R             :: for reads w/ repetitive seeds, try <int> sets of seeds
-		##align_mismatch      :: -N             :: max # mismatches in seed alignment; 1/0
-		##substring_length    :: -L             :: length of seed substring; 3 < x < 32
-		##substring_interval  :: -i S,start,end :: interval between seed substrings w/r/t read length
-		##read_gap_open/ext   :: --rdg          :: Read gap opening/extension penalty
-		##ref_gap_open/ext    :: --rfg          :: Reference gap opening/extension penalty
-		##max/min_mismatch..  :: --mp           :: Max/min mismatch score
+		"""
+		THREADS                     :: -t <INT>      :: CPU threads to utilise [1]
+		min_seed_length             :: -k <INT>      :: minimum seed length [19]
+		band_width                  :: -w <INT>      :: band width for banded alignment [100]
+		seed_length_extension       :: -r <FLOAT>    :: look for internal seeds inside a seed longer than <val> [1.5]
+		seed_occurrence             :: -y <INT>      :: seed occurrence for the 3rd round seeding [20]
+		skip_seed_with_occurrence   :: -c <INT>      :: skip seeds with more than <val> occurrences [500]
+		chain_drop                  :: -D <FLOAT>    :: drop chains shorter than <val> fraction of the overlapping chain [0.50]
+		seeded_chain_drop           :: -W <INT>      :: discard chain if seeded bases shorter than <val>
+		seq_match_score             :: -A <INT>      :: score for sequence match [1]
+		mismatch_penalty            :: -B <INT>      :: penalty for mismatch [4]
+		indel_penalty               :: -O [INT, INT] :: gap open penalites for ins/del [6,6]
+		gap_extend_penalty          :: -E [INT, INT] :: penalty for extending gaps [1,1]
+		prime_clipping_penalty      :: -L [INT, INT] :: 5' & 3' clipping penalty [5,5]
+		unpaired_pairing_penalty    :: -U <INT>      :: penalty for unpaired read pair [17]
+		"""
 
-		alignment_outfile = '{}/{}'.format(alignment_outdir, 'assembly.sam')
-		metrics_outfile = os.path.join(alignment_outdir,'performance_metrics.txt')
-		bowtie_process = subprocess.Popen(['bowtie2', '-p', THREADS,
-										   '-x', reference_index, target_fqfile,
-										   '-D', extension_threshold,
-										   '-R', seed_size,
-										   '-N', align_mismatch,
-										   '-L', substring_length,
-										   '-i', substring_interval,
-										   '--rdg', read_penalties,
-										   '--rfg', reference_penalties,
-										   '--mp', mismatch_penalties,
-										   '--met-file', metrics_outfile,
-										   '--end-to-end',
-										   '-S', alignment_outfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-		##TODO explore getting the CPU usage and updating the above user feedback string periodically...?
-
-		bowtie_rawoutput = bowtie_process.communicate()
-		bowtie_stderr = bowtie_rawoutput[1]
-		bowtie_process.wait()
+		bwa_process = subprocess.Popen(['bwa', 'mem', '-t', str(THREADS), '-k', min_seed_length,
+										'-w', band_width, '-r', seed_length_extension, '-y', seed_occurrence,
+										'-c', skip_seed_with_occurrence, '-D', chain_drop, '-W', seeded_chain_drop,
+										'-A', seq_match_score, '-B', mismatch_penalty, '-O', indel_penalty,
+										'-E', gap_extend_penalty, '-L', prime_clipping_penalty,
+										'-U', unpaired_pairing_penalty, reference_index, target_fqfile],
+									    stdout=aln_outfi, stderr=subprocess.PIPE)
+		bwa_error = bwa_process.communicate()[1]
+		bwa_process.wait()
+		aln_outfi.close()
 
 		##
-		## There's no reason bowtie should die given how secure everything up to this point is
-		## but check the output anyway, just incase.
-		if '(ERR): bowtie2-align exited with value' in bowtie_stderr:
-			log.critical('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end,'Bowtie2 fatal error.'))
-			self.alignment_errors = True
-
+		## Generate an alignment report (i.e. console output to
 		alignment_report = os.path.join(alignment_outdir, 'AlignmentReport.txt')
 		report_file = open(alignment_report, 'w')
-		report_file.write(bowtie_stderr)
+		report_file.write(bwa_error)
 		report_file.close()
 
-		csv_path = self.extract_repeat_distributions(self.sample_root, alignment_outdir, alignment_outfile)
+		csv_path = self.extract_repeat_distributions(self.sample_root, alignment_outdir, aln_outpath)
 		sys.stdout.flush()
-
-		if self.alignment_errors:
-			log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Error during alignment. Exiting.'))
-			sys.exit(2)
 
 		return csv_path, alignment_report
 
@@ -147,14 +130,14 @@ class SeqAlign:
 		##
 		## Scrapes repeat distribution from alignment
 		sorted_assembly = '{}{}'.format(alignment_outdir, '/assembly_sorted.bam')
-		view_subprocess = subprocess.Popen(['samtools', 'view', '-bS', '-@', THREADS, alignment_outfile], stdout=subprocess.PIPE)
-		sort_subprocess = subprocess.Popen(['samtools', 'sort', '-@', THREADS, '-', '-o', sorted_assembly], stdin=view_subprocess.stdout)
+		view_subprocess = subprocess.Popen(['samtools', 'view', '-bS', '-@', str(THREADS), alignment_outfile], stdout=subprocess.PIPE)
+		sort_subprocess = subprocess.Popen(['samtools', 'sort', '-@', str(THREADS), '-', '-o', sorted_assembly], stdin=view_subprocess.stdout)
 		view_subprocess.wait(); sort_subprocess.wait()
 
 		index_subprocess = subprocess.Popen(['samtools', 'index', sorted_assembly], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		index_subprocess.wait()
 
-		raw_repeat_distribution = os.path.join(alignment_outdir, 'Raw_RepeatDistribution.txt')
+		raw_repeat_distribution = os.path.join(alignment_outdir, 'RawRepeatDistribution.txt')
 		rrd_file = open(raw_repeat_distribution, 'w')
 		idxstats_subprocess = subprocess.Popen(['samtools', 'idxstats', sorted_assembly], stdout=rrd_file)
 		idxstats_subprocess.wait()
@@ -205,23 +188,25 @@ class ReferenceIndex:
 		##
 		## Path to store indexes for this reference
 		reference_index = os.path.join(self.target_output, reference_root)
+		index_copy = os.path.join(reference_index, self.reference.split('/')[-1])
 		if not os.path.exists(reference_index): os.makedirs(reference_index)
+		shutil.copy(self.reference, os.path.join(reference_index, self.reference.split('/')[-1]))
 
 		##
 		## Indexing reference with bowtie2-build
 		output_root = os.path.join(reference_index, reference_root)
-		build_subprocess = subprocess.Popen(['bowtie2-build', self.reference, '-output', output_root], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		build_subprocess = subprocess.Popen(['bwa', 'index', index_copy], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		build_rawoutput = build_subprocess.communicate()
-		build_stdout = build_rawoutput[0]
+		build_stderr = build_rawoutput[1]
 		build_subprocess.wait()
 
 		build_report = os.path.join(reference_index, 'IndexBuildReport.txt')
 		report_file = open(build_report, 'w')
-		report_file.write(build_stdout)
+		report_file.write(build_stderr)
 		report_file.close()
 
-		return output_root
+		return index_copy
 
-	def getIndexPath(self):
+	def get_index_path(self):
 
 		return self.reference

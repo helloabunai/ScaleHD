@@ -492,6 +492,8 @@ class GenotypePrediction:
 		## TODO ..somatic mosaicism, how many times particular functions were re-called..
 		## TODO other factors to involve into the confidence scoring?
 
+		## TODO tidy this up.. it's so ugly
+
 		##
 		## Hideous string based report for individual samples
 		## Will get changed at a later date
