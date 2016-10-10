@@ -59,6 +59,8 @@ class ScaleHD:
 		input_group.add_argument('-b', '--batch', help='Input batch. Folder of multiple .sam files. For FastQ processing, use -c.', nargs=1)
 		input_group.add_argument('-c', '--config', help='Pipeline config. Specify a directory to your ArgumentConfig.xml file.', nargs=1)
 		self.parser.add_argument('-t', '--threads', help='Thread utilisation. Typically only alters third party alignment performance. Default: system max.', type=int, choices=xrange(1, THREADS+1), default=THREADS)
+		self.parser.add_argument('-p', '--purgesam', help='Remove non-unique reads in sam files the application will work with.', action='store_true')
+		self.parser.add_argument('-j', '--jobname', help='Customised folder output name. If not specified, defaults to normal output naming schema.', type=str)
 		self.parser.add_argument('-o', '--output', help='Output path. Specify a directory you wish output to be directed towards.', metavar='output', nargs=1, required=True)
 		self.args = self.parser.parse_args()
 
@@ -76,7 +78,7 @@ class ScaleHD:
 		if sanitise_inputs(self.args):
 			log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Error with specified input(s) configuration. Exiting.'))
 			sys.exit(2)
-		self.instance_rundir = sanitise_outputs(self.args.output)
+		self.instance_rundir = sanitise_outputs(self.args.jobname, self.args.output)
 		self.instance_summary = {}
 
 		##
@@ -137,7 +139,7 @@ class ScaleHD:
 
 				##
 				## Super fucking ugly generic exception catcher (FOR NOW -- CHANGE LATER)
-				#try:
+				try:
 
 					##
 					## Required data to process
@@ -205,10 +207,10 @@ class ScaleHD:
 					## Finished all desired stages for this file pair, inform user if -v
 					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Assembly pair workflow complete!\n'))
 
-				#except Exception, e:
+				except Exception, e:
 
-				#	log.info('{}{}{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on ', assembly_label, ': ', str(e)))
-				#	continue
+					log.info('{}{}{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on ', assembly_label, ': ', str(e)))
+					continue
 
 	def sequence_workflow(self):
 

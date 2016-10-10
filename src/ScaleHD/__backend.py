@@ -6,6 +6,7 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 ## Imports
 import string
 import os
+import re
 import sys
 import glob
 import datetime
@@ -390,17 +391,28 @@ def sanitise_inputs(parsed_arguments):
 
 	trigger = False
 
+	##
+	## Jobname prefix validity check
+	if parsed_arguments.jobname:
+		for character in parsed_arguments.jobname:
+			if character is ' ' or character is '/':
+				log.error('{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Specified Job Name has invalid characters: "', character, '"'))
+				trigger = True
+
+	##
+	## Batch mode check
 	if parsed_arguments.batch:
 		if not filesystem_exists_check(parsed_arguments.batch[0]):
-			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified batch folder could not be found.')); print 'batch not found'
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified batch folder could not be found.'))
 			trigger = True
 		for samfile in glob.glob(os.path.join(parsed_arguments.batch[0], '*')):
 			if not check_input_files('.sam',samfile):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified batch folder contains non SAM files.')); print 'batch not sam'
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified batch folder contains non SAM files.'))
 				trigger = True
 
+	##
+	## Config mode check
 	if parsed_arguments.config:
-
 		if not filesystem_exists_check(parsed_arguments.config[0]):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified config file could not be found.')); print 'config not found'
 			trigger = True
@@ -541,6 +553,8 @@ def initialise_libraries(instance_params):
 		genotyping = instance_params['genotype_prediction']
 
 	if quality_control == 'True':
+		try:which('java')
+		except ScaleHDException: trigger=True
 		try:which('fastqc')
 		except ScaleHDException: trigger=True
 		try:which('cutadapt')
@@ -556,27 +570,37 @@ def initialise_libraries(instance_params):
 
 	return trigger
 
-def sanitise_outputs(output_argument):
+def sanitise_outputs(jobname, output_argument):
 
+	run_dir = ''
 	output_root = output_argument[0]
+	if jobname:
+		target_output = output_root	+ jobname
+		if not os.path.exists(target_output):
+			log.info('{}{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Creating Output with prefix: ', jobname))
+			run_dir = os.path.join(output_root, jobname)
+			os.mkdir(run_dir)
+		else:
+			log.info('{}{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Prefix jobroot already exists: ', jobname))
+	else:
+		## Ensures root output is a real directory
+		## Generates folder name based on date (for run ident)
+		date = datetime.date.today().strftime('%d-%m-%Y')
+		walltime = datetime.datetime.now().strftime('%H%M%S')
+		today = date + '-' + walltime
 
-	## Ensures root output is a real directory
-	## Generates folder name based on date (for run ident)
-	date = datetime.date.today().strftime('%d-%m-%Y')
-	walltime = datetime.datetime.now().strftime('%H%M%S')
-	today = date + '-' + walltime
+		## If the user specified root doesn't exist, make it
+		## Then make the run directory for datetime
+		if not os.path.exists(output_root):
+			log.info('{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Creating output root... '))
+			os.mkdir(output_root)
+		run_dir = output_root + 'ScaleHDRun_' + today
+		log.info('{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Creating instance run directory.. '))
+		os.mkdir(run_dir)
 
-	## If the user specified root doesn't exist, make it
-	## Then make the run directory for datetime
-	if not os.path.exists(output_root):
-		log.info('{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Creating output root... '))
-		os.mkdir(output_root)
-	run_dir = output_root + 'ScaleHDRun_' + today
-	log.info('{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Creating instance run directory.. '))
-	os.mkdir(run_dir)
+		## Inform user it's all gonna be okaaaayyyy
+		log.info('{}{}{}{}'.format(Colour.green, 'shd__ ', Colour.end, 'Output directories OK!'))
 
-	## Inform user it's all gonna be okaaaayyyy
-	log.info('{}{}{}{}'.format(Colour.green, 'shd__ ', Colour.end, 'Output directories OK!'))
 	return run_dir
 
 def replace_fqfile(mutate_list, target_fqfile, altered_path):
