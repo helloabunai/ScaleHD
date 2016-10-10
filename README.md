@@ -11,11 +11,9 @@ quality control (trimming, demultiplexing) of raw reads, alignment, and then gen
 
 What's New
 ==========
-Added -j/--jobname flag for customised prefix of root output directories.
-
-Added -p/--purgesam flag for removing all reads from an alignment file (generated or specified) which are not uniquely mapped.
-
-Transitioned from a Bowtie2 wrapper to a BWA-MEM wrapper in -c mode; XML/DTD tags updated to reflect this.
+* Added -j/--jobname flag for customised prefix of root output directories.
+* Added -p/--purgesam flag for removing all reads from an alignment file (generated or specified) which are not uniquely mapped.
+* Transitioned from a Bowtie2 wrapper to a BWA-MEM wrapper in -c mode; XML/DTD tags updated to reflect this.
 
 Installation Prerequisites
 ==========================
