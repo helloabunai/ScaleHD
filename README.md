@@ -75,15 +75,12 @@ Usage
 
 General usage is as follows:
 
-    ~~~~
     $ scalehd [-h/--help] [-v] (-b BATCH | -c CONFIG) [-t THREADS] [-p] [-j JOBNAME] [-o OUTPUT]
     i.e.
     $ scalehd -v -b ~/path/to/samfiles -t 12 -p -j "ExampleJobPrefix" -o ~/path/to/output
-    ~~~~
 
 ScaleHD flags are:
 
-    ~~~~
     -h/--help:: Simple help message explaining flags in detail
     -v/--verbose:: Enables verbose mode in the terminal (i.e. shows user feedback)
     -b/--batch:: Batch mode. Genotyping on a batch of pre-aligned SAM files [directory].
@@ -92,4 +89,3 @@ ScaleHD flags are:
     -p/--purgesam:: Enables the purging of reads which are not uniquely mapped to a reference. Optional.
     -j/--jobname:: Specifies a prefix to use for the root output directory. Optional.
     -o/--output:: Desired output directory.
-    ~~~~
