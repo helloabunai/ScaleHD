@@ -412,7 +412,7 @@ class GenotypePrediction:
 			Get warnings encountered by this instance of SequenceTwoPass
 			Update equivalent warning flags within GenotypePrediction
 			"""
-			first_pass = cag_inspector.density_estimation(plot_flag=True)
+			first_pass = cag_inspector.density_estimation(plot_flag=False)
 			density_warnings = cag_inspector.get_warnings()
 			self.update_flags(density_warnings)
 
@@ -867,7 +867,7 @@ class SequenceTwoPass:
 			plt.xticks(np.arange(0,21,1))
 			plt.xlim(1,20)
 		if self.contig_stage == 'CAG':
-			plt.xticks(np.arange(0,201,1))
+			plt.xticks(np.arange(0,201,50))
 			plt.xlim(1,200)
 		##
 		## Plot graph and identified peaks; label appropriately based on size of fixed_indexes
@@ -955,7 +955,7 @@ class SequenceTwoPass:
 
 		##
 		## Return whether we think this is a homozygous haplotype or not
-		return fail_state, interp_distance.item(0)
+		return fail_state, interp_distance
 
 	def get_warnings(self):
 		"""
