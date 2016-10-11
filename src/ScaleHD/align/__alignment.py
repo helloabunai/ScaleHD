@@ -114,7 +114,7 @@ class SeqAlign:
 		aln_outfi.close()
 
 		##
-		## Generate an alignment report (i.e. console output to
+		## Generate an alignment report (i.e. console output to file)
 		alignment_report = os.path.join(alignment_outdir, 'AlignmentReport.txt')
 		report_file = open(alignment_report, 'w')
 		report_file.write(bwa_error)
@@ -178,6 +178,7 @@ class SeqAlign:
 		csv_file.write(filestring)
 		csv_file.close()
 		os.remove(raw_repeat_distribution)
+
 		##
 		## We return this single csv for when the function is called from shd/prediction
 		## That call loops through a -i/-b sam input file individually, doesn't need a list

@@ -62,15 +62,15 @@ class GenotypePrediction:
 
 		"""
 		Information/Error flags that exist within this class::
-		--CCGZygDisconnect
-		--CCGExpansionSkew
-		--CCGPeakAmbiguous
-		--CCGDensityAmbiguous
-		--CCGRecallWarning
-		--CCGPeakOOB
-		--CAGConsensusSpreadWarning
-		--CAGRecallWarning
-		--FPSPDisconnect
+		--CCGZygDisconnect :: Forward and Reverse CCG SVM predictions differed
+		--CCGExpansionSkew  :: CCG Peak - N-1 of Major Peak is > in (val) than N of Minor Peak
+		--CCGPeakAmbiguous :: Multiple low densities surrounding a suspected peak density
+		--CCGDensityAmbiguous :: Many low densities spread across the KDE histogram for a distribution
+		--CCGRecallWarning :: CCG Detection had to be re-called for one reason or another
+		--CCGPeakOOB :: Too many peaks were called (but threshold was lowered for a reason), truncated results are returned but confidence is low
+		--CAGRecallWarning :: CAG Detection had to be re-called for one reason or another
+		--CAGPeakOOB :: Too many peaks were called (but threshold was lowered for a reason), truncated results are returned but confidence is low
+		--FPSPDisconnect :: First and Second passes differed in results.. not a big deal but w/e
 
 		And data attributes that are used as output::
 		PrimaryAllele = [CAGa, CCGb]
@@ -87,14 +87,18 @@ class GenotypePrediction:
 							   'ThresholdUsed':0,
 							   'RecallCount':0,
 							   'PotentialHomozygousHaplotype':False,
+							   'PHHInterpDistance':0.0,
 							   'CCGZygDisconnect':False,
 							   'CCGExpansionSkew':False,
 							   'CCGPeakAmbiguous':False,
 							   'CCGDensityAmbiguous':False,
 							   'CCGRecallWarning':False,
 							   'CCGPeakOOB':False,
-							   'CAGConsensusSpreadWarning':False,
+							   'CAGExpansionSkew':False,
+							   'CAGPeakAmbiguous':False,
+							   'CAGDensityAmbiguous':False,
 							   'CAGRecallWarning':False,
+							   'CAGPeakOOB':False,
 							   'FPSPDisconnect':False}
 
 		##
@@ -296,7 +300,8 @@ class GenotypePrediction:
 										input_distribution=self.reverseccg_aggregate,
 										peak_target=peak_target,
 										graph_parameters=graph_parameters,
-										zygosity_state = self.zygosity_state)
+										zygosity_state = self.zygosity_state,
+										contig_stage='CCG')
 
 		"""
 		!! Sub-Stage one !!
@@ -305,7 +310,7 @@ class GenotypePrediction:
 		Get warnings encountered by this instance of SequenceTwoPass
 		Update equivalent warning flags within GenotypePrediction
 		"""
-		first_pass = ccg_inspector.density_estimation(plot_flag = True)
+		first_pass = ccg_inspector.density_estimation(plot_flag=True)
 		density_warnings = ccg_inspector.get_warnings()
 		self.update_flags(density_warnings)
 
@@ -315,9 +320,9 @@ class GenotypePrediction:
 		in our FOD peak identification for more specific peak calling and thus, genotyping
 		"""
 		fod_param = [[0,20,21],'CCG Peaks',['CCG Value', 'Read Count'], 'CCGPeakDetection.png']
-		fod_failstate, second_pass = ccg_inspector.differential_peaks(first_pass, fod_param, threshold_bias, contig_stage='CCG')
+		fod_failstate, second_pass = ccg_inspector.differential_peaks(first_pass, fod_param, threshold_bias)
 		while fod_failstate:
-			fod_failstate, second_pass = ccg_inspector.differential_peaks(first_pass, fod_param, threshold_bias, fod_recall=True, contig_stage='CCG')
+			fod_failstate, second_pass = ccg_inspector.differential_peaks(first_pass, fod_param, threshold_bias, fod_recall=True)
 		differential_warnings = ccg_inspector.get_warnings()
 		self.update_flags(differential_warnings)
 
@@ -328,6 +333,7 @@ class GenotypePrediction:
 		second_pass_estimate = [second_pass['PrimaryPeak'], second_pass['SecondaryPeak']]
 
 		if not first_pass_estimate == second_pass_estimate or len(second_pass_estimate)>len(first_pass_estimate):
+			self.genotype_flags['FPSPDisconnect'] = True
 			fail_state = True
 
 		##
@@ -367,7 +373,6 @@ class GenotypePrediction:
 		:param threshold_bias: optional flag for lowering FOD threshold when a previous call failed
 		:return: failure state, CAG genotype data ([X,None],[Y,None])
 		"""
-
 		##
 		## Set up distributions we require to investigate
 		## If Homozygous, we have one CCG distribution that will contain 2 CAG peaks to investigate
@@ -397,7 +402,8 @@ class GenotypePrediction:
 											input_distribution=distro_value,
 											peak_target=peak_target,
 											graph_parameters=graph_parameters,
-											zygosity_state=self.zygosity_state)
+											zygosity_state=self.zygosity_state,
+											contig_stage='CAG')
 
 			"""
 			!! Sub-stage one !!
@@ -406,7 +412,9 @@ class GenotypePrediction:
 			Get warnings encountered by this instance of SequenceTwoPass
 			Update equivalent warning flags within GenotypePrediction
 			"""
-			first_pass = cag_inspector.density_estimation(plot_flag=False)
+			first_pass = cag_inspector.density_estimation(plot_flag=True)
+			density_warnings = cag_inspector.get_warnings()
+			self.update_flags(density_warnings)
 
 			"""
 			!! Sub-stage two !!
@@ -426,6 +434,7 @@ class GenotypePrediction:
 			second_pass_estimate = [second_pass['PrimaryPeak'], second_pass['SecondaryPeak']]
 
 			if not first_pass_estimate == second_pass_estimate or len(second_pass_estimate)>len(first_pass_estimate):
+				self.genotype_flags['FPSPDisconnect'] = True
 				fail_state = True
 
 			##
@@ -506,22 +515,33 @@ class GenotypePrediction:
 						'{}: {}\n{}: {}\n' \
 						'{}: {}\n{}: {}\n' \
 						'{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}'.format('File Name', sample_name,
+						'{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n' \
+						'{}: {}'.format('File Name', sample_name,
 												'Primary Allele', self.genotype_flags['PrimaryAllele'],
 												'Secondary Allele', self.genotype_flags['SecondaryAllele'],
 												'Threshold Used', self.genotype_flags['ThresholdUsed'],
+												'Recall Count', self.genotype_flags['RecallCount'],
 												'Confidence', 'Work In Progress :)',
-												'\nFlags', '',
+												'\nCCG Flags', '',
 												'CCG Zygosity Disconnect', self.genotype_flags['CCGZygDisconnect'],
 												'CCG Expansion Skew', self.genotype_flags['CCGExpansionSkew'],
 												'CCG Peak Ambiguity', self.genotype_flags['CCGPeakAmbiguous'],
 												'CCG Density Ambiguity', self.genotype_flags['CCGDensityAmbiguous'],
 												'CCG Recall Warning', self.genotype_flags['CCGRecallWarning'],
 												'CCG Peak OOB', self.genotype_flags['CCGPeakOOB'],
+												'\nCAG Flags', '',
+												'CAG Expansion Skew', self.genotype_flags['CAGExpansionSkew'],
+												'CAG Peak Ambiguity', self.genotype_flags['CAGPeakAmbiguous'],
+												'CAG Density Ambiguity', self.genotype_flags['CAGDensityAmbiguous'],
 												'CAG Recall Warning', self.genotype_flags['CAGRecallWarning'],
-												'CAG Consensus Spread Warning', self.genotype_flags['CAGConsensusSpreadWarning'],
+												'CAG Peak OOB', self.genotype_flags['CAGPeakOOB'],
+												'\nOther Flags', '',
 												'FPSP Disconnect', self.genotype_flags['FPSPDisconnect'],
-												'Homozygous Haplotype', self.genotype_flags['PotentialHomozygousHaplotype'])
+												'Homozygous Haplotype', self.genotype_flags['PotentialHomozygousHaplotype'],
+												'Haplotype Interp Distance', self.genotype_flags['PHHInterpDistance'])
 
 		sample_file = open(sample_report_name, 'w')
 		sample_file.write(sample_report)
@@ -529,17 +549,20 @@ class GenotypePrediction:
 
 		report = [self.genotype_flags['PrimaryAllele'],
 				  self.genotype_flags['SecondaryAllele'],
+				  self.genotype_flags['PrimaryMosaicism'],
+				  self.genotype_flags['SecondaryMosaicism'],
 				  self.genotype_flags['CCGZygDisconnect'],
 				  self.genotype_flags['CCGExpansionSkew'],
 				  self.genotype_flags['CCGPeakAmbiguous'],
 				  self.genotype_flags['CCGDensityAmbiguous'],
 				  self.genotype_flags['CCGRecallWarning'],
 				  self.genotype_flags['CCGPeakOOB'],
+				  self.genotype_flags['CAGExpansionSkew'],
 				  self.genotype_flags['CAGRecallWarning'],
-				  self.genotype_flags['CAGConsensusSpreadWarning'],
+				  self.genotype_flags['CAGPeakOOB'],
 				  self.genotype_flags['FPSPDisconnect'],
-				  self.genotype_flags['PrimaryMosaicism'],
-				  self.genotype_flags['SecondaryMosaicism']]
+				  self.genotype_flags['PotentialHomozygousHaplotype'],
+				  self.genotype_flags['PHHInterpDistance']]
 
 		return report
 
@@ -551,7 +574,7 @@ class GenotypePrediction:
 		return self.gtype_report
 
 class SequenceTwoPass:
-	def __init__(self, prediction_path, input_distribution, peak_target, graph_parameters, zygosity_state):
+	def __init__(self, prediction_path, input_distribution, peak_target, graph_parameters, zygosity_state, contig_stage):
 		"""
 		Class that will be used as an object for each genotyping stage of the GenotypePrediction pipe
 		Each function within this class has it's own doctstring for further explanation
@@ -574,16 +597,23 @@ class SequenceTwoPass:
 		self.graph_title = graph_parameters[2]
 		self.axes = graph_parameters[3]
 		self.zygosity_state = zygosity_state
+		self.contig_stage = contig_stage
 		self.instance_parameters = {}
 
 		##
 		## Potential warnings raised in this instance/useful variables
-		self.density_ambiguity = False
-		self.expansion_skew = False
-		self.peak_ambiguity = False
-		self.potential_homozygous_haplotype = False
-		self.threshold_used = 0
-		self.recall_count = 0
+		self.CCGDensityAmbiguous = False
+		self.CCGExpansionSkew = False
+		self.CCGPeakAmbiguous = False
+		self.CCGPeakOOB = False
+		self.PotentialHomozygousHaplotype = False
+		self.PHHInterpDistance = 0.0
+		self.CAGDensityAmbiguous= False
+		self.CAGExpansionSkew = False
+		self.CAGPeakAmbiguous = False
+		self.CAGPeakOOB = False
+		self.ThresholdUsed = 0
+		self.RecallCount = 0
 
 	def histogram_generator(self, filename, graph_title, axes, plot_flag):
 		"""
@@ -616,7 +646,8 @@ class SequenceTwoPass:
 		density_frequency = Counter(hist)
 		for key, value in density_frequency.iteritems():
 			if not key == np.float64(0.0) and value > 2:
-				self.density_ambiguity = True
+				if self.contig_stage == 'CCG': self.CCGDensityAmbiguous = True
+				if self.contig_stage == 'CAG': self.CAGDensityAmbiguous = True
 
 		##
 		## Return histogram and bins to where this function was called
@@ -692,7 +723,8 @@ class SequenceTwoPass:
 			literal_minor_index = distro_list.index(literal_minor_estimate)
 			minor_estimate = literal_minor_estimate
 			minor_index = literal_minor_index
-			self.expansion_skew = True
+			if self.contig_stage == 'CCG': self.CCGExpansionSkew = True
+			if self.contig_stage == 'CAG': self.CAGExpansionSkew = True
 
 		##
 		## Actual execution of the Kernel Density Estimation histogram
@@ -713,13 +745,15 @@ class SequenceTwoPass:
 			minor_estimate_sparsity = min(n for n in hist if n!=0)
 			peak_distance = 0
 			if not self.peak_clarity(self.peak_target, hist_list, major_estimate_bin, major_estimate_sparsity):
-				self.peak_ambiguity = True
+				if self.contig_stage == 'CCG': self.CCGPeakAmbiguous = True
+				if self.contig_stage == 'CAG': self.CAGPeakAmbiguous = True
 		if self.peak_target == 2:
 			major_estimate_sparsity = min(n for n in hist if n!=0)
 			minor_estimate_sparsity = min(n for n in hist if n!=0 and n!=major_estimate_sparsity)
 			peak_distance = np.absolute(major_index - minor_index)
 			if not self.peak_clarity(self.peak_target, hist_list, major_estimate_bin, major_estimate_sparsity, minor_estimate_bin, minor_estimate_sparsity):
-				self.peak_ambiguity = True
+				if self.contig_stage == 'CCG': self.CCGPeakAmbiguous = True
+				if self.contig_stage == 'CAG': self.CAGPeakAmbiguous = True
 
 		##
 		## Check for multiple low densities in distribution
@@ -728,15 +762,29 @@ class SequenceTwoPass:
 			if np.isclose(major_estimate_sparsity, density):
 				fuzzy_count+=1
 		if fuzzy_count > 3:
-			self.density_ambiguity = True
+			if self.contig_stage == 'CCG': self.CCGDensityAmbiguous = True
+			if self.contig_stage == 'CAG': self.CAGDensityAmbiguous = True
 
 		##
 		## Determine Thresholds for this instance sample
-		## TODO MORE THRESHOLD MODIFIERS
 		peak_threshold = 0.50
-		if self.expansion_skew: peak_threshold -= 0.05
-		if self.density_ambiguity: peak_threshold -= 0.075
-		if self.peak_ambiguity: peak_threshold -= 0.10
+		if self.contig_stage == 'CCG':
+			if self.CCGExpansionSkew:
+				if self.peak_target == 2:
+					peak_threshold -= 0.05
+			if self.CCGDensityAmbiguous:
+				peak_threshold -= 0.075
+			if self.CCGPeakAmbiguous:
+				peak_threshold -= 0.10
+
+		if self.contig_stage == 'CAG':
+			if self.CAGExpansionSkew:
+				if self.peak_target == 2:
+					peak_threshold -= 0.05
+			if self.CAGDensityAmbiguous:
+				peak_threshold -= 0.075
+			if self.CAGPeakAmbiguous:
+				peak_threshold -= 0.10
 
 		##
 		## Preparing estimated attributes for return
@@ -751,7 +799,7 @@ class SequenceTwoPass:
 
 		return estimated_attributes
 
-	def differential_peaks(self, first_pass, fod_params, threshold_bias, fail_state=False, fod_recall=False, contig_stage=None):
+	def differential_peaks(self, first_pass, fod_params, threshold_bias, fail_state=False, fod_recall=False):
 		"""
 		Function which takes in parameters gathered from density estimation
 		and applies them to a First Order Differential peak detection algorithm
@@ -761,7 +809,6 @@ class SequenceTwoPass:
 		:param threshold_bias: Bool for whether this call is a re-call or not (lower threshold if True)
 		:param fail_state: did this FOD fail or not?
 		:param fod_recall: do we need to do a local re-call?
-		:param contig_stage: for changing xlim of graphs based on CCG (20) or CAG (200)
 		:return: dictionary of results from KDE influenced FOD
 		"""
 
@@ -772,13 +819,13 @@ class SequenceTwoPass:
 		peak_distance = first_pass['PeakDistance']
 		peak_threshold = first_pass['PeakThreshold']
 		if threshold_bias or fod_recall:
-			self.recall_count+=1
-			if self.recall_count > 5:
+			self.RecallCount+=1
+			if self.RecallCount > 5:
 				raise AttributeError('Re-called 5+ times. Unable to accurately predict genotype.')
-			first_pass['PeakThreshold'] -= 0.10
-			peak_threshold -= 0.10
+			first_pass['PeakThreshold'] -= 0.075
+			peak_threshold -= 0.075
 			peak_threshold = max(peak_threshold,0.05)
-		self.threshold_used = peak_threshold
+		self.ThresholdUsed = peak_threshold
 
 		##
 		## Graph Parameters expansion
@@ -795,7 +842,16 @@ class SequenceTwoPass:
 		buffered_y = np.asarray([0] + list(self.input_distribution))
 		y = self.input_distribution
 		peak_indexes = peakutils.indexes(y, thres=peak_threshold, min_dist=peak_distance-1)
-		fixed_indexes = peak_indexes+1
+		fixed_indexes = np.array(peak_indexes+1)
+
+		##
+		## Check that we didn't get too many peaks..
+		if self.contig_stage == 'CCG':
+			if len(fixed_indexes) > 2:
+				self.CCGPeakOOB = True
+		if self.contig_stage == 'CAG':
+			if len(fixed_indexes) > 2:
+				self.CAGPeakOOB = True
 
 		##
 		## Plot Graph!
@@ -804,12 +860,13 @@ class SequenceTwoPass:
 		plt.title(graph_title)
 		plt.xlabel(axes[0])
 		plt.ylabel(axes[1])
+
 		##
 		## Set appropriate range size for CCG/CAG graph dimension
-		if contig_stage == 'CCG':
+		if self.contig_stage == 'CCG':
 			plt.xticks(np.arange(0,21,1))
 			plt.xlim(1,20)
-		if contig_stage == 'CAG':
+		if self.contig_stage == 'CAG':
 			plt.xticks(np.arange(0,201,1))
 			plt.xlim(1,200)
 		##
@@ -840,11 +897,12 @@ class SequenceTwoPass:
 				## There is a very small chance that we could be looking at a homozygous haplotype
 				## So investigate this potential opportunity before giving up completely..
 
-				haplotype_failure = self.haplotype_deterministic([x,y,peak_indexes])
+				haplotype_failure, interp_dist = self.haplotype_deterministic([x,y,peak_indexes])
 				if haplotype_failure:
 					fail_state = True
 				else:
-					self.potential_homozygous_haplotype = True
+					self.PotentialHomozygousHaplotype = True
+					self.PHHInterpDistance = interp_dist
 					first_pass['PrimaryPeak'] = fixed_indexes.item(0)
 					first_pass['SecondaryPeak'] = fixed_indexes.item(0)
 
@@ -884,9 +942,11 @@ class SequenceTwoPass:
 		##
 		## When the passrate was 3/4, we can interpolate our peak with confidence
 		## Attempt to fit a guassian near our suspected haplotype peak
+		interp_distance = 0.0
 		if pass_total >= 3:
 			peaks_interp = peakutils.interpolate(peak_info[0], peak_info[1], ind=peak_info[2])
 			if np.isclose([peaks_interp],[float(peak_info[2])], atol=1.25):
+				interp_distance = abs(peaks_interp - float(peak_info[2]))
 				pass
 			else:
 				fail_state = True
@@ -895,7 +955,7 @@ class SequenceTwoPass:
 
 		##
 		## Return whether we think this is a homozygous haplotype or not
-		return fail_state
+		return fail_state, interp_distance.item(0)
 
 	def get_warnings(self):
 		"""
@@ -904,12 +964,18 @@ class SequenceTwoPass:
 		:return: {warnings}
 		"""
 
-		return {'ExpansionSkew':self.expansion_skew,
-				'PeakAmbiguity':self.peak_ambiguity,
-				'DensityAmbiguity':self.density_ambiguity,
-				'ThresholdUsed':self.threshold_used,
-				'RecallCount':self.recall_count,
-				'PotentialHomozygousHaplotype':self.potential_homozygous_haplotype}
+		return {'CCGDensityAmbiguous':self.CCGDensityAmbiguous,
+				'CCGExpansionSkew':self.CCGExpansionSkew,
+				'CCGPeakAmbiguous':self.CCGPeakAmbiguous,
+				'CCGPeakOOB':self.CCGPeakOOB,
+				'PotentialHomozygousHaplotype':self.PotentialHomozygousHaplotype,
+				'PHHInterpDistance':self.PHHInterpDistance,
+				'CAGDensityAmbiguous':self.CAGDensityAmbiguous,
+				'CAGExpansionSkew':self.CAGExpansionSkew,
+				'CAGPeakAmbiguous':self.CAGPeakAmbiguous,
+				'CAGPeakOOB':self.CAGPeakOOB,
+				'ThresholdUsed':self.ThresholdUsed,
+				'RecallCount':self.RecallCount}
 
 class MosaicismInvestigator:
 	def __init__(self, genotype, distribution):
