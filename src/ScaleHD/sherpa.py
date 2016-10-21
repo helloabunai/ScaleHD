@@ -37,18 +37,18 @@ THREADS = cpu_count()
 
 class ScaleHD:
 	def __init__(self):
-
 		"""
 		ScaleHD: Automated triplet repeat genotyping for Huntington Disease
 		ScaleHD has two modes of usage; sequence and batch
 		Sequence mode consists of a pipeline behaviour for genome sequence QC, alignment and genotyping
 		Batch mode consists of a linear behaviour only for genotyping (from pre-aligned files)
+		If you want a full explanation of the ways in which ScaleHD can be run; scalehd --help
 		"""
 
 		##
 		## Package data
 		self.generic_descriptor = pkg_resources.resource_filename(__name__, 'train/long_descr.rst')
-		self.collapsed_ccg_zygosity = pkg_resources.resource_filename(__name__, 'train/polyglu_zygosity.csv')
+		self.collapsed_ccg_zygosity = pkg_resources.resource_filename(__name__, 'train/polyglutamine.csv')
 		self.training_data = {'GenericDescriptor': self.generic_descriptor, 'CollapsedCCGZygosity': self.collapsed_ccg_zygosity}
 
 		##
@@ -110,12 +110,16 @@ class ScaleHD:
 		## Print all the information from this
 		## whole instance of the application -- 'master summary'
 		##TODO re-work this piece of shit
-		#self.process_report()
+		self.mini_report()
 		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'ScaleHD pipeline completed; exiting.'))
 
 	@staticmethod
 	def set_prediction_params():
-
+		"""
+		Function to generate a dictionary of flags to use in the SVM
+		**redundant**
+		:return:
+		"""
 		param_dict = {'quality_control':'False',
 					  'sequence_alignment':'False',
 					  'genotype_prediction':'True',
@@ -125,7 +129,18 @@ class ScaleHD:
 		return param_dict
 
 	def assembly_workflow(self):
-
+		"""
+		Workflow for when ScaleHD is being ran in batch mode..
+		I.e. Genotyping only!
+		This mode still requires a few methods which were already written in the alignment stage;
+		mainly the repeat count distribution method -- it's called here to gather such information
+		General overview:
+		- For each filepair we need to work on
+		- Get paths, extract repeat count distributions
+		- Send distributions to genotyping class
+		- Append results to report
+		:return: None
+		"""
 		##
 		## Input path, create pairs of data in said path
 		instance_inputdata = self.args.batch[0]
@@ -214,12 +229,26 @@ class ScaleHD:
 					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Assembly pair workflow complete!\n'))
 
 				except Exception, e:
-
+					self.instance_summary[assembly_label] = {'Sample_Genotype':["[Fail]","[Fail]"]}
 					log.info('{}{}{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on ', assembly_label, ': ', str(e)))
 					continue
 
 	def sequence_workflow(self):
-
+		"""
+		Workflow for when ScaleHD is being ran in config mode..
+		Behaviours are tailored based on information extracted from the specified config XML file
+		General overview:
+		-- If align; index references beforehand (instead of each time we call __alignment)
+		-- For each sample-pair from input:
+		-- For Current pair, if quality control: run QC, modifies sequencepair_data with updated target files
+			(replaces raw read files with trimmed/dmpx read files)
+		-- if alignment, run alignment, modifies sequencepair_data with updated target files
+			(replaces unaligned file in struct with extracted data distribution)
+		-- if genotyping, pass data, returns genotyping report with relevant results within
+		-- Append this sample-pair's results to report, continue with loop
+		-- Process reporting
+		:return: None
+		"""
 		##
 		## Config generics
 		instance_inputdata = self.instance_params.config_dict['@data_dir']
@@ -345,7 +374,7 @@ class ScaleHD:
 					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence pair workflow complete!\n'))
 
 				except Exception, e:
-
+					self.instance_summary[sequence_label] = {'Sample_Genotype': ["[Fail]", "[Fail]"]}
 					log.info('{}{}{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on ', sequence_label, ': ', str(e)))
 					continue
 
@@ -389,6 +418,22 @@ class ScaleHD:
 		## since we already have the data from our own objects
 		if stage == 'gtype':
 			pass
+
+	def mini_report(self):
+		master_results_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
+		header = '{},{},{}\n'.format('SampleName', 'shd_A1', 'shd_A2')
+		rows = []
+		sorted_instance = iter(sorted(self.instance_summary.iteritems()))
+		for key, child_dict in sorted_instance:
+			a1 = '"{}"'.format(str(child_dict['Sample_Genotype'][0])[1:-1])
+			a2 = '"{}"'.format(str(child_dict['Sample_Genotype'][1])[1:-1])
+			indi_row = '{},{},{}\n'.format(key, a1, a2)
+			rows.append(indi_row)
+		with open(master_results_file, 'w') as outfi:
+			outfi.write(header)
+			for samplerow in rows:
+				outfi.write(samplerow)
+			outfi.close()
 
 	def process_report(self):
 
