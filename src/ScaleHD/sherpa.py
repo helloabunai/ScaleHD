@@ -2,12 +2,13 @@
 __version__ = 0.01
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
+##
+## Python libraries
 import os
 import sys
 import argparse
 import pkg_resources
 import logging as log
-import pandas as pd
 from multiprocessing import cpu_count
 
 ##
@@ -19,9 +20,6 @@ from __backend import sanitise_inputs
 from __backend import extract_data
 from __backend import sequence_pairings
 from __backend import sanitise_outputs
-from __backend import seek_target
-from __backend import sanitise_trimming_output
-from __backend import sanitise_alignment_output
 
 ##
 ## Package stages
@@ -30,6 +28,10 @@ from .seq_qc.__quality_control import get_trimreport
 from . import align
 from .align.__alignment import get_alignreport
 from . import predict
+
+##
+## HTML for instance report
+from django.template import Context, Template
 
 ##
 ## Globals
@@ -109,8 +111,8 @@ class ScaleHD:
 		##
 		## Print all the information from this
 		## whole instance of the application -- 'master summary'
-		##TODO re-work this piece of shit
 		self.mini_report()
+		#self.html_report_generator()
 		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'ScaleHD pipeline completed; exiting.'))
 
 	@staticmethod
@@ -229,7 +231,9 @@ class ScaleHD:
 					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Assembly pair workflow complete!\n'))
 
 				except Exception, e:
-					self.instance_summary[assembly_label] = {'Sample_Genotype':["[Fail]","[Fail]"]}
+					self.instance_summary[assembly_label] = {'Sample_Genotype':{'PrimaryAllele':'Fail',
+																				'SecondaryAllele':'Fail',
+																				'PredictionConfidence':0}}
 					log.info('{}{}{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on ', assembly_label, ': ', str(e)))
 					continue
 
@@ -374,7 +378,9 @@ class ScaleHD:
 					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence pair workflow complete!\n'))
 
 				except Exception, e:
-					self.instance_summary[sequence_label] = {'Sample_Genotype': ["[Fail]", "[Fail]"]}
+					self.instance_summary[sequence_label] = {'Sample_Genotype': {'PrimaryAllele': 'Fail',
+																				 'SecondaryAllele': 'Fail',
+																				 'PredictionConfidence': 0}}
 					log.info('{}{}{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on ', sequence_label, ': ', str(e)))
 					continue
 
@@ -420,14 +426,23 @@ class ScaleHD:
 			pass
 
 	def mini_report(self):
+
+		"""
+		Temporary function to write Sample Name: Genotype to a file
+		for each sample processed in this run..
+		Will be replaced by a HTML-Django report when i have time to write functions
+		:return: None
+		"""
+
 		master_results_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		header = '{},{},{}\n'.format('SampleName', 'shd_A1', 'shd_A2')
+		header = '{},{},{},{}\n'.format('SampleName', 'shd_A1', 'shd_A2', 'Confidence')
 		rows = []
 		sorted_instance = iter(sorted(self.instance_summary.iteritems()))
 		for key, child_dict in sorted_instance:
-			a1 = '"{}"'.format(str(child_dict['Sample_Genotype'][0])[1:-1])
-			a2 = '"{}"'.format(str(child_dict['Sample_Genotype'][1])[1:-1])
-			indi_row = '{},{},{}\n'.format(key, a1, a2)
+			a1 = '"{}"'.format(child_dict['Sample_Genotype']['PrimaryAllele'])
+			a2 = '"{}"'.format(child_dict['Sample_Genotype']['SecondaryAllele'])
+			conf = child_dict['Sample_Genotype']['PredictionConfidence']
+			indi_row = '{},{},{},{}\n'.format(key, a1, a2, conf)
 			rows.append(indi_row)
 		with open(master_results_file, 'w') as outfi:
 			outfi.write(header)
@@ -435,118 +450,19 @@ class ScaleHD:
 				outfi.write(samplerow)
 			outfi.close()
 
-	def process_report(self):
+	def html_report_generator(self):
 
 		"""
-		A large and very ugly function to take all information gathered from this instance of ScaleHD
-		Convert into a formatted pandas dataframe, that is readable and clear
-		Save as CSV for on-the-fly look at instance results in one instance-wide table
+		Work in progress function to take all the dictionaries returned from the pipeline for this instance
+		and turn it into a HTML based report for end user QoL, via django (i guess?)
+		:return: None
 		"""
 
-		##
-		## Create formatted headers for columns/subsections
-		## Place into dataframe
-		master_results_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		real_columns = ['Sample Name', '',
-						'Forward Trimming', '', '', '', '',
-						'Forward Alignment', '', '', '', '',
-						'Reverse Trimming', '', '', '', '',
-						'Reverse Alignment', '', '', '', '',
-						'Genotype']
-		padded_columns = ['']*382
-		columns = real_columns+padded_columns
-		df = pd.DataFrame(columns=columns)
-		subheaders = ['','','Total reads processed','Quality trimmed','Adapter trimmed','Total written',
-					 '','Aligned 0 times','Aligned 1 time','Aligned >1 time','Overall alignment',
-					 '','Total reads processed','Quality trimmed','Adapter trimmed','Total written',
-					 '','Aligned 0 times','Aligned 1 time','Aligned >1 times','Overall alignment',
-					 '','Allele one','N-1','N','N+1','N-1/N','N+1/N','Allele two','N-1','N','N+1','N-1/N','N+1/N',
-					 'CCG zygosity disconnect','CCG expansion skew','CCG peak ambiguity','CCG density ambiguity',
-					 'CCG recall warning','CCG peak out-of-bounds','CAG recall warning','CAG Consensus warning','FP/SP disconnect']
-		padded_subheaders = ['']*362
-		real_subheaders = subheaders+padded_subheaders
-		df.loc[0] = real_subheaders
+		if self.args.jobname:
+			report_path = os.path.join(self.instance_rundir,'{}Results.html'.format(self.args.jobname))
+		else:
+			report_path = os.path.join(self.instance_rundir,'{}Results.html'.format(self.instance_rundir.split('/')[-1]))
 
-		##
-		## Sort the dictionary of instance results,
-		## Iterate over dictionary from there, scraping results for each line
-		current_loc = 1
-		sorted_instance = iter(sorted(self.instance_summary.iteritems()))
-		for key, child_dictionary in sorted_instance:
-
-			##
-			## Forward Trimming information
-			forward_trimming = child_dictionary['R1_Trimming']
-			fw_total_reads = sanitise_trimming_output(seek_target(forward_trimming, 'Total reads processed'), forward_trimming)
-			fw_quality_trimmed = sanitise_trimming_output(seek_target(forward_trimming, 'Quality-trimmed'), forward_trimming)
-			fw_adapter_trimmed = sanitise_trimming_output(seek_target(forward_trimming, 'Reads with adapters'), forward_trimming)
-			fw_total_written = sanitise_trimming_output(seek_target(forward_trimming, 'Total written (filtered)'), forward_trimming)
-
-			##
-			## Forward Alignment information
-			forward_alignment = child_dictionary['R1_Alignment']
-			fw_zero_align = sanitise_alignment_output(seek_target(forward_alignment, 'aligned 0 times'), forward_alignment, 0)
-			fw_one_align = sanitise_alignment_output(seek_target(forward_alignment, 'aligned exactly 1 time'), forward_alignment, 1)
-			fw_onepl_align = sanitise_alignment_output(seek_target(forward_alignment, 'aligned >1 times'), forward_alignment, 2)
-			fw_overall_align = sanitise_alignment_output(seek_target(forward_alignment, 'overall alignment rate'), forward_alignment, 3)
-
-			##
-			## Reverse Trimming information
-			reverse_trimming = child_dictionary['R2_Trimming']
-			rv_total_reads = sanitise_trimming_output(seek_target(reverse_trimming, 'Total reads processed'), reverse_trimming)
-			rv_quality_trimmed = sanitise_trimming_output(seek_target(reverse_trimming, 'Quality-trimmed'), reverse_trimming)
-			rv_adapter_trimmed = sanitise_trimming_output(seek_target(reverse_trimming, 'Reads with adapters'), reverse_trimming)
-			rv_total_written = sanitise_trimming_output(seek_target(reverse_trimming, 'Total written (filtered)'), reverse_trimming)
-
-			##
-			## Reverse Alignment information
-			reverse_alignment = child_dictionary['R2_Alignment']
-			rv_zero_align = sanitise_alignment_output(seek_target(reverse_alignment, 'aligned 0 times'), reverse_alignment, 0)
-			rv_one_align = sanitise_alignment_output(seek_target(reverse_alignment, 'aligned exactly 1 time'), reverse_alignment, 1)
-			rv_onepl_align = sanitise_alignment_output(seek_target(reverse_alignment, 'aligned >1 times'), reverse_alignment, 2)
-			rv_overall_align = sanitise_alignment_output(seek_target(reverse_alignment, 'overall alignment rate'), reverse_alignment, 3)
-
-			##
-			## Genotype information
-			genotype_results = child_dictionary['Sample_Genotype']
-			pr_nmo = genotype_results[11][0]['NMinusOne']
-			pr_n = genotype_results[11][0]['NValue']
-			pr_npo = genotype_results[11][0]['NPlusOne']
-			pr_nmo_on = genotype_results[11][0]['NMinusOne-Over-N']
-			pr_npo_on = genotype_results[11][0]['NPlusOne-Over-N']
-
-			sc_nmo = genotype_results[12][0]['NMinusOne']
-			sc_n = genotype_results[12][0]['NValue']
-			sc_npo = genotype_results[12][0]['NPlusOne']
-			sc_nmo_on = genotype_results[12][0]['NMinusOne-Over-N']
-			sc_npo_on = genotype_results[12][0]['NPlusOne-Over-N']
-
-			##
-			## Data formatted for appropriate column state
-			current_sample_array = [key,
-									'',fw_total_reads,fw_quality_trimmed,fw_adapter_trimmed,fw_total_written,
-									'',fw_zero_align,fw_one_align,fw_onepl_align,fw_overall_align,
-									'',rv_total_reads,rv_quality_trimmed,rv_adapter_trimmed,rv_total_written,
-									'',rv_zero_align,rv_one_align,rv_onepl_align,rv_overall_align,
-									'',str(genotype_results[0]),pr_nmo,pr_n,pr_npo,pr_nmo_on,pr_npo_on,
-									str(genotype_results[1]),sc_nmo,sc_n,sc_npo,sc_nmo_on,sc_npo_on,
-									genotype_results[2],genotype_results[3],genotype_results[4],
-									genotype_results[5],genotype_results[6],genotype_results[7],
-									genotype_results[8],genotype_results[9],genotype_results[10]]
-
-			##
-			## Add to dataframe
-			## First = trim/align/genotype
-			## Second = Primary Allele padded distribution (somatic mosaicism)
-			## Third = Secondary Allele padded distribution (somatic mosaicism)
-			df.loc[current_loc] = current_sample_array + ['']*362
-			locp1 = [key, str(genotype_results[0])] + genotype_results[11][1]
-			locp2 = [key, str(genotype_results[1])] + genotype_results[12][1]
-			df.loc[current_loc+1] = locp1
-			df.loc[current_loc+2] = locp2
-			current_loc += 3
-
-		df.to_csv(master_results_file, index=False)
 
 def main():
 	try:
