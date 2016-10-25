@@ -1148,7 +1148,7 @@ class SequenceTwoPass:
 		if self.zygosity_state == 'HOMO':
 			majr = list(self.input_distribution)[(fixed_indexes-1).item(0)]
 			minr = list(self.input_distribution)[(fixed_indexes-1).item(1)]
-			if minr > majr: self.PeakExpansionSkew = True; print 'yo expansion skew'
+			if minr > majr: self.PeakExpansionSkew = True
 
 		##
 		## Execute actual plotting last, incase of homozyg haplotype/neighbouring peaks
