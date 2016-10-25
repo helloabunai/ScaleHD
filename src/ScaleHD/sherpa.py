@@ -156,7 +156,7 @@ class ScaleHD:
 
 				##
 				## Super fucking ugly generic exception catcher (FOR NOW -- CHANGE LATER)
-				try:
+				#try:
 
 					##
 					## Required data to process
@@ -230,12 +230,12 @@ class ScaleHD:
 					## Finished all desired stages for this file pair, inform user if -v
 					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Assembly pair workflow complete!\n'))
 
-				except Exception, e:
-					self.instance_summary[assembly_label] = {'Sample_Genotype':{'PrimaryAllele':'Fail',
-																				'SecondaryAllele':'Fail',
-																				'PredictionConfidence':0}}
-					log.info('{}{}{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on ', assembly_label, ': ', str(e)))
-					continue
+				#except Exception, e:
+				#	self.instance_summary[assembly_label] = {'Sample_Genotype':{'PrimaryAllele':'Fail',
+				#																'SecondaryAllele':'Fail',
+				#																'PredictionConfidence':0}}
+				#	log.info('{}{}{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on ', assembly_label, ': ', str(e)))
+				#	continue
 
 	def sequence_workflow(self):
 		"""

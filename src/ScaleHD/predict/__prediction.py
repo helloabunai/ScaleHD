@@ -86,6 +86,7 @@ class GenotypePrediction:
 							   'SecondaryMosaicism':[],
 							   'ThresholdUsed':0,
 							   'RecallCount':0,
+							   'AlignmentPadding':False,
 							   'SVMPossibleFailure':False,
 							   'PotentialHomozygousHaplotype':False,
 							   'PHHInterpDistance':0.0,
@@ -109,8 +110,10 @@ class GenotypePrediction:
 
 		##
 		## Unlabelled distributions to utilise for SVM prediction
+		## Padded distro = None, in case where SAM aligned to (0-100,0-20 NOT 1-200,1-20), use this
 		self.forward_distribution = self.scrape_distro(self.data_pair[0])
 		self.reverse_distribution = self.scrape_distro(self.data_pair[1])
+		self.forward_distr_padded = None
 
 		"""
 		!! Stage one !!
@@ -120,7 +123,7 @@ class GenotypePrediction:
 		-- Compare results between forward and reverse (reverse takes priority)
 		"""
 
-		self.forwardccg_aggregate = self.distribution_collapse(self.forward_distribution)
+		self.forwardccg_aggregate = self.distribution_collapse(self.forward_distribution, st=True)
 		self.reverseccg_aggregate = self.distribution_collapse(self.reverse_distribution)
 		self.zygosity_state = self.predict_zygstate()
 
@@ -224,19 +227,44 @@ class GenotypePrediction:
 		unlabelled_distro = np.array(placeholder_array)
 		return unlabelled_distro
 
-	@staticmethod
-	def distribution_collapse(distribution_array):
+	def distribution_collapse(self, distribution_array, st=False):
 		"""
 		Function to take a full 200x20 array (struc: CAG1-200,CCG1 -- CAG1-200CCG2 -- etc CCG20)
 		and aggregate all CAG values for each CCG
-		:param distribution_array:
+		:param distribution_array: input dist (should be (1-200,1-20))
+		:param st: flag for if we're in forward stage; i.e. input aligned to wrong ref -> assign padded to fwrd
 		:return: 1x20D np(array)
 		"""
 
 		##
-		## Ensure there are 20CCG bins in our distribution
-		try: ccg_arrays = np.split(distribution_array, 20)
-		except ValueError: raise ValueError('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Unable to split array into 20 CCG bins.'))
+		## Object for CCG split
+		ccg_arrays = None
+
+		##
+		## Hopefully the user has aligned to the right reference dimensions
+		## Check.. if not, hopefully we can pad (and raise flag.. since it is not ideal)
+		try:
+			ccg_arrays = np.split(distribution_array, 20)
+		##
+		## User aligned to the wrong reference..
+		except ValueError:
+			self.genotype_flags['AlignmentPadding'] = True
+
+			##
+			## If the distro is this size, they aligned to (0-100,0-20)...
+			## Split by 21, append with 99x1's to end of each CCG
+			## Trim first entry in new list (CCG0.. lol who even studies that)
+			## If we're on a forward distro collapse, assign padded distro (for mosaicism later)
+			if len(distribution_array) == 2121:
+				altref_split = np.split(distribution_array, 21)
+				padded_split = []
+				for ccg in altref_split:
+					current_pad = np.append(ccg[1:], np.ones(100))
+					padded_split.append(current_pad)
+				ccg_arrays = padded_split[1:]
+
+				if st:
+					self.forward_distr_padded = np.asarray([item for sublist in ccg_arrays for item in sublist])
 
 		##
 		## Aggregate each CCG
@@ -403,6 +431,15 @@ class GenotypePrediction:
 		:param threshold_bias: optional flag for lowering FOD threshold when a previous call failed
 		:return: failure state, CAG genotype data ([X,None],[Y,None])
 		"""
+
+		##
+		## Check for padding status
+		## If user aligned to wrong reference, we need to use self.forward_distr_padded instead of
+		## self.forward_distribution; otherwise dimensionality is incorrect...
+
+		if not self.genotype_flags['AlignmentPadding']: forward_utilisation = self.forward_distribution
+		else: forward_utilisation = self.forward_distr_padded
+
 		##
 		## Set up distributions we require to investigate
 		## If Homozygous, we have one CCG distribution that will contain 2 CAG peaks to investigate
@@ -411,12 +448,12 @@ class GenotypePrediction:
 		target_distribution = {}
 		if self.zygosity_state == 'HOMO':
 			peak_target = 2
-			cag_target = self.split_cag_target(self.forward_distribution, self.genotype_flags['PrimaryAllele'][1])
+			cag_target = self.split_cag_target(forward_utilisation, self.genotype_flags['PrimaryAllele'][1])
 			target_distribution[self.genotype_flags['PrimaryAllele'][1]] = cag_target
 		if self.zygosity_state == 'HETERO':
 			peak_target = 1
-			cag_target_major = self.split_cag_target(self.forward_distribution, self.genotype_flags['PrimaryAllele'][1])
-			cag_target_minor = self.split_cag_target(self.forward_distribution, self.genotype_flags['SecondaryAllele'][1])
+			cag_target_major = self.split_cag_target(forward_utilisation, self.genotype_flags['PrimaryAllele'][1])
+			cag_target_minor = self.split_cag_target(forward_utilisation, self.genotype_flags['SecondaryAllele'][1])
 			target_distribution[self.genotype_flags['PrimaryAllele'][1]] = cag_target_major
 			target_distribution[self.genotype_flags['SecondaryAllele'][1]] = cag_target_minor
 
@@ -501,7 +538,10 @@ class GenotypePrediction:
 		## Takes raw 200x20 dist and slices into 20 discrete 200d arrays
 		## Orders into a dataframe with CCG<val> labels
 		## Scrapes appropriate values for SomMos calculations
-		mosaicism_object = MosaicismInvestigator(genotype, self.forward_distribution)
+		if not self.genotype_flags['AlignmentPadding']:
+			mosaicism_object = MosaicismInvestigator(genotype, self.forward_distribution)
+		else:
+			mosaicism_object = MosaicismInvestigator(genotype, self.forward_distr_padded)
 		ccg_slices = mosaicism_object.chunks(200)
 		ccg_ordered = mosaicism_object.arrange_chunks(ccg_slices)
 		allele_values = mosaicism_object.get_nvals(ccg_ordered, genotype)
@@ -563,6 +603,10 @@ class GenotypePrediction:
 		## PeakOOB: >2 peaks returned per allele (i.e. results were sliced)
 		for peakoob in [self.genotype_flags['CAGPeakOOB'],self.genotype_flags['CCGPeakOOB']]:
 			if peakoob: current_confidence -= 15
+
+		##
+		## Sample wasn't aligned to CAG1-200/CCG1-20.. padded but raises questions...
+		if self.genotype_flags['AlignmentPadding']: current_confidence -= 25
 
 		"""
 		>> Medium severity <<
@@ -652,12 +696,14 @@ class GenotypePrediction:
 						'{}: {}\n{}: {}\n' \
 						'{}: {}\n{}: {}\n' \
 						'{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}'.format('File Name', sample_name,
+						'{}: {}\n{}: {}\n' \
+						'{}: {}'.format('File Name', sample_name,
 										'Primary Allele', self.genotype_flags['PrimaryAllele'],
 										'Secondary Allele', self.genotype_flags['SecondaryAllele'],
 										'Prediction Confidence', self.prediction_confidence,
 										'Threshold Used', self.genotype_flags['ThresholdUsed'],
 										'Recall Count', self.genotype_flags['RecallCount'],
+										'Alignment Padding', self.genotype_flags['AlignmentPadding'],
 										'\nCCG Flags', '',
 										'CCG Zygosity Disconnect', self.genotype_flags['CCGZygDisconnect'],
 										'CCG Expansion Skew', self.genotype_flags['CCGExpansionSkew'],
@@ -691,6 +737,7 @@ class GenotypePrediction:
 				  'SecondaryMosaicism':self.genotype_flags['SecondaryMosaicism'],
 				  'ThresholdUsed':self.genotype_flags['ThresholdUsed'],
 				  'RecallCount':self.genotype_flags['RecallCount'],
+				  'AlignmentPadding':self.genotype_flags['AlignmentPadding'],
 				  'SVMPossibleFailure':self.genotype_flags['SVMPossibleFailure'],
 				  'PotentialHomozygousHaplotype':self.genotype_flags['PotentialHomozygousHaplotype'],
 				  'PHHIntepDistance':self.genotype_flags['PHHInterpDistance'],
@@ -1413,6 +1460,9 @@ class MosaicismInvestigator:
 		try:
 			nmo_over_n = int(nmo) / int(n)
 			npo_over_n = int(npo) / int(n)
+		except ValueError:
+			nmo_over_n = float(nmo) / float(n)
+			npo_over_n = float(npo) / float(n)
 		except ZeroDivisionError:
 			log.info('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,' Divide by 0 attempted in Mosaicism Calculation.'))
 
