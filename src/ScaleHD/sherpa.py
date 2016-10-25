@@ -109,9 +109,10 @@ class ScaleHD:
 		else: self.sequence_workflow()
 
 		##
-		## Print all the information from this
-		## whole instance of the application -- 'master summary'
-		self.mini_report()
+		## Work in progress.. Currently a mini report is generated
+		## Results are appended for each sample, rather than all at once at the end
+		## Eventually, Django web app will provide interactive results report here...
+		#self.mini_report()
 		#self.html_report_generator()
 		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'ScaleHD pipeline completed; exiting.'))
 
@@ -149,6 +150,14 @@ class ScaleHD:
 		assembly_pairs = sequence_pairings(instance_inputdata, self.instance_rundir, 'assembly')
 
 		##
+		## Temporary report file to be appended to for each instance
+		master_results_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
+		header = '{},{},{},{}\n'.format('SampleName', 'shd_A1', 'shd_A2', 'Confidence')
+		with open(master_results_file, 'w') as outfi:
+			outfi.write(header)
+			outfi.close()
+
+		##
 		## Executing the workflow for this SHD instance
 		for i in range(len(assembly_pairs)):
 			log.info('{}{}{}{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Processing assembly pair: ', str(i+1), '/', str(len(assembly_pairs))))
@@ -156,7 +165,7 @@ class ScaleHD:
 
 				##
 				## Super fucking ugly generic exception catcher (FOR NOW -- CHANGE LATER)
-				#try:
+				try:
 
 					##
 					## Required data to process
@@ -226,16 +235,24 @@ class ScaleHD:
 										'Sample_Genotype':genotype_report}
 					self.instance_summary[assembly_label] = datapair_summary
 
+					a1 = "'{}'".format(genotype_report['PrimaryAllele'])
+					a2 = "'{}'".format(genotype_report['SecondaryAllele'])
+					conf = genotype_report['PredictionConfidence']
+					indie_row = '{},{},{},{}\n'.format(assembly_label, a1, a2, conf)
+					with open(master_results_file, 'a') as outfi:
+						outfi.write(indie_row)
+						outfi.close()
+
 					##
 					## Finished all desired stages for this file pair, inform user if -v
 					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Assembly pair workflow complete!\n'))
 
-				#except Exception, e:
-				#	self.instance_summary[assembly_label] = {'Sample_Genotype':{'PrimaryAllele':'Fail',
-				#																'SecondaryAllele':'Fail',
-				#																'PredictionConfidence':0}}
-				#	log.info('{}{}{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on ', assembly_label, ': ', str(e)))
-				#	continue
+				except Exception, e:
+					self.instance_summary[assembly_label] = {'Sample_Genotype':{'PrimaryAllele':'Fail',
+																				'SecondaryAllele':'Fail',
+																				'PredictionConfidence':0}}
+					log.info('{}{}{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on ', assembly_label, ': ', str(e)))
+					continue
 
 	def sequence_workflow(self):
 		"""
@@ -282,6 +299,14 @@ class ScaleHD:
 			forward_index = align.ReferenceIndex(forward_reference, index_path).get_index_path()
 			reverse_index = align.ReferenceIndex(reverse_reference, index_path).get_index_path()
 			reference_indexes = [forward_index, reverse_index]
+
+		##
+		## Temporary report file to be appended to for each instance
+		master_results_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
+		header = '{},{},{},{}\n'.format('SampleName', 'shd_A1', 'shd_A2', 'Confidence')
+		with open(master_results_file, 'w') as outfi:
+			outfi.write(header)
+			outfi.close()
 
 		##
 		## Executing the workflow for this SHD instance
@@ -364,6 +389,14 @@ class ScaleHD:
 										'Sample_Genotype':genotype_report}
 
 					self.instance_summary[sequence_label] = datapair_summary
+
+					a1 = "'{}'".format(genotype_report['PrimaryAllele'])
+					a2 = "'{}'".format(genotype_report['SecondaryAllele'])
+					conf = genotype_report['PredictionConfidence']
+					indie_row = '{},{},{},{}\n'.format(sequence_label, a1, a2, conf)
+					with open(master_results_file, 'a') as outfi:
+						outfi.write(indie_row)
+						outfi.close()
 
 					##
 					## Clear the report lists before next iteration
