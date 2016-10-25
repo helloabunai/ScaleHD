@@ -93,13 +93,12 @@ class GenotypePrediction:
 							   'NeighbouringPeaks':False,
 							   'DiminishedPeak':False,
 							   'DiminishedUncertainty':False,
+							   'PeakExpansionSkew':False,
 							   'CCGZygDisconnect':False,
-							   'CCGExpansionSkew':False,
 							   'CCGPeakAmbiguous':False,
 							   'CCGDensityAmbiguous':False,
 							   'CCGRecallWarning':False,
 							   'CCGPeakOOB':False,
-							   'CAGExpansionSkew':False,
 							   'CAGPeakAmbiguous':False,
 							   'CAGDensityAmbiguous':False,
 							   'CAGRecallWarning':False,
@@ -603,6 +602,7 @@ class GenotypePrediction:
 		## PeakOOB: >2 peaks returned per allele (i.e. results were sliced)
 		for peakoob in [self.genotype_flags['CAGPeakOOB'],self.genotype_flags['CCGPeakOOB']]:
 			if peakoob: current_confidence -= 15
+			else: current_confidence += 5
 
 		##
 		## Sample wasn't aligned to CAG1-200/CCG1-20.. padded but raises questions...
@@ -627,10 +627,13 @@ class GenotypePrediction:
 		if self.genotype_flags['NeighbouringPeaks']: current_confidence -= 15
 
 		##
-		## Diminished peak detection
+		## Diminished peak detection (e.g. 40k vs 100)
 		if self.genotype_flags['DiminishedPeak']:
 			current_confidence -= 2.5
 			if self.genotype_flags['DiminishedUncertainty']: current_confidence -= 7.5
+		else:
+			self.genotype_flags['DiminishedUncertainty'] = False
+			current_confidence += 5
 
 		##
 		## Peak / Density ambiguity (only matters if re-call occurred)
@@ -638,7 +641,7 @@ class GenotypePrediction:
 			if self.genotype_flags['CAGPeakAmbiguous']: current_confidence -= 5
 			if self.genotype_flags['CCGPeakAmbiguous']: current_confidence -= 10
 			if self.genotype_flags['CAGDensityAmbiguous']: current_confidence -= 10
-			if self.genotype_flags['CCGDensityAmbiguous']: current_confidence -= 15
+			if self.genotype_flags['CCGDensityAmbiguous']: current_confidence -= 20
 
 		"""
 		>> Lowest severity <<
@@ -650,7 +653,13 @@ class GenotypePrediction:
 		##
 		## Slippage
 		if self.genotype_flags['CAGBackwardsSlippage']: current_confidence -= 5
-		if self.genotype_flags['CAGForwardSlippage']: current_confidence -= 2
+		elif self.genotype_flags['CAGForwardSlippage']: current_confidence -= 2
+		else: current_confidence += 5
+
+		##
+		## Peak Expansion Skew..
+		if self.genotype_flags['PeakExpansionSkew']: current_confidence -= 5
+		else: current_confidence += 5
 
 		"""
 		>> Mosaicism Investigation <<
@@ -696,8 +705,7 @@ class GenotypePrediction:
 						'{}: {}\n{}: {}\n' \
 						'{}: {}\n{}: {}\n' \
 						'{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}\n' \
-						'{}: {}'.format('File Name', sample_name,
+						'{}: {}\n{}: {}\n'.format('File Name', sample_name,
 										'Primary Allele', self.genotype_flags['PrimaryAllele'],
 										'Secondary Allele', self.genotype_flags['SecondaryAllele'],
 										'Prediction Confidence', self.prediction_confidence,
@@ -706,13 +714,11 @@ class GenotypePrediction:
 										'Alignment Padding', self.genotype_flags['AlignmentPadding'],
 										'\nCCG Flags', '',
 										'CCG Zygosity Disconnect', self.genotype_flags['CCGZygDisconnect'],
-										'CCG Expansion Skew', self.genotype_flags['CCGExpansionSkew'],
 										'CCG Peak Ambiguity', self.genotype_flags['CCGPeakAmbiguous'],
 										'CCG Density Ambiguity', self.genotype_flags['CCGDensityAmbiguous'],
 										'CCG Recall Warning', self.genotype_flags['CCGRecallWarning'],
 										'CCG Peak OOB', self.genotype_flags['CCGPeakOOB'],
 										'\nCAG Flags', '',
-										'CAG Expansion Skew', self.genotype_flags['CAGExpansionSkew'],
 										'CAG Peak Ambiguity', self.genotype_flags['CAGPeakAmbiguous'],
 										'CAG Density Ambiguity', self.genotype_flags['CAGDensityAmbiguous'],
 										'CAG Recall Warning', self.genotype_flags['CAGRecallWarning'],
@@ -723,6 +729,7 @@ class GenotypePrediction:
 										'FPSP Disconnect', self.genotype_flags['FPSPDisconnect'],
 										'Homozygous Haplotype', self.genotype_flags['PotentialHomozygousHaplotype'],
 										'Haplotype Interp Distance', self.genotype_flags['PHHInterpDistance'],
+										'Peak Expansion Skew', self.genotype_flags['PeakExpansionSkew'],
 										'Neighbouring Peaks', self.genotype_flags['NeighbouringPeaks'],
 										'Diminished Peak', self.genotype_flags['DiminishedPeak'],
 										'Diminished Peak Uncertainty', self.genotype_flags['DiminishedUncertainty'])
@@ -744,13 +751,12 @@ class GenotypePrediction:
 				  'NeighbouringPeaks':self.genotype_flags['NeighbouringPeaks'],
 				  'DiminishedPeak':self.genotype_flags['DiminishedPeak'],
 				  'DiminishedUncertainty':self.genotype_flags['DiminishedUncertainty'],
+				  'PeakExpansionSkew': self.genotype_flags['PeakExpansionSkew'],
 				  'CCGZygDisconnect':self.genotype_flags['CCGZygDisconnect'],
-				  'CCGExpansionSkew':self.genotype_flags['CCGExpansionSkew'],
 				  'CCGPeakAmbiguous':self.genotype_flags['CCGPeakAmbiguous'],
 				  'CCGDensityAmbiguous':self.genotype_flags['CCGDensityAmbiguous'],
 				  'CCGRecallWarning':self.genotype_flags['CCGRecallWarning'],
 				  'CCGPeakOOB':self.genotype_flags['CCGPeakOOB'],
-				  'CAGExpansionSkew':self.genotype_flags['CAGExpansionSkew'],
 				  'CAGPeakAmbiguous':self.genotype_flags['CAGPeakAmbiguous'],
 				  'CAGDensityAmbiguous':self.genotype_flags['CAGDensityAmbiguous'],
 				  'CAGRecallWArning':self.genotype_flags['CAGRecallWarning'],
@@ -806,8 +812,8 @@ class SequenceTwoPass:
 		self.NeighbouringPeaks = False
 		self.DiminishedPeak = False
 		self.DiminishedUncertainty = False
+		self.PeakExpansionSkew = False
 		self.CAGDensityAmbiguous= False
-		self.CAGExpansionSkew = False
 		self.CAGPeakAmbiguous = False
 		self.CAGPeakOOB = False
 		self.CAGBackwardsSlippage = False
@@ -893,7 +899,7 @@ class SequenceTwoPass:
 		Denisity estimate for a given input distribution (self.input_distribution)
 		Use KDE to determine roughly where peaks should be located, peak distances, etc
 		Plot graphs for visualisation, return information to origin of call
-		:param plot_flag: do we plot a graph or not? (CCG:Yes,CAG:No)
+		:param plot_flag: do we plot a graph or not? (CCG:No,CAG:No) -- may change
 		:return: {dictionary of estimated attributes for this input}
 		"""
 
@@ -923,8 +929,6 @@ class SequenceTwoPass:
 			literal_minor_index = distro_list.index(literal_minor_estimate)
 			minor_estimate = literal_minor_estimate
 			minor_index = literal_minor_index
-			if self.contig_stage == 'CCG': self.CCGExpansionSkew = True
-			if self.contig_stage == 'CAG': self.CAGExpansionSkew = True
 
 		##
 		## Actual execution of the Kernel Density Estimation histogram
@@ -939,10 +943,9 @@ class SequenceTwoPass:
 
 		##
 		## Relevant densities depending on zygosity of the current sample
-		major_estimate_sparsity = None; minor_estimate_sparsity = None
+		major_estimate_sparsity = None
 		if self.peak_target == 1:
 			major_estimate_sparsity = min(n for n in hist if n!=0)
-			minor_estimate_sparsity = min(n for n in hist if n!=0)
 			peak_distance = 0
 			if not self.peak_clarity(self.peak_target, hist_list, major_estimate_bin, major_estimate_sparsity):
 				if self.contig_stage == 'CCG': self.CCGPeakAmbiguous = True
@@ -978,7 +981,7 @@ class SequenceTwoPass:
 				peak_threshold -= 0.10
 
 		if self.contig_stage == 'CAG':
-			if self.CAGExpansionSkew:
+			if self.PeakExpansionSkew:
 				if self.peak_target == 2:
 					peak_threshold -= 0.05
 			if self.CAGDensityAmbiguous:
@@ -1138,6 +1141,14 @@ class SequenceTwoPass:
 		##
 		## Re-create indexes incase that we had a haplotype/neighbouring flag issue
 		fixed_indexes = np.array([first_pass['PrimaryPeak'], first_pass['SecondaryPeak']])
+
+		##
+		## In the case of heterozygous distributions, check that the expanded peak
+		## is not > in value than the normal peak; this is worth informing the user about
+		if self.zygosity_state == 'HOMO':
+			majr = list(self.input_distribution)[(fixed_indexes-1).item(0)]
+			minr = list(self.input_distribution)[(fixed_indexes-1).item(1)]
+			if minr > majr: self.PeakExpansionSkew = True; print 'yo expansion skew'
 
 		##
 		## Execute actual plotting last, incase of homozyg haplotype/neighbouring peaks
@@ -1350,7 +1361,6 @@ class SequenceTwoPass:
 		"""
 
 		return {'CCGDensityAmbiguous':self.CCGDensityAmbiguous,
-				'CCGExpansionSkew':self.CCGExpansionSkew,
 				'CCGPeakAmbiguous':self.CCGPeakAmbiguous,
 				'CCGPeakOOB':self.CCGPeakOOB,
 				'PotentialHomozygousHaplotype':self.PotentialHomozygousHaplotype,
@@ -1358,8 +1368,8 @@ class SequenceTwoPass:
 				'NeighbouringPeaks':self.NeighbouringPeaks,
 				'DiminishedPeak':self.DiminishedPeak,
 				'DiminishedUncertainty':self.DiminishedUncertainty,
+				'PeakExpansionSkew': self.PeakExpansionSkew,
 				'CAGDensityAmbiguous':self.CAGDensityAmbiguous,
-				'CAGExpansionSkew':self.CAGExpansionSkew,
 				'CAGPeakAmbiguous':self.CAGPeakAmbiguous,
 				'CAGPeakOOB':self.CAGPeakOOB,
 				'CAGBackwardsSlippage':self.CAGBackwardsSlippage,
