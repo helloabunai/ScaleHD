@@ -737,7 +737,14 @@ class GenotypePrediction:
 		sample_file.write(sample_report)
 		sample_file.close()
 
-		report = {'PrimaryAllele':self.genotype_flags['PrimaryAllele'],
+		##
+		## Check if we padded our forward before returning into report
+		if self.genotype_flags['AlignmentPadding']: fwdist = self.forward_distr_padded
+		else: fwdist = self.forward_distribution
+
+		report = {'ForwardDistribution':fwdist,
+				  'ReverseDistribution':self.reverse_distribution,
+				  'PrimaryAllele':self.genotype_flags['PrimaryAllele'],
 				  'SecondaryAllele':self.genotype_flags['SecondaryAllele'],
 				  'PredictionConfidence':self.prediction_confidence,
 				  'PrimaryMosaicism':self.genotype_flags['PrimaryMosaicism'],
@@ -1148,7 +1155,7 @@ class SequenceTwoPass:
 		if self.zygosity_state == 'HOMO':
 			majr = list(self.input_distribution)[(fixed_indexes-1).item(0)]
 			minr = list(self.input_distribution)[(fixed_indexes-1).item(1)]
-			if minr > majr: self.PeakExpansionSkew = True
+			if minr > majr and peak_distance > 1: self.PeakExpansionSkew = True
 
 		##
 		## Execute actual plotting last, incase of homozyg haplotype/neighbouring peaks

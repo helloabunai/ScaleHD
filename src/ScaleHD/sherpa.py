@@ -6,6 +6,7 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 ## Python libraries
 import os
 import sys
+import csv
 import argparse
 import pkg_resources
 import logging as log
@@ -109,10 +110,9 @@ class ScaleHD:
 		else: self.sequence_workflow()
 
 		##
-		## Work in progress.. Currently a mini report is generated
-		## Results are appended for each sample, rather than all at once at the end
-		## Eventually, Django web app will provide interactive results report here...
-		#self.mini_report()
+		## Instance wide output results
+		## A simple report file is appended after each sample pair, currently..
+		## Ideal output in the future will be a Django based web app which will be manipulated here
 		#self.html_report_generator()
 		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'ScaleHD pipeline completed; exiting.'))
 
@@ -156,6 +156,18 @@ class ScaleHD:
 		with open(master_results_file, 'w') as outfi:
 			outfi.write(header)
 			outfi.close()
+
+		##
+		## Distribution matrix file for each instance
+		master_matrix_file = os.path.join(self.instance_rundir, 'DistributionMatrix.csv')
+		header = ['SampleName']
+		for i in range(0,20):
+			for j in range(0,200):
+				header.append('CAG{}CCG{}'.format(j+1,i+1))
+		with open(master_matrix_file, 'w') as neofi:
+			wr = csv.writer(neofi)
+			wr.writerow(header)
+			neofi.close()
 
 		##
 		## Executing the workflow for this SHD instance
@@ -235,6 +247,8 @@ class ScaleHD:
 										'Sample_Genotype':genotype_report}
 					self.instance_summary[assembly_label] = datapair_summary
 
+					##
+					## Write the current sample's results to the temporary instance results file
 					a1 = "'{}'".format(genotype_report['PrimaryAllele'])
 					a2 = "'{}'".format(genotype_report['SecondaryAllele'])
 					conf = genotype_report['PredictionConfidence']
@@ -242,6 +256,17 @@ class ScaleHD:
 					with open(master_results_file, 'a') as outfi:
 						outfi.write(indie_row)
 						outfi.close()
+
+					##
+					## Write the current sample's aggregate distribution to the matrix file
+					forward_dist = genotype_report['ForwardDistribution']
+					reverse_dist = genotype_report['ReverseDistribution']
+					aggregate_dist = [assembly_label] + [x + y for x, y in zip(forward_dist, reverse_dist)]
+					aggregate_dist.append('\n')
+					with open(master_matrix_file, 'a') as neofi:
+						wr = csv.writer(neofi)
+						wr.writerow(aggregate_dist)
+						neofi.close()
 
 					##
 					## Finished all desired stages for this file pair, inform user if -v
@@ -482,20 +507,6 @@ class ScaleHD:
 			for samplerow in rows:
 				outfi.write(samplerow)
 			outfi.close()
-
-	def html_report_generator(self):
-
-		"""
-		Work in progress function to take all the dictionaries returned from the pipeline for this instance
-		and turn it into a HTML based report for end user QoL, via django (i guess?)
-		:return: None
-		"""
-
-		if self.args.jobname:
-			report_path = os.path.join(self.instance_rundir,'{}Results.html'.format(self.args.jobname))
-		else:
-			report_path = os.path.join(self.instance_rundir,'{}Results.html'.format(self.instance_rundir.split('/')[-1]))
-
 
 def main():
 	try:
