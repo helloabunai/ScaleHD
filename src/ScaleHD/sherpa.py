@@ -147,137 +147,117 @@ class ScaleHD:
 		##
 		## Input path, create pairs of data in said path
 		instance_inputdata = self.args.batch[0]
-		assembly_pairs = sequence_pairings(instance_inputdata, self.instance_rundir, 'assembly')
+		assembly_pairs = sequence_pairings(instance_inputdata,self.instance_rundir,'assembly')
 
 		##
 		## Temporary report file to be appended to for each instance
 		master_results_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		header = '{},{},{},{}\n'.format('SampleName', 'shd_A1', 'shd_A2', 'Confidence')
-		with open(master_results_file, 'w') as outfi:
-			outfi.write(header)
-			outfi.close()
+		header = '{},{},{},{}\n'.format('SampleName','shd_A1','shd_A2','Confidence')
+		with open(master_results_file, 'w') as outfi: outfi.write(header); outfi.close()
 
 		##
 		## Distribution matrix file for each instance
-		master_matrix_file = os.path.join(self.instance_rundir, 'DistributionMatrix.csv')
+		master_matrix_file = os.path.join(self.instance_rundir,'DistributionMatrix.csv')
 		header = ['SampleName']
 		for i in range(0,20):
 			for j in range(0,200):
 				header.append('CAG{}CCG{}'.format(j+1,i+1))
-		with open(master_matrix_file, 'w') as neofi:
-			wr = csv.writer(neofi)
-			wr.writerow(header)
-			neofi.close()
+		with open(master_matrix_file, 'w') as neofi: wr = csv.writer(neofi); wr.writerow(header); neofi.close()
 
 		##
 		## Executing the workflow for this SHD instance
 		for i in range(len(assembly_pairs)):
-			log.info('{}{}{}{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Processing assembly pair: ', str(i+1), '/', str(len(assembly_pairs))))
+			log.info('{}{}{}{}{}/{}'.format(clr.bold,'shd__ ',clr.end,'Processing assembly pair: ',str(i+1),str(len(assembly_pairs))))
 			for assembly_label, assembly_data in assembly_pairs[i].iteritems():
 
 				##
-				## Super fucking ugly generic exception catcher (FOR NOW -- CHANGE LATER)
+				## Required data to process
+				forward_assembly = assembly_data[0]
+				reverse_assembly = assembly_data[1]
+				predict_path = assembly_data[2]
+				instance_params = self.set_prediction_params()
+
+				##
+				## Specific paths to pass to distribution scraper
+				## In instance_workflow these would've been created for alignment, but since we don't align here
+				## They have to be made in this location instead
+				forward_filename = forward_assembly.split('/')[-1].split('.')[0]  ##absolutely_disgusting.jpg
+				reverse_filename = reverse_assembly.split('/')[-1].split('.')[0]  ##absolutely_disgusting.jpg
+				forward_path = os.path.join(predict_path,forward_filename)
+				reverse_path = os.path.join(predict_path,reverse_filename)
+				if not os.path.exists(forward_path): os.makedirs(forward_path)
+				if not os.path.exists(reverse_path): os.makedirs(reverse_path)
+
+				##
+				## Pre stage -- extract distributions from input sam files
+				## Update assembly_data list; replacing forward/reverse assemblys with respective repeat distributions
+				log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Extracting repeat distributions from pre-assembled data..'))
+				if self.args.purgesam:
+					purged_fw = align.SeqAlign.purge_alignment_map(forward_path, forward_assembly)
+					purged_rv = align.SeqAlign.purge_alignment_map(reverse_path, reverse_assembly)
+					assembly_data[0] = align.SeqAlign.extract_repeat_distributions(assembly_label, forward_path, purged_fw)
+					assembly_data[1] = align.SeqAlign.extract_repeat_distributions(assembly_label, reverse_path, purged_rv)
+				else:
+					assembly_data[0] = align.SeqAlign.extract_repeat_distributions(assembly_label,forward_path,forward_assembly)
+					assembly_data[1] = align.SeqAlign.extract_repeat_distributions(assembly_label,reverse_path,reverse_assembly)
+				log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Repeat distribution extraction complete!'))
+
+				###########################################
+				## Stage one!! Distribution Genotyping.. ##
+				###########################################
 				try:
-
-					##
-					## Required data to process
-					forward_assembly = assembly_data[0]
-					reverse_assembly = assembly_data[1]
-					predict_path = assembly_data[2]
-					instance_params = self.set_prediction_params()
-
-					##
-					## List of paths to report files which may or may not be written to
-					## Used to scrape later on for instance summary
-					trim_report = []
-					align_report = []
-
-					##
-					## Specific paths to pass to distribution scraper
-					## In instance_workflow these would've been created for alignment, but since we don't align here
-					## They have to be made in this location instead
-					forward_filename = forward_assembly.split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
-					reverse_filename = reverse_assembly.split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
-					forward_path = os.path.join(predict_path,forward_filename)
-					reverse_path = os.path.join(predict_path,reverse_filename)
-					if not os.path.exists(forward_path): os.makedirs(forward_path)
-					if not os.path.exists(reverse_path): os.makedirs(reverse_path)
-
-					##
-					## Pre stage -- extract distributions from input sam files
-					## Update assembly_data list; replacing forward/reverse assemblys with respective repeat distributions
-					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Extracting repeat distributions from pre-assembled data..'))
-					if self.args.purgesam:
-						purged_fw = align.SeqAlign.purge_alignment_map(forward_path, forward_assembly)
-						purged_rv = align.SeqAlign.purge_alignment_map(reverse_path, reverse_assembly)
-						assembly_data[0] = align.SeqAlign.extract_repeat_distributions(assembly_label, forward_path, purged_fw)
-						assembly_data[1] = align.SeqAlign.extract_repeat_distributions(assembly_label, reverse_path, purged_rv)
-					else:
-						assembly_data[0] = align.SeqAlign.extract_repeat_distributions(assembly_label,forward_path,forward_assembly)
-						assembly_data[1] = align.SeqAlign.extract_repeat_distributions(assembly_label,reverse_path,reverse_assembly)
-					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Repeat distribution extraction complete!'))
-
-					## Prediction Stage
 					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing genotyping workflow..'))
-					genotype_report = predict.GenotypePrediction(assembly_data, predict_path, self.training_data, instance_params).get_report()
+					genotype_report = predict.GenotypePrediction(assembly_data, predict_path,
+																 self.training_data, instance_params).get_report()
 					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
-
-					##
-					## Collating the required information for this data pair into a summary dictionary
-					## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
-					r1_trimming = ''
-					r2_trimming = ''
-					r1_align = ''
-					r2_align = ''
-
-					if trim_report:
-						r1_trimming = self.scrape_summary_data('trim', trim_report[0])
-						r2_trimming = self.scrape_summary_data('trim', trim_report[1])
-					if align_report:
-						r1_align = self.scrape_summary_data('align', align_report[0])
-						r2_align = self.scrape_summary_data('align', align_report[1])
-
-					##
-					## Collating the required information for this data pair into a summary dictionary
-					## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
-					datapair_summary = {'R1_Trimming':r1_trimming,
-										'R1_Alignment':r1_align,
-										'R2_Trimming':r2_trimming,
-										'R2_Alignment':r2_align,
-										'Sample_Genotype':genotype_report}
-					self.instance_summary[assembly_label] = datapair_summary
-
-					##
-					## Write the current sample's results to the temporary instance results file
-					a1 = "'{}'".format(genotype_report['PrimaryAllele'])
-					a2 = "'{}'".format(genotype_report['SecondaryAllele'])
-					conf = genotype_report['PredictionConfidence']
-					indie_row = '{},{},{},{}\n'.format(assembly_label, a1, a2, conf)
-					with open(master_results_file, 'a') as outfi:
-						outfi.write(indie_row)
-						outfi.close()
-
-					##
-					## Write the current sample's aggregate distribution to the matrix file
-					forward_dist = genotype_report['ForwardDistribution']
-					reverse_dist = genotype_report['ReverseDistribution']
-					aggregate_dist = [assembly_label] + [x + y for x, y in zip(forward_dist, reverse_dist)]
-					aggregate_dist.append('\n')
-					with open(master_matrix_file, 'a') as neofi:
-						wr = csv.writer(neofi)
-						wr.writerow(aggregate_dist)
-						neofi.close()
-
-					##
-					## Finished all desired stages for this file pair, inform user if -v
-					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Assembly pair workflow complete!\n'))
-
 				except Exception, e:
-					self.instance_summary[assembly_label] = {'Sample_Genotype':{'PrimaryAllele':'Fail',
-																				'SecondaryAllele':'Fail',
-																				'PredictionConfidence':0}}
-					log.info('{}{}{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on ', assembly_label, ': ', str(e)))
+					self.instance_summary[assembly_label] = {'SampleGenotype':{'PrimaryAllele':'Fail',
+																			   'SecondaryAllele':'Fail',
+																			   'PredictionConfidence':0}}
+					log.info('{}{}{}{}{}: {}'.format(clr.red,'shd__ ',clr.end,'Genotyping failure on ',assembly_label,str(e)))
 					continue
+
+				#######################################
+				## Stage two!! Bayesian Genotyping.. ##
+				#######################################
+				try:
+					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Experimental Bayesian workflow..'))
+					predict.BayesianLikelihood().greeting()
+					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Experimental Bayesian workflow complete!'))
+				except Exception, e:
+					self.instance_summary[assembly_label] = {'SampleGenotype':{'PrimaryAllele':'Fail',
+																			   'SecondaryAllele':'Fail',
+																			   'PredictionConfidence':0}}
+					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__',clr.end,'Bayesian failure on ',assembly_label,str(e)))
+					continue
+
+				##
+				## Collating the required information for this data pair into a summary dictionary
+				## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
+				datapair_summary = {'R1Trimming':'wip','R1Alignment':'wip',
+									'R2Trimming':'wip','R2Alignment':'wip',
+									'SampleGenotype':genotype_report}
+				self.instance_summary[assembly_label] = datapair_summary
+
+				##
+				## Write the current sample's results to the temporary instance results file
+				a1 = "'{}'".format(genotype_report['PrimaryAllele'])
+				a2 = "'{}'".format(genotype_report['SecondaryAllele'])
+				conf = genotype_report['PredictionConfidence']
+				indie_row = '{},{},{},{}\n'.format(assembly_label,a1,a2,conf)
+				with open(master_results_file, 'a') as outfi: outfi.write(indie_row); outfi.close()
+
+				##
+				## Write the current sample's aggregate distribution to the matrix file
+				forward_dist = genotype_report['ForwardDistribution']
+				reverse_dist = genotype_report['ReverseDistribution']
+				aggregate_dist = [assembly_label] + [x + y for x, y in zip(forward_dist, reverse_dist)]
+				aggregate_dist.append('\n')
+				with open(master_matrix_file, 'a') as neofi: wr = csv.writer(neofi); wr.writerow(aggregate_dist); neofi.close()
+
+				##
+				## Finished all desired stages for this file pair, inform user if -v
+				log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Assembly pair workflow complete!\n'))
 
 	def sequence_workflow(self):
 		"""
@@ -328,119 +308,125 @@ class ScaleHD:
 		##
 		## Temporary report file to be appended to for each instance
 		master_results_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		header = '{},{},{},{}\n'.format('SampleName', 'shd_A1', 'shd_A2', 'Confidence')
-		with open(master_results_file, 'w') as outfi:
-			outfi.write(header)
-			outfi.close()
+		header = '{},{},{},{}\n'.format('SampleName','shd_A1','shd_A2','Confidence')
+		with open(master_results_file, 'w') as outfi: outfi.write(header); outfi.close()
+
+		##
+		## Distribution matrix file for each instance
+		master_matrix_file = os.path.join(self.instance_rundir, 'DistributionMatrix.csv')
+		header = ['SampleName']
+		for i in range(0,20):
+			for j in range(0,200):
+				header.append('CAG{}CCG{}'.format(j+1,i+1))
+		with open(master_matrix_file, 'w') as neofi: wr = csv.writer(neofi);wr.writerow(header);neofi.close()
 
 		##
 		## Executing the workflow for this SHD instance
 		## Ensure there are even amount of files for forward/reverse sequence pairings
 		data_pairs = sequence_pairings(instance_inputdata, self.instance_rundir, 'sequence')
 		for i in range(len(data_pairs)):
-			log.info('{}{}{}{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Processing sequence pair: ', str(i+1), '/', str(len(data_pairs))))
+			log.info('{}{}{}{}{}/{}'.format(clr.bold,'shd__ ',clr.end,'Processing sequence pair: ',str(i+1),str(len(data_pairs))))
 			for sequence_label, sequencepair_data in data_pairs[i].iteritems():
 
 				##
-				## Super fucking ugly generic exception catcher (FOR NOW -- CHANGE LATER)
+				## For the Sequence Pair dictionary we're currently in
+				## create object of the desired stage paths..
+				qc_path = sequencepair_data[2]
+				align_path = sequencepair_data[3]
+				predict_path = sequencepair_data[4]
+
+				############################################
+				## Stage one!! Sequence quality control.. ##
+				############################################
 				try:
-
-					##
-					## For the Sequence Pair dictionary we're currently in
-					## create object of the desired stage paths..
-					qc_path = sequencepair_data[2]
-					align_path = sequencepair_data[3]
-					predict_path = sequencepair_data[4]
-
-					##
-					## List of paths to report files which may or may not be written to
-					## Used to scrape later on for instance summary
-					trim_report = []
-					align_report = []
-
-					##
-					## Stage 1: QC and subflags
 					seq_qc_flag = self.instance_params.config_dict['instance_flags']['@quality_control']
-
 					if seq_qc_flag == 'True':
 						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing sequence quality control workflow..'))
-						if seq_qc.SeqQC(sequencepair_data, qc_path, 'valid', self.instance_params):
-							log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'Initialising trimming.'))
-							seq_qc.SeqQC(sequencepair_data, qc_path, 'trim', self.instance_params)
-							trim_report = get_trimreport()
-							log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Trimming complete!'))
+						if seq_qc.SeqQC(sequencepair_data,qc_path,'valid',self.instance_params):
+							log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,'Initialising trimming.'))
+							seq_qc.SeqQC(sequencepair_data,qc_path,'trim',self.instance_params)
+							#trim_report = get_trimreport()
+							log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Trimming complete!'))
+				except Exception, e:
+					self.instance_summary[sequence_label] = {'R1Trimming':'Fail','R2Trimming':'Fail'}
+					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'SeqQC failure on ',sequence_label,str(e)))
+					continue
 
-					##
-					## Stage 2: Alignment flags
+				##############################################
+				## Stage two!! Sequence alignment via bwa.. ##
+				##############################################
+				try:
 					alignment_flag = self.instance_params.config_dict['instance_flags']['@sequence_alignment']
 					if alignment_flag == 'True':
 						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing alignment workflow..'))
 						align.SeqAlign(sequence_label, sequencepair_data, align_path, reference_indexes, self.instance_params)
-						align_report = get_alignreport()
-						log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence alignment workflow complete!'))
+						#align_report = get_alignreport()
+						log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Sequence alignment workflow complete!'))
+				except Exception, e:
+					self.instance_summary[sequence_label] = {'R1Alignment':'Fail','R2Alignment':'Fail'}
+					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Alignment failure on ',sequence_label,str(e)))
+					continue
 
-					##
-					## Stage 3: Genotyping flags
+				#############################################
+				## Stage three!! Distribution Genotyping.. ##
+				#############################################
+				try:
 					genotyping_flag = self.instance_params.config_dict['instance_flags']['@genotype_prediction']
 					if genotyping_flag == 'True':
 						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing genotyping workflow..'))
-						genotype_report = predict.GenotypePrediction(sequencepair_data, predict_path, self.training_data, self.instance_params).get_report()
+						genotype_report = predict.GenotypePrediction(sequencepair_data, predict_path,
+																	 self.training_data, self.instance_params).get_report()
 						log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
-
-					##
-					## Collating the required information for this data pair into a summary dictionary
-					## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
-					r1_trimming = ''
-					r2_trimming = ''
-					r1_align = ''
-					r2_align = ''
-
-					##
-					## If the stage has been specified, get the report from that stage
-					## If sliced, that report is a list indicating fw/rv files
-					## Genotype stage not required, due to us directly cleaning results
-					## as they were generated; just scrape from relevant array indice
-					if seq_qc_flag == 'True':
-						r1_trimming = self.scrape_summary_data('trim', trim_report[0])
-						r2_trimming = self.scrape_summary_data('trim', trim_report[1])
-					if alignment_flag == 'True':
-						r1_align = self.scrape_summary_data('align', align_report[0])
-						r2_align = self.scrape_summary_data('align', align_report[1])
-
-					datapair_summary = {'R1_Trimming':r1_trimming,
-										'R1_Alignment':r1_align,
-										'R2_Trimming':r2_trimming,
-										'R2_Alignment':r2_align,
-										'Sample_Genotype':genotype_report}
-
-					self.instance_summary[sequence_label] = datapair_summary
-
-					a1 = "'{}'".format(genotype_report['PrimaryAllele'])
-					a2 = "'{}'".format(genotype_report['SecondaryAllele'])
-					conf = genotype_report['PredictionConfidence']
-					indie_row = '{},{},{},{}\n'.format(sequence_label, a1, a2, conf)
-					with open(master_results_file, 'a') as outfi:
-						outfi.write(indie_row)
-						outfi.close()
-
-					##
-					## Clear the report lists before next iteration
-					## iteritems results in next sample_pair files being appended
-					## so indexing of lists breaks -- hence wipe
-					del trim_report[:]
-					del	align_report[:]
-					del genotype_report[:]
-
-					##
-					## Finished all desired stages for this file pair, inform user if -v
-					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence pair workflow complete!\n'))
-
 				except Exception, e:
-					self.instance_summary[sequence_label] = {'Sample_Genotype': {'PrimaryAllele': 'Fail',
-																				 'SecondaryAllele': 'Fail',
-																				 'PredictionConfidence': 0}}
-					log.info('{}{}{}{}{}{}{}\n'.format(clr.red, 'shd__ ', clr.end, 'Failure on ', sequence_label, ': ', str(e)))
+					self.instance_summary[sequence_label] = {'SampleGenotype': {'PrimaryAllele': 'Fail',
+																				'SecondaryAllele': 'Fail',
+																				'PredictionConfidence': 0}}
+					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Genotyping failure on ',sequence_label,str(e)))
 					continue
+
+				########################################
+				## Stage four!! Bayesian Genotyping.. ##
+				########################################
+				##todo bring in sync with assembly_workflow
+				try:
+					log.info('{}{}{}{}'.format(clr.yellow,'shd__',clr.end,'Experimental Bayesian workflow..'))
+					predict.BayesianLikelihood().greeting()
+					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Experimental Bayesian workflow complete!'))
+				except Exception, e:
+					self.instance_summary[sequence_label] = {'SampleGenotype':{'PrimaryAllele':'Fail',
+																			   'SecondaryAllele':'Fail',
+																			   'PredictionConfidence':0}}
+					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__',clr.end,'Bayesian failure on ',sequence_label,str(e)))
+					continue
+
+				##
+				## If we get here, everyhing's good! Generate information for reporting..
+				datapair_summary = {'R1Trimming':'wip','R1Alignment':'wip','R2Trimming':'wip','R2Alignment':'wip',
+									'SampleGenotype':genotype_report}
+				self.instance_summary[sequence_label] = datapair_summary
+
+				##
+				## Append the current samples results to the temp report file
+				a1 = "'{}'".format(genotype_report['PrimaryAllele'])
+				a2 = "'{}'".format(genotype_report['SecondaryAllele'])
+				conf = genotype_report['PredictionConfidence']
+				indie_row = '{},{},{},{}\n'.format(sequence_label,a1,a2,conf)
+				with open(master_results_file, 'a') as outfi:
+					outfi.write(indie_row)
+					outfi.close()
+
+				##
+				## Write the current sample's aggregate distribution to the matrix file
+				forward_dist = genotype_report['ForwardDistribution']
+				reverse_dist = genotype_report['ReverseDistribution']
+				aggregate_dist = [sequence_label] + [x + y for x, y in zip(forward_dist, reverse_dist)]
+				aggregate_dist.append('\n')
+				with open(master_matrix_file, 'a') as neofi: wr = csv.writer(neofi); wr.writerow(aggregate_dist); neofi.close()
+
+				##
+				## Finished all desired stages for this file pair
+				del genotype_report[:] #rework when reporting overhaul
+				log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence pair workflow complete!\n'))
 
 	@staticmethod
 	def scrape_summary_data(stage, input_report_file):
@@ -493,13 +479,13 @@ class ScaleHD:
 		"""
 
 		master_results_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		header = '{},{},{},{}\n'.format('SampleName', 'shd_A1', 'shd_A2', 'Confidence')
+		header = '{},{},{},{}\n'.format('SampleName','shd_A1','shd_A2','Confidence')
 		rows = []
 		sorted_instance = iter(sorted(self.instance_summary.iteritems()))
 		for key, child_dict in sorted_instance:
-			a1 = '"{}"'.format(child_dict['Sample_Genotype']['PrimaryAllele'])
-			a2 = '"{}"'.format(child_dict['Sample_Genotype']['SecondaryAllele'])
-			conf = child_dict['Sample_Genotype']['PredictionConfidence']
+			a1 = '"{}"'.format(child_dict['SampleGenotype']['PrimaryAllele'])
+			a2 = '"{}"'.format(child_dict['SampleGenotype']['SecondaryAllele'])
+			conf = child_dict['SampleGenotype']['PredictionConfidence']
 			indi_row = '{},{},{},{}\n'.format(key, a1, a2, conf)
 			rows.append(indi_row)
 		with open(master_results_file, 'w') as outfi:
