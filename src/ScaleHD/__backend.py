@@ -576,7 +576,6 @@ def sanitise_outputs(jobname, output_argument):
 	output_root = output_argument[0]
 	if jobname:
 		target_output = os.path.join(output_root, jobname)
-		print target_output
 		if not os.path.exists(target_output):
 			log.info('{}{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Creating Output with prefix: ', jobname))
 			run_dir = os.path.join(output_root, jobname)

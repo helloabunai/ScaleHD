@@ -255,7 +255,7 @@ class ScaleHD:
 				forward_dist = genotype_report['ForwardDistribution']
 				reverse_dist = genotype_report['ReverseDistribution']
 				aggregate_dist = [assembly_label] + [x + y for x, y in zip(forward_dist, reverse_dist)]
-				aggregate_dist.append("'{}{}\n'".format(genotype_report['PrimaryAllele'],genotype_report['SecondaryAllele']))
+				aggregate_dist.append('{}{}\n'.format(genotype_report['PrimaryAllele'],genotype_report['SecondaryAllele']))
 				with open(master_matrix_file, 'a') as neofi: wr = csv.writer(neofi); wr.writerow(aggregate_dist); neofi.close()
 
 				##
