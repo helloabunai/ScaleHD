@@ -52,6 +52,8 @@ class ScaleHD:
 		## Package data
 		self.generic_descriptor = pkg_resources.resource_filename(__name__, 'train/long_descr.rst')
 		self.collapsed_ccg_zygosity = pkg_resources.resource_filename(__name__, 'train/polyglutamine.csv')
+		self.likelihood_matrix = pkg_resources.resource_filename(__name__, 'train/likelihood_matrix.csv')
+		self.polyglutamine_matrix = pkg_resources.resource_filename(__name__, 'train/raw_matrix.csv')
 		self.training_data = {'GenericDescriptor': self.generic_descriptor, 'CollapsedCCGZygosity': self.collapsed_ccg_zygosity}
 
 		##
@@ -175,6 +177,7 @@ class ScaleHD:
 				forward_assembly = assembly_data[0]
 				reverse_assembly = assembly_data[1]
 				predict_path = assembly_data[2]
+				bayesian_path = os.path.join(predict_path,'Bayesian')
 				instance_params = self.set_prediction_params()
 
 				##
@@ -222,20 +225,20 @@ class ScaleHD:
 				#######################################
 				try:
 					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Experimental Bayesian workflow..'))
-					predict.BayesianLikelihood().greeting()
+					predict.BayesianLikelihood(bayesian_path, self.polyglutamine_matrix, self.likelihood_matrix)
 					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Experimental Bayesian workflow complete!'))
 				except Exception, e:
-					self.instance_summary[assembly_label] = {'SampleGenotype':{'PrimaryAllele':'Fail',
-																			   'SecondaryAllele':'Fail',
-																			   'PredictionConfidence':0}}
+					self.instance_summary[assembly_label] = {'SampleGenotype':{'BayesPrimaryAllele':'Fail',
+																			   'BayesSecondaryAllele':'Fail',
+																			   'BayesPredictionLikelihood':0}}
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__',clr.end,'Bayesian failure on ',assembly_label,str(e)))
 					continue
 
 				##
 				## Collating the required information for this data pair into a summary dictionary
 				## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
-				datapair_summary = {'R1Trimming':'wip','R1Alignment':'wip',
-									'R2Trimming':'wip','R2Alignment':'wip',
+				datapair_summary = {'R1Trimming':'n/a','R1Alignment':'n/a',
+									'R2Trimming':'n/a','R2Alignment':'n/a',
 									'SampleGenotype':genotype_report}
 				self.instance_summary[assembly_label] = datapair_summary
 
@@ -252,7 +255,7 @@ class ScaleHD:
 				forward_dist = genotype_report['ForwardDistribution']
 				reverse_dist = genotype_report['ReverseDistribution']
 				aggregate_dist = [assembly_label] + [x + y for x, y in zip(forward_dist, reverse_dist)]
-				aggregate_dist.append('\n')
+				aggregate_dist.append("'{}{}\n'".format(genotype_report['PrimaryAllele'],genotype_report['SecondaryAllele']))
 				with open(master_matrix_file, 'a') as neofi: wr = csv.writer(neofi); wr.writerow(aggregate_dist); neofi.close()
 
 				##
@@ -393,9 +396,9 @@ class ScaleHD:
 					predict.BayesianLikelihood().greeting()
 					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Experimental Bayesian workflow complete!'))
 				except Exception, e:
-					self.instance_summary[sequence_label] = {'SampleGenotype':{'PrimaryAllele':'Fail',
-																			   'SecondaryAllele':'Fail',
-																			   'PredictionConfidence':0}}
+					self.instance_summary[sequence_label] = {'SampleGenotype':{'BayesPrimaryAllele':'Fail',
+																			   'BayesSecondaryAllele':'Fail',
+																			   'BayesPredictionLikelihood':0}}
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__',clr.end,'Bayesian failure on ',sequence_label,str(e)))
 					continue
 
@@ -479,9 +482,9 @@ class ScaleHD:
 		"""
 
 		master_results_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		header = '{},{},{},{}\n'.format('SampleName','shd_A1','shd_A2','Confidence')
-		rows = []
-		sorted_instance = iter(sorted(self.instance_summary.iteritems()))
+		header = '{},{},{},{},{},{},{}\n'.format('SampleName','Primary Allele (SHD)','Secondary Allele (SHD)','Confidence (SHD)',
+												 'Primary Allele (Bayes)','Secondary Allele (Bayes)','Likelihood (Bayes)')
+		rows = []; sorted_instance = iter(sorted(self.instance_summary.iteritems()))
 		for key, child_dict in sorted_instance:
 			a1 = '"{}"'.format(child_dict['SampleGenotype']['PrimaryAllele'])
 			a2 = '"{}"'.format(child_dict['SampleGenotype']['SecondaryAllele'])

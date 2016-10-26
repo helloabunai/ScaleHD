@@ -90,8 +90,10 @@ setup(
     # These are the data files to be included in the package
 	# For GenoCall, this will be the data-sets used for machine-learning
 	# training, and generating predictive models for each 'data state'
-    package_data={'ScaleHD': ['train/long_descr.rst', 'train/polyglutamine.csv']},
-
+    package_data={'ScaleHD': ['train/long_descr.rst',
+                              'train/polyglutamine.csv',
+                              'train/likelihood_matrix.csv',
+                              'train/raw_matrix.csv']},
 	include_package_data=True,
 
 	# Executable scripts require an entry point to allow cython to generate
