@@ -6,6 +6,7 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 ## Imports
 import string
 import os
+import errno
 import shutil
 import sys
 import glob
@@ -567,6 +568,8 @@ def initialise_libraries(instance_params):
 	if genotyping == 'True':
 		try:which('samtools')
 		except ScaleHDException: trigger=True
+		try:which('r')
+		except ScaleHDException: trigger=True
 
 	return trigger
 
@@ -579,13 +582,13 @@ def sanitise_outputs(jobname, output_argument):
 		if not os.path.exists(target_output):
 			log.info('{}{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Creating Output with prefix: ', jobname))
 			run_dir = os.path.join(output_root, jobname)
-			os.mkdir(run_dir)
+			mkdir_p(run_dir)
 		else:
 			log.info('{}{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Clearing pre-existing Jobname Prefix: ', jobname))
 			run_dir = os.path.join(output_root, jobname)
 			if os.path.exists(run_dir):
 				shutil.rmtree(run_dir)
-			os.makedirs(run_dir)
+			mkdir_p(run_dir)
 	else:
 		## Ensures root output is a real directory
 		## Generates folder name based on date (for run ident)
@@ -597,10 +600,10 @@ def sanitise_outputs(jobname, output_argument):
 		## Then make the run directory for datetime
 		if not os.path.exists(output_root):
 			log.info('{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Creating output root... '))
-			os.mkdir(output_root)
+			mkdir_p(output_root)
 		run_dir = output_root + 'ScaleHDRun_' + today
 		log.info('{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Creating instance run directory.. '))
-		os.mkdir(run_dir)
+		mkdir_p(run_dir)
 
 		## Inform user it's all gonna be okaaaayyyy
 		log.info('{}{}{}{}'.format(Colour.green, 'shd__ ', Colour.end, 'Output directories OK!'))
@@ -640,3 +643,9 @@ def sanitise_alignment_output(input_object, input_list, stage):
 			return ' '.join(cleanse_target)
 	else:
 		return '*'
+
+def mkdir_p(path):
+	try: os.makedirs(path)
+	except OSError as exc:
+		if exc.errno == errno.EEXIST and os.path.isdir(path): pass
+		else: raise

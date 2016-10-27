@@ -7,6 +7,7 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 import os
 import sys
 import csv
+import gc
 import argparse
 import pkg_resources
 import logging as log
@@ -53,7 +54,7 @@ class ScaleHD:
 		self.generic_descriptor = pkg_resources.resource_filename(__name__, 'train/long_descr.rst')
 		self.collapsed_ccg_zygosity = pkg_resources.resource_filename(__name__, 'train/polyglutamine.csv')
 		self.likelihood_matrix = pkg_resources.resource_filename(__name__, 'train/likelihood_matrix.csv')
-		self.polyglutamine_matrix = pkg_resources.resource_filename(__name__, 'train/raw_matrix.csv')
+		self.raw_matrix = pkg_resources.resource_filename(__name__, 'train/raw_matrix.csv')
 		self.training_data = {'GenericDescriptor': self.generic_descriptor, 'CollapsedCCGZygosity': self.collapsed_ccg_zygosity}
 
 		##
@@ -154,7 +155,7 @@ class ScaleHD:
 		##
 		## Temporary report file to be appended to for each instance
 		master_results_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		header = '{},{},{},{}\n'.format('SampleName','shd_A1','shd_A2','Confidence')
+		header = '{},{},{},{},{},{}\n'.format('SampleName','Primary CAG','Primary CCG','Secondary CAG','Secondary CCG','Confidence')
 		with open(master_results_file, 'w') as outfi: outfi.write(header); outfi.close()
 
 		##
@@ -212,6 +213,7 @@ class ScaleHD:
 					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing genotyping workflow..'))
 					genotype_report = predict.GenotypePrediction(assembly_data, predict_path,
 																 self.training_data, instance_params).get_report()
+					gc.collect()
 					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
 				except Exception, e:
 					self.instance_summary[assembly_label] = {'SampleGenotype':{'PrimaryAllele':'Fail',
@@ -223,16 +225,17 @@ class ScaleHD:
 				#######################################
 				## Stage two!! Bayesian Genotyping.. ##
 				#######################################
-				try:
-					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Experimental Bayesian workflow..'))
-					predict.BayesianLikelihood(bayesian_path, self.polyglutamine_matrix, self.likelihood_matrix)
-					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Experimental Bayesian workflow complete!'))
-				except Exception, e:
-					self.instance_summary[assembly_label] = {'SampleGenotype':{'BayesPrimaryAllele':'Fail',
-																			   'BayesSecondaryAllele':'Fail',
-																			   'BayesPredictionLikelihood':0}}
-					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__',clr.end,'Bayesian failure on ',assembly_label,str(e)))
-					continue
+				#try:
+				log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Experimental Bayesian workflow..'))
+				predict.BayesianLikelihood(bayesian_path, assembly_data, self.likelihood_matrix, self.raw_matrix)
+				gc.collect()
+				log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Experimental Bayesian workflow complete!'))
+				# except Exception, e:
+				# 	self.instance_summary[assembly_label] = {'SampleGenotype':{'BayesPrimaryAllele':'Fail',
+				# 															   'BayesSecondaryAllele':'Fail',
+				# 															   'BayesPredictionLikelihood':0}}
+				# 	log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Bayesian failure on ',assembly_label,str(e)))
+				# 	continue
 
 				##
 				## Collating the required information for this data pair into a summary dictionary
@@ -244,8 +247,8 @@ class ScaleHD:
 
 				##
 				## Write the current sample's results to the temporary instance results file
-				a1 = "'{}'".format(genotype_report['PrimaryAllele'])
-				a2 = "'{}'".format(genotype_report['SecondaryAllele'])
+				a1 = '{}'.format(genotype_report['PrimaryAllele'])[1:-1]
+				a2 = '{}'.format(genotype_report['SecondaryAllele'])[1:-1]
 				conf = genotype_report['PredictionConfidence']
 				indie_row = '{},{},{},{}\n'.format(assembly_label,a1,a2,conf)
 				with open(master_results_file, 'a') as outfi: outfi.write(indie_row); outfi.close()
@@ -311,7 +314,7 @@ class ScaleHD:
 		##
 		## Temporary report file to be appended to for each instance
 		master_results_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		header = '{},{},{},{}\n'.format('SampleName','shd_A1','shd_A2','Confidence')
+		header = '{},{},{},{},{},{}\n'.format('SampleName','Primary CAG','Primary CCG','Secondary CAG','Secondary CCG','Confidence')
 		with open(master_results_file, 'w') as outfi: outfi.write(header); outfi.close()
 
 		##
@@ -337,6 +340,7 @@ class ScaleHD:
 				qc_path = sequencepair_data[2]
 				align_path = sequencepair_data[3]
 				predict_path = sequencepair_data[4]
+				bayesian_path = os.path.join(predict_path,'Bayesian')
 
 				############################################
 				## Stage one!! Sequence quality control.. ##
@@ -348,6 +352,7 @@ class ScaleHD:
 						if seq_qc.SeqQC(sequencepair_data,qc_path,'valid',self.instance_params):
 							log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,'Initialising trimming.'))
 							seq_qc.SeqQC(sequencepair_data,qc_path,'trim',self.instance_params)
+							gc.collect()
 							#trim_report = get_trimreport()
 							log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Trimming complete!'))
 				except Exception, e:
@@ -363,6 +368,7 @@ class ScaleHD:
 					if alignment_flag == 'True':
 						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing alignment workflow..'))
 						align.SeqAlign(sequence_label, sequencepair_data, align_path, reference_indexes, self.instance_params)
+						gc.collect()
 						#align_report = get_alignreport()
 						log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Sequence alignment workflow complete!'))
 				except Exception, e:
@@ -379,6 +385,7 @@ class ScaleHD:
 						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing genotyping workflow..'))
 						genotype_report = predict.GenotypePrediction(sequencepair_data, predict_path,
 																	 self.training_data, self.instance_params).get_report()
+						gc.collect()
 						log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
 				except Exception, e:
 					self.instance_summary[sequence_label] = {'SampleGenotype': {'PrimaryAllele': 'Fail',
@@ -393,13 +400,14 @@ class ScaleHD:
 				##todo bring in sync with assembly_workflow
 				try:
 					log.info('{}{}{}{}'.format(clr.yellow,'shd__',clr.end,'Experimental Bayesian workflow..'))
-					predict.BayesianLikelihood().greeting()
+					predict.BayesianLikelihood(bayesian_path, self.likelihood_matrix, self.raw_matrix)
+					gc.collect()
 					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Experimental Bayesian workflow complete!'))
 				except Exception, e:
 					self.instance_summary[sequence_label] = {'SampleGenotype':{'BayesPrimaryAllele':'Fail',
 																			   'BayesSecondaryAllele':'Fail',
 																			   'BayesPredictionLikelihood':0}}
-					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__',clr.end,'Bayesian failure on ',sequence_label,str(e)))
+					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Bayesian failure on ',sequence_label,str(e)))
 					continue
 
 				##
@@ -410,8 +418,8 @@ class ScaleHD:
 
 				##
 				## Append the current samples results to the temp report file
-				a1 = "'{}'".format(genotype_report['PrimaryAllele'])
-				a2 = "'{}'".format(genotype_report['SecondaryAllele'])
+				a1 = '{}'.format(genotype_report['PrimaryAllele'])[1:-1]
+				a2 = '{}'.format(genotype_report['SecondaryAllele'])[1:-1]
 				conf = genotype_report['PredictionConfidence']
 				indie_row = '{},{},{},{}\n'.format(sequence_label,a1,a2,conf)
 				with open(master_results_file, 'a') as outfi:
@@ -423,6 +431,7 @@ class ScaleHD:
 				forward_dist = genotype_report['ForwardDistribution']
 				reverse_dist = genotype_report['ReverseDistribution']
 				aggregate_dist = [sequence_label] + [x + y for x, y in zip(forward_dist, reverse_dist)]
+				aggregate_dist.append('{}{}\n'.format(genotype_report['PrimaryAllele'],genotype_report['SecondaryAllele']))
 				aggregate_dist.append('\n')
 				with open(master_matrix_file, 'a') as neofi: wr = csv.writer(neofi); wr.writerow(aggregate_dist); neofi.close()
 
