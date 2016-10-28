@@ -88,9 +88,17 @@ class BayesianLikelihood:
 
     def create_frame(self, input_distro):
         """
-        docstring...
-        :return:
+        Method which takes in a np.array consisting of a read count distribution
+        Checks whether the user has aligned to CAG1-200/CCG1-20 or CAG0-100/CCG0-20
+        If the former, remove CAG101-200 for each ccg.. the latter; remove CAG0/CCG0
+        Transform into an R-compliant dataframe so this sample's input can be interfaced
+        with the R algorithms...
+        :param: input_distro (np.array of CAG/CCG read counts)
+        :return: dataframe (robject compliant)
         """
+
+        ##TODO try/catch for ccg_split length
+
         ##
         ## Remove CAG101-200 (since bayesian model lacks)
         ## Add a nolabel to the end
@@ -117,8 +125,10 @@ class BayesianLikelihood:
 
     def check_connection(self):
         """
-        docstr...
-        :return:
+        Method which (crudely) checks if the user has an internet connection
+        Opens socket to google (cos honestly, when is google ever offline?)
+        If we can connect then we assume the internet is fine.. otherwise return False
+        :return: Boolean
         """
         try:
             host_socket = socket.gethostbyname('www.google.com') #if google is down the world has ended
@@ -133,7 +143,11 @@ class BayesianLikelihood:
     @staticmethod
     def install_r_packages():
         """
-        docstr..
+        Method to install required R packages for our R-code.
+        Since we can't tell if packages in R are installed from Python, we need
+        to make an R environment via rpy2. Check for packages, install from
+        the first CRAN mirror if required
+        Also mutes stdout to /dev/null/ since R spam is annoying and unctidy
         :return:
         """
         ##
@@ -158,7 +172,8 @@ class BayesianLikelihood:
 
     def check_r_packages(self):
         """
-        docstr..
+        If the user had no internet connection/we couldn't install required packages,
+        check that they exist independently, so that our R code doesn't fail spectacularly
         :return:
         """
         packnames = ['proxy']
@@ -168,12 +183,14 @@ class BayesianLikelihood:
 
     def generate_python_r_functions(self):
         """
-        docstring...
+        Method to pass a string of R code directly to our R-environment instance object
+        This allows us to directly call R functions from a python object
         :return:
         """
 
         ##
-        ## R comment
+        ## Weight matrix weights values in our 'map' or matrix of all possible
+        ## contig combinations (CAG1-100;CCG1-20)
         self.weight_matrix = robj.r(
             '''
             weight_matrix <- function(pp, rcounts, p=0.1)
@@ -187,7 +204,8 @@ class BayesianLikelihood:
             ''')
 
         ##
-        ## R comment
+        ## Returns a weight matrix based on the number of counts we're currently looking at for
+        ## this particular position that the read exists within the model space
         self.slippage_handler = robj.r(
             '''
             ccg_cag_bayes_slippage <- function(p_mat, read_data, p=0.1)
@@ -209,7 +227,10 @@ class BayesianLikelihood:
             ''')
 
         ##
-        ## R comment
+        ## The "main" function of our bayesian genotype calling
+        ## Iterates over our data, extracting read counts and passing to further
+        ## functions to handle the slippage/weighting of positions in our matrix
+        ## before returning a tag (or genotype)
         self.genotype_caller = robj.r(
             '''
             run_bayes_ccg_cag_calling <- function(p_mat, data, p=0.1)
@@ -230,9 +251,13 @@ class BayesianLikelihood:
 
     def main(self):
         """
-        Main function of this class
-        Fill out docstring later on..
-        :return:
+        Method where we set-up required data for our R-code, load into the current
+        environment's object list and execute the actual genotyping by calling our
+        R code (stored in python objects from self.generate_python_r_functions()
+        Once complete; assign genotypes to a dictionary to be retured to sherpa()
+        Clear R environment of created objects, and force garbage collection to tidy up
+        python's footprint -- finish
+        :return: None
         """
 
         ##
@@ -253,3 +278,7 @@ class BayesianLikelihood:
             robj.globalenv["data"] = distribution
             prediction = self.genotype_caller(robj.globalenv["p_mat"], robj.globalenv["data"])
             print ">> Sample Prediction: ", prediction
+
+        ##
+        ## Remove R Objects from the R instance and force python to clear unreferenced memory
+        gc.collect()

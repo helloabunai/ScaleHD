@@ -9,22 +9,23 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 import os
 import csv
 import peakutils
-import numpy as np
-import logging as log
-from collections import Counter
-from sklearn import svm
-from sklearn.multiclass import OutputCodeClassifier
-from sklearn import preprocessing
 import matplotlib
-matplotlib.use('Agg') #servers/clients without x-11
-from peakutils.plot import plot as pplot
-import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+matplotlib.use('Agg')
+import logging as log
+from sklearn import svm
+import matplotlib.pyplot as plt
+from collections import Counter
+from sklearn import preprocessing
+from peakutils.plot import plot as pplot
+from sklearn.multiclass import OutputCodeClassifier
+
 
 ##
 ## Backend Junk
-from ..__backend import Colour as clr
 from ..__backend import DataLoader
+from ..__backend import Colour as clr
 
 class GenotypePrediction:
 	def __init__(self, data_pair, prediction_path, training_data, instance_params):
