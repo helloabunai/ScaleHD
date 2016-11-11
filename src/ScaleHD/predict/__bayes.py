@@ -185,7 +185,7 @@ class BayesianLikelihood:
         """
         Method to pass a string of R code directly to our R-environment instance object
         This allows us to directly call R functions from a python object
-        :return:
+        :return: None
         """
 
         ##

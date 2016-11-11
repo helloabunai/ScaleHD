@@ -87,6 +87,7 @@ class GenotypePrediction:
 							   'SecondaryMosaicism':[],
 							   'ThresholdUsed':0,
 							   'RecallCount':0,
+							   'NoisyDistributions':0,
 							   'AlignmentPadding':False,
 							   'SVMPossibleFailure':False,
 							   'PotentialHomozygousHaplotype':False,
@@ -339,13 +340,22 @@ class GenotypePrediction:
 			literal_drop = (abs(major_estimate-minor_estimate) / major_estimate) * 100
 
 			## if minor is 60% of major, or less, maybe we are het and the SVM was wrong
-			if literal_drop	<= 60.00:
-				self.genotype_flags['SVMPossibleFailure'] = True
-				self.zygosity_state = 'HETERO'
-				return 2
+			if minor_estimate < 1000:
+				if literal_drop <= 60.00:
+					self.genotype_flags['SVMPossibleFailure'] = True
+					self.zygosity_state = 'HETERO'
+					return 2
+				else:
+					self.zygosity_state = 'HOMO'
+					return 1
 			else:
-				self.zygosity_state = 'HOMO'
-				return 1
+				if literal_drop <= 85.00:
+					self.genotype_flags['SVMPossibleFailure'] = True
+					self.zygosity_state = 'HETERO'
+					return 2
+				else:
+					self.zygosity_state = 'HOMO'
+					return 1
 		peak_target = 0
 		if self.zygosity_state == 'HOMO': peak_target = 1
 		if self.zygosity_state == 'HETERO': peak_target = 2
@@ -462,6 +472,12 @@ class GenotypePrediction:
 		for cag_key, distro_value in target_distribution.iteritems():
 
 			##
+			## If the amount of reads in this distro is super low
+			## Increment flag, which will be used later in confidence score
+			if sum(list(distro_value)) < 1000:
+				self.genotype_flags['NoisyDistributions'] += 1
+
+			##
 			## Generate KDE graph parameters
 			## Generate CAG inspector Object for 2Pass-Algorithm
 			graph_parameters = [20, '{}{}{}'.format('CAG',str(cag_key),'DensityEstimation.png'), 'CAG Density Distribution', ['Read Count', 'Bin Density']]
@@ -576,6 +592,11 @@ class GenotypePrediction:
 		has probably been a strong effect on the precision and accuracy of
 		the genotype prediction.. user should probably manually check results
 		"""
+
+		##
+		## Check distributions for fucking AWFUL read count
+		if self.genotype_flags['NoisyDistributions'] > 0:
+			current_confidence -= (50*self.genotype_flags['NoisyDistributions'])
 
 		##
 		## Threshold utilisation during FOD peak calling
@@ -706,7 +727,8 @@ class GenotypePrediction:
 						'{}: {}\n{}: {}\n' \
 						'{}: {}\n{}: {}\n' \
 						'{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}\n'.format('File Name', sample_name,
+						'{}: {}\n{}: {}\n'\
+						'{}: {}\n{}: {}'.format('File Name', sample_name,
 										'Primary Allele', self.genotype_flags['PrimaryAllele'],
 										'Secondary Allele', self.genotype_flags['SecondaryAllele'],
 										'Prediction Confidence', self.prediction_confidence,
@@ -728,6 +750,8 @@ class GenotypePrediction:
 										'CAG Forwards Slippage', self.genotype_flags['CAGForwardSlippage'],
 										'\nOther Flags', '',
 										'FPSP Disconnect', self.genotype_flags['FPSPDisconnect'],
+										'Noisy Distributions', self.genotype_flags['NoisyDistributions'],
+										'Potential SVM Failure', self.genotype_flags['SVMPossibleFailure'],
 										'Homozygous Haplotype', self.genotype_flags['PotentialHomozygousHaplotype'],
 										'Haplotype Interp Distance', self.genotype_flags['PHHInterpDistance'],
 										'Peak Expansion Skew', self.genotype_flags['PeakExpansionSkew'],
@@ -771,7 +795,8 @@ class GenotypePrediction:
 				  'CAGPeakOOB':self.genotype_flags['CAGPeakOOB'],
 				  'CAGBackwardsSlippage':self.genotype_flags['CAGBackwardsSlippage'],
 				  'CAGForwardSlippage':self.genotype_flags['CAGForwardSlippage'],
-				  'FPSPDisconnect':self.genotype_flags['FPSPDisconnect']}
+				  'FPSPDisconnect':self.genotype_flags['FPSPDisconnect'],
+				  'NoisyDistributions':self.genotype_flags['NoisyDistributions']}
 
 		return report
 
@@ -1029,6 +1054,7 @@ class SequenceTwoPass:
 		## but ensure the threshold stays within the expected ranges
 		peak_distance = first_pass['PeakDistance']
 		peak_threshold = first_pass['PeakThreshold']
+
 		if threshold_bias or fod_recall:
 			self.RecallCount+=1
 			if self.RecallCount > 5:
@@ -1108,24 +1134,25 @@ class SequenceTwoPass:
 				first_pass['PrimaryPeak'] = fixed_indexes.item(0)
 				first_pass['SecondaryPeak'] = fixed_indexes.item(1)
 			except IndexError:
-				haplotype_failure, interp_dist = self.haplotype_deterministic([x,y,peak_indexes])
-				if haplotype_failure:
-					diminished_failure, diminished_peaks = self.diminished_deterministic([x,y,buffered_y,peak_indexes])
-					if diminished_failure:
-						neighbour_failure, neighbour_peaks = self.neighbour_deterministic([x,y,buffered_y,peak_indexes])
-						if neighbour_failure:
-							fail_state = True
+				homozygous_fail, interp_distance, neighbour_candidate = self.homozygous_neighbour_deterministic([x,y,buffered_y,peak_indexes])
+				if homozygous_fail:
+					if neighbour_candidate:
+						neighbour_fail, neighbour_peaks = self.neighbour_deterministic([x,y,buffered_y,peak_indexes])
+						if neighbour_fail:
+							diminished_fail, diminished_peaks = self.diminished_deterministic([x,y,buffered_y,peak_indexes])
+							if diminished_fail:
+								fail_state = True
+							else:
+								self.DiminishedPeak = True
+								first_pass['PrimaryPeak'] = diminished_peaks.item(0)
+								first_pass['SecondaryPeak'] = diminished_peaks.item(1)
 						else:
 							self.NeighbouringPeaks = True
 							first_pass['PrimaryPeak'] = neighbour_peaks.item(0)
 							first_pass['SecondaryPeak'] = neighbour_peaks.item(1)
-					else:
-						self.DiminishedPeak = True
-						first_pass['PrimaryPeak'] = diminished_peaks.item(0)
-						first_pass['SecondaryPeak'] = diminished_peaks.item(1)
 				else:
 					self.PotentialHomozygousHaplotype = True
-					self.PHHInterpDistance = interp_dist
+					self.PHHInterpDistance = interp_distance
 					first_pass['PrimaryPeak'] = fixed_indexes.item(0)
 					first_pass['SecondaryPeak'] = fixed_indexes.item(0)
 
@@ -1138,13 +1165,10 @@ class SequenceTwoPass:
 				first_pass['PrimaryPeak'] = fixed_indexes.item(0)
 				first_pass['SecondaryPeak'] = fixed_indexes.item(1)
 			except IndexError:
-				neighbour_failure, neighbour_peaks = self.neighbour_deterministic([x,y,buffered_y,peak_indexes])
-				if neighbour_failure:
-					fail_state = True
-				else:
-					self.NeighbouringPeaks = True
-					first_pass['PrimaryPeak'] = neighbour_peaks.item(0)
-					first_pass['SecondaryPeak'] = neighbour_peaks.item(1)
+				maxccg = max(list(self.input_distribution))
+				maxmoccg = max(n for n in list(self.input_distribution) if n!= maxccg)
+				first_pass['PrimaryPeak'] = list(self.input_distribution).index(maxccg)+1
+				first_pass['SecondaryPeak'] = list(self.input_distribution).index(maxmoccg)+1
 
 		##
 		## Re-create indexes incase that we had a haplotype/neighbouring flag issue
@@ -1169,54 +1193,69 @@ class SequenceTwoPass:
 
 		return fail_state, first_pass
 
-	def haplotype_deterministic(self, peak_info, fail_state=False):
+	def homozygous_neighbour_deterministic(self, peak_info, homozygous_fail=False):
 		"""
-		Function to determine whether a potential heterozygous haplotype is legitimate
-		Peak Clarity... sliding window around peak && comparison of raw read counts to gauge
-		whether a single peak in an expected heterozygous context is legitimate
-		:param peak_info: [x, y, genotype]
-		:param fail_state: whether we pass/fail this deterministic
-		:return: fail_state (boolean for success of homozygous haplotype), interp_distance (gaussian interp peak distance to prediction)
+		Dual function to determine whether a peak is a potetnail homozygous haplotype or a neighbouring peak
+		Fill out this docstring later
+		:param peak_info:
+		:param homozygous_fail:
+		:return:
 		"""
+
 		##
-		## Calculate the percentage drop-off of our suspected peak
-		## If the thresholds are meant, do an interpolation on the peak
-		nmt = self.input_distribution[peak_info[2]-2]
-		nmo = self.input_distribution[peak_info[2]-1]
-		n = self.input_distribution[peak_info[2]]
-		npo = self.input_distribution[peak_info[2]+1]
-		npt = self.input_distribution[peak_info[2]+2]
+		## Subroutine to do testing on a given list of data
+		def resolution_tester(dset):
+			pass_total = 0
+			for test in dset:
+				if np.isclose(np.around(test[0], decimals=3),test[1],atol=test[2]):
+					pass_total += 1
+			return pass_total
+
+		##
+		## Calculate the percentage drop-off for our suspected peak
+		## If the thresholds are met, do interp on the peak
+		nmt = self.input_distribution[peak_info[3]-2]
+		nmo = self.input_distribution[peak_info[3]-1]
+		n = self.input_distribution[peak_info[3]]
+		npo = self.input_distribution[peak_info[3]+1]
+		npt = self.input_distribution[peak_info[3]+2]
 		nmt_n = nmt / n; nmo_n = nmo / n
 		npo_n = npo / n; npt_n = npt / n
 
 		##
-		## For N Minus/Plus One/Two, determine whether the dropoff is acceptable for a clean peak
-		## If it is, add to a pass total; if 3/4 tests pass, peak is clean enough to interpolate with confidence
-		pass_total = 0
-		point_tests = [[[nmt_n],[0.35],[0.150]],
-					   [[nmo_n],[0.65],[0.075]],
-					   [[npo_n],[0.50],[0.300]],
-					   [[npt_n],[0.25],[0.250]]]
-		for test in point_tests:
-			if np.isclose(test[0],test[1],atol=test[2]):
-				pass_total += 1
-		##
-		## When the passrate was 3/4, we can interpolate our peak with confidence
-		## Attempt to fit a guassian near our suspected haplotype peak
-		interp_distance = 0.0
-		if pass_total >= 3:
-			peaks_interp = peakutils.interpolate(peak_info[0], peak_info[1], ind=peak_info[2])
-			if np.isclose([peaks_interp],[float(peak_info[2])], atol=1.25):
-				interp_distance = abs(peaks_interp - float(peak_info[2]))
-				pass
-			else:
-				fail_state = True
-		else:
-			fail_state = True
+		## Different categories of peak clarity require different dropoff thresholds
+		## A clean peak (i.e. pass for homozygous haplotype) == Ultra, VHigh, High
+		## A 'spread' peak (i.e. neighbouring peak.. not homozygous) == Medium, Low, VLow
+		differential_qualities = {'Ultra':[[[nmt_n],[0.015],[0.005]], [[nmo_n],[0.15],[0.05]], [[npo_n],[0.005],[0.005]], [[npt_n],[0.00050],[0.0005]]],
+								  'VHigh':[[[nmt_n],[0.025],[0.005]], [[nmo_n],[0.20],[0.05]], [[npo_n],[0.010],[0.005]], [[npt_n],[0.00075],[0.0005]]],
+								  'High':[[[nmt_n],[0.050],[0.025]], [[nmo_n],[0.30],[0.05]], [[npo_n],[0.015],[0.005]], [[npt_n],[0.00100],[0.0010]]],
+								  'Medium':[[[nmt_n],[0.125],[0.025]], [[nmo_n],[0.375],[0.05]], [[npo_n],[0.02],[0.075]], [[npt_n],[0.002],[0.001]]],
+								  'Low':[[[nmt_n],[0.275],[0.050]], [[nmo_n],[0.550],[0.10]], [[npo_n],[0.03],[0.075]], [[npt_n],[0.003],[0.001]]],
+								  'VLow':[[[nmt_n],[0.450],[0.075]], [[nmo_n],[0.700],[0.15]], [[npo_n],[0.05],[0.010]], [[npt_n],[0.005],[0.002]]]}
 
 		##
-		## Return whether we think this is a homozygous haplotype or not
-		return fail_state, interp_distance
+		## Determine which quality of peak has the highest passrate for the four data points
+		highest_qual = None
+		highest_rate = 0
+		for quality, dropoff_values in differential_qualities.iteritems():
+			passrate = resolution_tester(dropoff_values)
+			if passrate > highest_rate:
+				highest_rate = passrate
+				highest_qual = quality
+
+		##
+		## If the sample was a homozygous shape, fit gaussian to data
+		## If gaussian within 0.3 of suspected homozygous peak, it's real
+		## otherwise, probably neighbouring peaks, so send to that function
+		interp_distance = 0.0; neighbour_candidate = False
+		if highest_qual in ['Ultra','VHigh','High']:
+			peaks_interp = peakutils.interpolate(peak_info[0], peak_info[1], ind=peak_info[3])
+			if np.isclose([peaks_interp],[float(peak_info[3])], atol=0.30):
+				interp_distance = abs(peaks_interp - float(peak_info[3]))
+			else: homozygous_fail = True
+		else: neighbour_candidate = True; homozygous_fail = True
+
+		return homozygous_fail, interp_distance, neighbour_candidate
 
 	def diminished_deterministic(self, peak_info, fail_state=False):
 		"""
