@@ -21,7 +21,6 @@ from sklearn import preprocessing
 from peakutils.plot import plot as pplot
 from sklearn.multiclass import OutputCodeClassifier
 
-
 ##
 ## Backend Junk
 from ..__backend import DataLoader
@@ -61,79 +60,52 @@ class GenotypePrediction:
 		## Build a classifier and class label hash-encoder for CCG SVM
 		self.classifier, self.encoder = self.build_zygosity_model()
 
-		"""
-		Information/Error flags that exist within this class::
-		--CCGZygDisconnect :: Forward and Reverse CCG SVM predictions differed
-		--CCGExpansionSkew  :: CCG Peak - N-1 of Major Peak is > in (val) than N of Minor Peak
-		--CCGPeakAmbiguous :: Multiple low densities surrounding a suspected peak density
-		--CCGDensityAmbiguous :: Many low densities spread across the KDE histogram for a distribution
-		--CCGRecallWarning :: CCG Detection had to be re-called for one reason or another
-		--CCGPeakOOB :: Too many peaks were called (but threshold was lowered for a reason), truncated results are returned but confidence is low
-		--CAGRecallWarning :: CAG Detection had to be re-called for one reason or another
-		--CAGPeakOOB :: Too many peaks were called (but threshold was lowered for a reason), truncated results are returned but confidence is low
-		--FPSPDisconnect :: First and Second passes differed in results.. not a big deal but w/e
-
-		And data attributes that are used as output::
-		PrimaryAllele = [CAGa, CCGb]
-		SecondaryAllele = [CAGc, CCGd]
-		PrimaryMosaicism = [<values>]
-		SecondaryMosaicism = [<values>]
-		"""
+		##
+		## Information and error flags for this instance
+		## For explanations of the flags; check documentation
 		self.prediction_confidence = 0
 		self.cag_intermediate = [0,0]
-		self.genotype_flags = {'PrimaryAllele':[0,0],
-							   'SecondaryAllele':[0,0],
-							   'PrimaryMosaicism':[],
-							   'SecondaryMosaicism':[],
-							   'ThresholdUsed':0,
-							   'RecallCount':0,
-							   'NoisyDistributions':0,
-							   'AlignmentPadding':False,
-							   'SVMPossibleFailure':False,
-							   'PotentialHomozygousHaplotype':False,
-							   'PHHInterpDistance':0.0,
-							   'NeighbouringPeaks':False,
-							   'DiminishedPeak':False,
-							   'DiminishedUncertainty':False,
-							   'PeakExpansionSkew':False,
-							   'CCGZygDisconnect':False,
-							   'CCGPeakAmbiguous':False,
-							   'CCGDensityAmbiguous':False,
-							   'CCGRecallWarning':False,
-							   'CCGPeakOOB':False,
-							   'CAGPeakAmbiguous':False,
-							   'CAGDensityAmbiguous':False,
-							   'CAGRecallWarning':False,
-							   'CAGPeakOOB':False,
-							   'CAGBackwardsSlippage':False,
-							   'CAGForwardSlippage':False,
-							   'FPSPDisconnect':False}
+		self.genotype_flags = {'PrimaryAllele':[0,0], 'SecondaryAllele':[0,0], 'PrimaryMosaicism':[],
+							   'SecondaryMosaicism':[], 'ThresholdUsed':0, 'RecallCount':0,
+							   'NoisyDistributions':0, 'AlignmentPadding':False, 'SVMPossibleFailure':False,
+							   'PotentialHomozygousHaplotype':False, 'PHHInterpDistance':0.0, 'NeighbouringPeaks':False,
+							   'DiminishedPeak':False, 'DiminishedUncertainty':False, 'PeakExpansionSkew':False,
+							   'CCGZygDisconnect':False, 'CCGPeakAmbiguous':False, 'CCGDensityAmbiguous':False,
+							   'CCGRecallWarning':False, 'CCGPeakOOB':False, 'CAGPeakAmbiguous':False,
+							   'CAGDensityAmbiguous':False, 'CAGRecallWarning':False, 'CAGPeakOOB':False,
+							   'CAGBackwardsSlippage':False, 'CAGForwardSlippage':False, 'FPSPDisconnect':False}
 
 		##
 		## Unlabelled distributions to utilise for SVM prediction
 		## Padded distro = None, in case where SAM aligned to (0-100,0-20 NOT 1-200,1-20), use this
 		self.forward_distribution = self.scrape_distro(self.data_pair[0])
 		self.reverse_distribution = self.scrape_distro(self.data_pair[1])
-		self.forward_distr_padded = None
+		self.forwardccg_aggregate = None; self.reverseccg_aggregate = None
+		self.forward_distr_padded = None; self.zygosity_state = None
+		self.gtype_report = None
 
+		##
+		## Run the code
+		self.main()
+
+	def main(self):
 		"""
-		!! Stage one !!
-		Determine Zygosity of CCG from input distribution
-		-- Aggregate CCG reads from 200x20 to 1x20
-		-- Feed into SVM
-		-- Compare results between forward and reverse (reverse takes priority)
+		Main function of this 'object' which calls on other functions/classes to determine a genotype
+		Each sample is broken down into stages, to simplify the search space of possible genotypes.
+		:return: None
 		"""
 
+		##
+		## >> Stage one -- Determine zygosity of CCG from input distro
+		## - Aggregate CCG reads from 200x20 to 1x20; feed into SVM
+		## - Compare results between forward and reverse (reverse takes priorty)
 		self.forwardccg_aggregate = self.distribution_collapse(self.forward_distribution, st=True)
 		self.reverseccg_aggregate = self.distribution_collapse(self.reverse_distribution)
 		self.zygosity_state = self.predict_zygstate()
 
-		"""
-		!! Stage two !!
-		Determine CCG Peak(s)/Genotype(s) via 2-Pass Algorithm
-		Run first attempt with no clauses; if pass, continue to next stage
-		However, if something fails, a loop will trigger until the function passes
-		"""
+		##
+		## >> Stage two -- Determine CCG Peak(s) via 2Pass Algorithm
+		## If a failure occurs, a re-call continues until attempts exhausted
 		ccg_failstate, ccg_genotype = self.determine_ccg_genotype()
 		while ccg_failstate:
 			self.genotype_flags['CCGRecallWarning'] = True
@@ -142,12 +114,9 @@ class GenotypePrediction:
 		self.genotype_flags['PrimaryAllele'][1] = ccg_genotype[0]
 		self.genotype_flags['SecondaryAllele'][1] = ccg_genotype[1]
 
-		"""
-		!! Stage three !!
-		Now we have identified the CCG peaks (successfully), we can investigate the appropriate
-		CAG distributions for these CCG distribution(s). The same generic functions will be called
-		for CAG determination, and results from CCG and CAG are combined to produce a genotype for this sample
-		"""
+		##
+		## >> Stage three -- Investigate respective CAG distributions for our CCG peaks
+		## Once determined, CAG and CCG are combined to create an allele's genotype
 		cag_failstate, cag_genotype = self.determine_cag_genotype()
 		while cag_failstate:
 			self.genotype_flags['CAGRecallWarning'] = True
@@ -157,24 +126,19 @@ class GenotypePrediction:
 		self.genotype_flags['SecondaryAllele'][0] = cag_genotype[1]
 
 		##
-		## Ensure that normal and expanded alleles are located in the correct position
-		## Based on CAG ordering value, NOT CCG ordering value
+		## Ensure normal/expanded alleles are in the correct index (i.e. higher CAG == expanded)
 		if int(self.genotype_flags['PrimaryAllele'][0]) > int(self.genotype_flags['SecondaryAllele'][0]):
 			intermediate = self.genotype_flags['PrimaryAllele']
 			self.genotype_flags['PrimaryAllele'] = self.genotype_flags['SecondaryAllele']
 			self.genotype_flags['SecondaryAllele'] = intermediate
 
-		"""
-		!! Stage four !!
-		Simple Somatic Mosaicism calculations are done here
-		"""
+		##
+		## >> Stage four -- Simple somatic mosaicism calculations
 		self.genotype_flags['PrimaryMosaicism'] = self.somatic_calculations(self.genotype_flags['PrimaryAllele'])
 		self.genotype_flags['SecondaryMosaicism'] = self.somatic_calculations(self.genotype_flags['SecondaryAllele'])
 
-		"""
-		!! Stage five !!
-		Determine confidence in this genotype prediciton, and return for report
-		"""
+		##
+		## >> Stage five -- Calculate confidence in genotype, report
 		self.confidence_calculation()
 		self.gtype_report = self.generate_report()
 
@@ -474,7 +438,7 @@ class GenotypePrediction:
 			##
 			## If the amount of reads in this distro is super low
 			## Increment flag, which will be used later in confidence score
-			if sum(list(distro_value)) < 1000:
+			if sum(list(distro_value)) < 1500:
 				self.genotype_flags['NoisyDistributions'] += 1
 
 			##
@@ -597,6 +561,11 @@ class GenotypePrediction:
 		## Check distributions for fucking AWFUL read count
 		if self.genotype_flags['NoisyDistributions'] > 0:
 			current_confidence -= (50*self.genotype_flags['NoisyDistributions'])
+
+		## Check for deterministics
+		detlist = [self.genotype_flags['PotentialHomozygousHaplotype'],self.genotype_flags['DiminishedPeak'],self.genotype_flags['NeighbouringPeaks']]
+		for flag in detlist:
+			if flag: current_confidence -= 30
 
 		##
 		## Threshold utilisation during FOD peak calling
@@ -1054,27 +1023,18 @@ class SequenceTwoPass:
 		## but ensure the threshold stays within the expected ranges
 		peak_distance = first_pass['PeakDistance']
 		peak_threshold = first_pass['PeakThreshold']
-
 		if threshold_bias or fod_recall:
 			self.RecallCount+=1
-			if self.RecallCount > 5:
-				raise AttributeError('Re-called 5+ times. Unable to accurately predict genotype.')
-			first_pass['PeakThreshold'] -= 0.075
-			peak_threshold -= 0.075
+			if self.RecallCount > 8: raise Exception('7+ recalls. Unable to determine genotype.\n')
+			first_pass['PeakThreshold'] -= 0.06
+			peak_threshold -= 0.06
 			peak_threshold = max(peak_threshold,0.05)
-
-			first_pass['PeakDistance'] += 1
-			peak_distance += 1
-			peak_distance = max(peak_distance, 4)
-
 		self.ThresholdUsed = peak_threshold
 
 		##
 		## Graph Parameters expansion
-		linspace_dimensionality = fod_params[0]
-		graph_title = fod_params[1]
-		axes = fod_params[2]
-		filename = fod_params[3]
+		linspace_dimensionality = fod_params[0]; graph_title = fod_params[1]
+		axes = fod_params[2]; filename = fod_params[3]
 
 		##
 		## Create planar space for plotting
@@ -1098,24 +1058,19 @@ class SequenceTwoPass:
 		##
 		## Plot Graph!
 		## Set up dimensions for plotting
-		plt.figure(figsize=(10,6))
-		plt.title(graph_title)
-		plt.xlabel(axes[0])
-		plt.ylabel(axes[1])
+		plt.figure(figsize=(10,6)); plt.title(graph_title)
+		plt.xlabel(axes[0]); plt.ylabel(axes[1])
 
 		##
 		## Set appropriate range size for CCG/CAG graph dimension
-		if self.contig_stage == 'CCG':
-			plt.xticks(np.arange(0,21,1))
-			plt.xlim(1,20)
-		if self.contig_stage == 'CAG':
-			plt.xticks(np.arange(0,201,50))
-			plt.xlim(1,200)
+		if self.contig_stage == 'CCG': plt.xticks(np.arange(0,21,1)); plt.xlim(1,20)
+		if self.contig_stage == 'CAG': plt.xticks(np.arange(0,201,50)); plt.xlim(1,200)
 
 		##
 		## Try to assign peaks to the appropriate indexes
 		## If we're expecting one peak (CCG Het) then it's simple to do so..
 		## Index Error = too few peaks were called, so we can fail and re-call
+
 		if self.peak_target == 1:
 			try:
 				first_pass['PrimaryPeak'] = fixed_indexes.item(0)
@@ -1134,12 +1089,15 @@ class SequenceTwoPass:
 				first_pass['PrimaryPeak'] = fixed_indexes.item(0)
 				first_pass['SecondaryPeak'] = fixed_indexes.item(1)
 			except IndexError:
-				homozygous_fail, interp_distance, neighbour_candidate = self.homozygous_neighbour_deterministic([x,y,buffered_y,peak_indexes])
-				if homozygous_fail:
-					if neighbour_candidate:
-						neighbour_fail, neighbour_peaks = self.neighbour_deterministic([x,y,buffered_y,peak_indexes])
+				grep_list = [x,y,buffered_y,peak_indexes]
+				if self.RecallCount <= 7:
+					fail_state = True
+				else:
+					homozygous_fail, interp_distance = self.homozygous_deterministic(grep_list)
+					if homozygous_fail:
+						neighbour_fail, neighbour_peaks = self.neighbour_deterministic(grep_list)
 						if neighbour_fail:
-							diminished_fail, diminished_peaks = self.diminished_deterministic([x,y,buffered_y,peak_indexes])
+							diminished_fail, diminished_peaks = self.diminished_deterministic(grep_list)
 							if diminished_fail:
 								fail_state = True
 							else:
@@ -1150,11 +1108,11 @@ class SequenceTwoPass:
 							self.NeighbouringPeaks = True
 							first_pass['PrimaryPeak'] = neighbour_peaks.item(0)
 							first_pass['SecondaryPeak'] = neighbour_peaks.item(1)
-				else:
-					self.PotentialHomozygousHaplotype = True
-					self.PHHInterpDistance = interp_distance
-					first_pass['PrimaryPeak'] = fixed_indexes.item(0)
-					first_pass['SecondaryPeak'] = fixed_indexes.item(0)
+					else:
+						self.PotentialHomozygousHaplotype = True
+						self.PHHInterpDistance = interp_distance
+						first_pass['PrimaryPeak'] = fixed_indexes.item(0)
+						first_pass['SecondaryPeak'] = fixed_indexes.item(0)
 
 		##
 		## CCG search dimensions are so small that the only issue ever will be neighbouring peaks
@@ -1169,6 +1127,11 @@ class SequenceTwoPass:
 				maxmoccg = max(n for n in list(self.input_distribution) if n!= maxccg)
 				first_pass['PrimaryPeak'] = list(self.input_distribution).index(maxccg)+1
 				first_pass['SecondaryPeak'] = list(self.input_distribution).index(maxmoccg)+1
+
+		##
+		## Double check number of returned peaks
+		if self.contig_stage == 'CAG' and self.peak_target == 1 and len(peak_indexes) == 2:
+			self.CAGPeakOOB = True
 
 		##
 		## Re-create indexes incase that we had a haplotype/neighbouring flag issue
@@ -1192,70 +1155,6 @@ class SequenceTwoPass:
 		plt.close()
 
 		return fail_state, first_pass
-
-	def homozygous_neighbour_deterministic(self, peak_info, homozygous_fail=False):
-		"""
-		Dual function to determine whether a peak is a potetnail homozygous haplotype or a neighbouring peak
-		Fill out this docstring later
-		:param peak_info:
-		:param homozygous_fail:
-		:return:
-		"""
-
-		##
-		## Subroutine to do testing on a given list of data
-		def resolution_tester(dset):
-			pass_total = 0
-			for test in dset:
-				if np.isclose(np.around(test[0], decimals=3),test[1],atol=test[2]):
-					pass_total += 1
-			return pass_total
-
-		##
-		## Calculate the percentage drop-off for our suspected peak
-		## If the thresholds are met, do interp on the peak
-		nmt = self.input_distribution[peak_info[3]-2]
-		nmo = self.input_distribution[peak_info[3]-1]
-		n = self.input_distribution[peak_info[3]]
-		npo = self.input_distribution[peak_info[3]+1]
-		npt = self.input_distribution[peak_info[3]+2]
-		nmt_n = nmt / n; nmo_n = nmo / n
-		npo_n = npo / n; npt_n = npt / n
-
-		##
-		## Different categories of peak clarity require different dropoff thresholds
-		## A clean peak (i.e. pass for homozygous haplotype) == Ultra, VHigh, High
-		## A 'spread' peak (i.e. neighbouring peak.. not homozygous) == Medium, Low, VLow
-		differential_qualities = {'Ultra':[[[nmt_n],[0.015],[0.005]], [[nmo_n],[0.15],[0.05]], [[npo_n],[0.005],[0.005]], [[npt_n],[0.00050],[0.0005]]],
-								  'VHigh':[[[nmt_n],[0.025],[0.005]], [[nmo_n],[0.20],[0.05]], [[npo_n],[0.010],[0.005]], [[npt_n],[0.00075],[0.0005]]],
-								  'High':[[[nmt_n],[0.050],[0.025]], [[nmo_n],[0.30],[0.05]], [[npo_n],[0.015],[0.005]], [[npt_n],[0.00100],[0.0010]]],
-								  'Medium':[[[nmt_n],[0.125],[0.025]], [[nmo_n],[0.375],[0.05]], [[npo_n],[0.02],[0.075]], [[npt_n],[0.002],[0.001]]],
-								  'Low':[[[nmt_n],[0.275],[0.050]], [[nmo_n],[0.550],[0.10]], [[npo_n],[0.03],[0.075]], [[npt_n],[0.003],[0.001]]],
-								  'VLow':[[[nmt_n],[0.450],[0.075]], [[nmo_n],[0.700],[0.15]], [[npo_n],[0.05],[0.010]], [[npt_n],[0.005],[0.002]]]}
-
-		##
-		## Determine which quality of peak has the highest passrate for the four data points
-		highest_qual = None
-		highest_rate = 0
-		for quality, dropoff_values in differential_qualities.iteritems():
-			passrate = resolution_tester(dropoff_values)
-			if passrate > highest_rate:
-				highest_rate = passrate
-				highest_qual = quality
-
-		##
-		## If the sample was a homozygous shape, fit gaussian to data
-		## If gaussian within 0.3 of suspected homozygous peak, it's real
-		## otherwise, probably neighbouring peaks, so send to that function
-		interp_distance = 0.0; neighbour_candidate = False
-		if highest_qual in ['Ultra','VHigh','High']:
-			peaks_interp = peakutils.interpolate(peak_info[0], peak_info[1], ind=peak_info[3])
-			if np.isclose([peaks_interp],[float(peak_info[3])], atol=0.30):
-				interp_distance = abs(peaks_interp - float(peak_info[3]))
-			else: homozygous_fail = True
-		else: neighbour_candidate = True; homozygous_fail = True
-
-		return homozygous_fail, interp_distance, neighbour_candidate
 
 	def diminished_deterministic(self, peak_info, fail_state=False):
 		"""
@@ -1363,6 +1262,67 @@ class SequenceTwoPass:
 		## Adding one to the peaks to resolve inner (0-index) and literal(1-index) issue
 		new_peaks = np.array(current_resolution_candidate + 1)
 		return fail_state, new_peaks
+
+	def homozygous_deterministic(self, peak_info, fail_state=False):
+		"""
+		Function to determine whether a peak is a potetnail homozygous haplotype or a neighbouring peak
+		Fill out this docstring later
+		:param peak_info: list of data about our suspected peaks
+		:param fail_state: whether this function passes or not
+		:return: fail_state, interp_distance
+		"""
+
+		##
+		## Subroutine to do testing on a given list of data
+		def resolution_tester(dset):
+			pass_total = 0
+			for test in dset:
+				if np.isclose(np.around(test[0], decimals=3),test[1],atol=test[2]):
+					pass_total += 1
+			return pass_total
+
+		##
+		## Calculate the percentage drop-off for our suspected peak
+		## If the thresholds are met, do interp on the peak
+		nmt = self.input_distribution[peak_info[3]-2]; nmo = self.input_distribution[peak_info[3]-1]
+		n = self.input_distribution[peak_info[3]]; npo = self.input_distribution[peak_info[3]+1]
+		npt = self.input_distribution[peak_info[3]+2]; nmt_n = nmt / n; nmo_n = nmo / n
+		npo_n = npo / n; npt_n = npt / n
+
+		##
+		## Different categories of peak clarity require different dropoff thresholds
+		## A clean peak (i.e. pass for homozygous haplotype) == Ultra, VHigh, High
+		## A 'spread' peak (i.e. neighbouring peak.. not homozygous) == Medium, Low, VLow
+		differential_qualities = {'Ultra':[[[nmt_n],[0.015],[0.005]], [[nmo_n],[0.15],[0.05]], [[npo_n],[0.005],[0.005]], [[npt_n],[0.00050],[0.0005]]],
+								  'VHigh':[[[nmt_n],[0.025],[0.005]], [[nmo_n],[0.20],[0.05]], [[npo_n],[0.010],[0.005]], [[npt_n],[0.00075],[0.0005]]],
+								  'High':[[[nmt_n],[0.050],[0.025]], [[nmo_n],[0.30],[0.05]], [[npo_n],[0.015],[0.005]], [[npt_n],[0.00100],[0.0010]]],
+								  'Medium':[[[nmt_n],[0.125],[0.025]], [[nmo_n],[0.375],[0.05]], [[npo_n],[0.02],[0.075]], [[npt_n],[0.002],[0.001]]],
+								  'Low':[[[nmt_n],[0.275],[0.050]], [[nmo_n],[0.550],[0.10]], [[npo_n],[0.03],[0.075]], [[npt_n],[0.003],[0.001]]],
+								  'VLow':[[[nmt_n],[0.450],[0.075]], [[nmo_n],[0.700],[0.15]], [[npo_n],[0.05],[0.010]], [[npt_n],[0.005],[0.002]]]}
+
+		##
+		## Determine which quality of peak has the highest passrate for the four data points
+		highest_qual = None
+		highest_rate = 0
+		for quality, dropoff_values in differential_qualities.iteritems():
+			passrate = resolution_tester(dropoff_values)
+			if passrate > highest_rate:
+				highest_rate = passrate
+				highest_qual = quality
+
+		##
+		## If the sample was a homozygous shape, fit gaussian to data
+		## If gaussian within 0.3 of suspected homozygous peak, it's real
+		## otherwise, probably neighbouring peaks, so send to that function
+		interp_distance = 0.0
+		if highest_qual in ['Ultra','VHigh','High']:
+			peaks_interp = peakutils.interpolate(peak_info[0], peak_info[1], ind=peak_info[3])
+			if np.isclose([peaks_interp],[float(peak_info[3])], atol=0.30):
+				interp_distance = abs(peaks_interp - float(peak_info[3]))
+			else:
+				fail_state = True
+
+		return fail_state, interp_distance
 
 	def neighbour_deterministic(self, peak_info, fail_state=False):
 		"""
