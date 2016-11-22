@@ -65,7 +65,6 @@ class SeqAlign:
 		min_seed_length = self.instance_params.config_dict['alignment_flags']['@min_seed_length']
 		band_width = self.instance_params.config_dict['alignment_flags']['@band_width']
 		seed_length_extension = self.instance_params.config_dict['alignment_flags']['@seed_length_extension']
-		seed_occurrence = self.instance_params.config_dict['alignment_flags']['@seed_occurrence']
 		skip_seed_with_occurrence = self.instance_params.config_dict['alignment_flags']['@skip_seed_with_occurrence']
 		chain_drop = self.instance_params.config_dict['alignment_flags']['@chain_drop']
 		seeded_chain_drop = self.instance_params.config_dict['alignment_flags']['@seeded_chain_drop']
@@ -90,7 +89,6 @@ class SeqAlign:
 		min_seed_length             :: -k <INT>      :: minimum seed length [19]
 		band_width                  :: -w <INT>      :: band width for banded alignment [100]
 		seed_length_extension       :: -r <FLOAT>    :: look for internal seeds inside a seed longer than <val> [1.5]
-		seed_occurrence             :: -y <INT>      :: seed occurrence for the 3rd round seeding [20]
 		skip_seed_with_occurrence   :: -c <INT>      :: skip seeds with more than <val> occurrences [500]
 		chain_drop                  :: -D <FLOAT>    :: drop chains shorter than <val> fraction of the overlapping chain [0.50]
 		seeded_chain_drop           :: -W <INT>      :: discard chain if seeded bases shorter than <val>
@@ -103,13 +101,14 @@ class SeqAlign:
 		"""
 
 		bwa_process = subprocess.Popen(['bwa', 'mem', '-t', str(THREADS), '-k', min_seed_length,
-										'-w', band_width, '-r', seed_length_extension, '-y', seed_occurrence,
+										'-w', band_width, '-r', seed_length_extension,
 										'-c', skip_seed_with_occurrence, '-D', chain_drop, '-W', seeded_chain_drop,
 										'-A', seq_match_score, '-B', mismatch_penalty, '-O', indel_penalty,
 										'-E', gap_extend_penalty, '-L', prime_clipping_penalty,
 										'-U', unpaired_pairing_penalty, reference_index, target_fqfile],
 									    stdout=aln_outfi, stderr=subprocess.PIPE)
 		bwa_error = bwa_process.communicate()[1]
+		if 'illegal' in bwa_error: raise Exception('Illegal BWA behaviour: {}'.format(bwa_error))
 		bwa_process.wait()
 		aln_outfi.close()
 
@@ -203,7 +202,7 @@ class ReferenceIndex:
 		## Be paranoid, check existence/validity of reference.. again
 		reference_root = self.reference.split('/')[-1].split('.')[0]
 		if os.path.isfile(self.reference):
-			if not (self.reference.endswith('.fa') or self.reference.endswith('.fas')):
+			if not (self.reference.endswith('.fa') or self.reference.endswith('.fas') or self.reference.endswith('.fasta')):
 				log.critical('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Specified reference does not exist/is not fasta.'))
 		##
 		## Path to store indexes for this reference

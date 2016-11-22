@@ -363,52 +363,52 @@ class ScaleHD:
 				##############################################
 				## Stage two!! Sequence alignment via bwa.. ##
 				##############################################
-				try:
-					alignment_flag = self.instance_params.config_dict['instance_flags']['@sequence_alignment']
-					if alignment_flag == 'True':
-						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing alignment workflow..'))
-						align.SeqAlign(sequence_label, sequencepair_data, align_path, reference_indexes, self.instance_params)
-						gc.collect()
-						#align_report = get_alignreport()
-						log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Sequence alignment workflow complete!'))
-				except Exception, e:
-					self.instance_summary[sequence_label] = {'R1Alignment':'Fail','R2Alignment':'Fail'}
-					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Alignment failure on ',sequence_label,str(e)))
-					continue
+				#try:
+				alignment_flag = self.instance_params.config_dict['instance_flags']['@sequence_alignment']
+				if alignment_flag == 'True':
+					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing alignment workflow..'))
+					align.SeqAlign(sequence_label, sequencepair_data, align_path, reference_indexes, self.instance_params)
+					gc.collect()
+					align_report = get_alignreport()
+					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Sequence alignment workflow complete!'))
+				#except Exception, e:
+				#	self.instance_summary[sequence_label] = {'R1Alignment':'Fail','R2Alignment':'Fail'}
+				#	log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Alignment failure on ',sequence_label,str(e)))
+				#	continue
 
 				#############################################
 				## Stage three!! Distribution Genotyping.. ##
 				#############################################
-				try:
-					genotyping_flag = self.instance_params.config_dict['instance_flags']['@genotype_prediction']
-					if genotyping_flag == 'True':
-						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing genotyping workflow..'))
-						genotype_report = predict.GenotypePrediction(sequencepair_data, predict_path,
-																	 self.training_data, self.instance_params).get_report()
-						gc.collect()
-						log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
-				except Exception, e:
-					self.instance_summary[sequence_label] = {'SampleGenotype': {'PrimaryAllele': 'Fail',
-																				'SecondaryAllele': 'Fail',
-																				'PredictionConfidence': 0}}
-					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Genotyping failure on ',sequence_label,str(e)))
-					continue
+				#try:
+				genotyping_flag = self.instance_params.config_dict['instance_flags']['@genotype_prediction']
+				if genotyping_flag == 'True':
+					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing genotyping workflow..'))
+					genotype_report = predict.GenotypePrediction(sequencepair_data, predict_path,
+																 self.training_data, self.instance_params).get_report()
+					gc.collect()
+					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
+				#except Exception, e:
+				#	self.instance_summary[sequence_label] = {'SampleGenotype': {'PrimaryAllele': 'Fail',
+				#																'SecondaryAllele': 'Fail',
+				#																'PredictionConfidence': 0}}
+				#	log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Genotyping failure on ',sequence_label,str(e)))
+				#	continue
 
 				########################################
 				## Stage four!! Bayesian Genotyping.. ##
 				########################################
 				##todo bring in sync with assembly_workflow
-				try:
-					log.info('{}{}{}{}'.format(clr.yellow,'shd__',clr.end,'Experimental Bayesian workflow..'))
-					predict.BayesianLikelihood(bayesian_path, self.likelihood_matrix, self.raw_matrix)
-					gc.collect()
-					log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Experimental Bayesian workflow complete!'))
-				except Exception, e:
-					self.instance_summary[sequence_label] = {'SampleGenotype':{'BayesPrimaryAllele':'Fail',
-																			   'BayesSecondaryAllele':'Fail',
-																			   'BayesPredictionLikelihood':0}}
-					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Bayesian failure on ',sequence_label,str(e)))
-					continue
+				# try:
+				# 	log.info('{}{}{}{}'.format(clr.yellow,'shd__',clr.end,'Experimental Bayesian workflow..'))
+				# 	predict.BayesianLikelihood(bayesian_path, self.likelihood_matrix, self.raw_matrix)
+				# 	gc.collect()
+				# 	log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Experimental Bayesian workflow complete!'))
+				# except Exception, e:
+				# 	self.instance_summary[sequence_label] = {'SampleGenotype':{'BayesPrimaryAllele':'Fail',
+				# 															   'BayesSecondaryAllele':'Fail',
+				# 															   'BayesPredictionLikelihood':0}}
+				# 	log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Bayesian failure on ',sequence_label,str(e)))
+				# 	continue
 
 				##
 				## If we get here, everyhing's good! Generate information for reporting..
@@ -437,7 +437,7 @@ class ScaleHD:
 
 				##
 				## Finished all desired stages for this file pair
-				del genotype_report[:] #rework when reporting overhaul
+				del genotype_report #rework when reporting overhaul
 				log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence pair workflow complete!\n'))
 
 	@staticmethod

@@ -158,15 +158,18 @@ class ConfigReader(object):
 		if not os.path.isfile(forward_reference):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified forward reference file could not be found.'))
 			trigger = True
-		if not (forward_reference.endswith('.fa') or forward_reference.endswith('.fas')):
+		if not (forward_reference.endswith('.fa') or forward_reference.endswith('.fas') or forward_reference.endswith('.fasta')):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified forward reference file is not a fa/fas file.'))
 			trigger = True
 		reverse_reference = self.config_dict['@reverse_reference']
 		if not os.path.isfile(reverse_reference):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified reverse reference file could not be found.'))
 			trigger = True
-		if not (reverse_reference.endswith('fa') or reverse_reference.endswith('.fas')):
+		if not (reverse_reference.endswith('fa') or reverse_reference.endswith('.fas') or reverse_reference.endswith('.fasta')):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified reverse reference file is not a fa/fas file.'))
+			trigger = True
+		if forward_reference.split('/')[-1] == reverse_reference.split('/')[-1]:
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: FW and RV references have identical filenames. Will create indexing issue.'))
 			trigger = True
 
 		##
@@ -215,7 +218,7 @@ class ConfigReader(object):
 			if not isinstance(float(error_tolerance), float):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified error tolerance is not a valid float.'))
 				trigger = True
-			if not float(error_tolerance) in np.arange(0,1.1,0.1):
+			if not float(error_tolerance) in np.arange(0,1.1,0.01):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified error tolerance is not 0.0 < x < 1.0.'))
 				trigger = True
 
@@ -235,11 +238,6 @@ class ConfigReader(object):
 			seed_length_extension = self.config_dict['alignment_flags']['@seed_length_extension']
 			if not isinstance(float(seed_length_extension), float):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified seed_length_extension float is invalid.'))
-				trigger=True
-
-			seed_occurrence = self.config_dict['alignment_flags']['@seed_occurrence']
-			if not seed_occurrence.isdigit():
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified seed_occurrence integer is invalid.'))
 				trigger=True
 
 			skip_seed_with_occurrence = self.config_dict['alignment_flags']['@skip_seed_with_occurrence']
@@ -463,14 +461,14 @@ def sequence_pairings(data_path, instance_rundir, workflow_type):
 		##
 		## Check forward ends with R1
 		forward_data_name = sorted_input[i].split('/')[-1].split('.')[0]
-		if not forward_data_name.endswith('R1'):
+		if not forward_data_name.endswith('_R1'):
 			log.error('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'I/O: Forward input file does not end in _R1. ', forward_data))
 			sys.exit(2)
 
 		##
 		## Check reverse ends with R2
 		reverse_data_name = sorted_input[i+1].split('/')[-1].split('.')[0]
-		if not reverse_data_name.endswith('R2'):
+		if not reverse_data_name.endswith('_R2'):
 			log.error('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'I/O: Reverse input file does not end in _R2. ', reverse_data))
 			sys.exit(2)
 

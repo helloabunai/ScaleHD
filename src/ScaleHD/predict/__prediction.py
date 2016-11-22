@@ -67,7 +67,7 @@ class GenotypePrediction:
 		self.cag_intermediate = [0,0]
 		self.genotype_flags = {'PrimaryAllele':[0,0], 'SecondaryAllele':[0,0], 'PrimaryMosaicism':[],
 							   'SecondaryMosaicism':[], 'ThresholdUsed':0, 'RecallCount':0,
-							   'NoisyDistributions':0, 'AlignmentPadding':False, 'SVMPossibleFailure':False,
+							   'LowReadDistributions':0, 'AlignmentPadding':False, 'SVMPossibleFailure':False,
 							   'PotentialHomozygousHaplotype':False, 'PHHInterpDistance':0.0, 'NeighbouringPeaks':False,
 							   'DiminishedPeak':False, 'DiminishedUncertainty':False, 'PeakExpansionSkew':False,
 							   'CCGZygDisconnect':False, 'CCGPeakAmbiguous':False, 'CCGDensityAmbiguous':False,
@@ -342,7 +342,7 @@ class GenotypePrediction:
 		Get warnings encountered by this instance of SequenceTwoPass
 		Update equivalent warning flags within GenotypePrediction
 		"""
-		first_pass = ccg_inspector.density_estimation(plot_flag=False)
+		first_pass = ccg_inspector.density_estimation(plot_flag=True)
 		density_warnings = ccg_inspector.get_warnings()
 		self.update_flags(density_warnings)
 
@@ -439,12 +439,12 @@ class GenotypePrediction:
 			## If the amount of reads in this distro is super low
 			## Increment flag, which will be used later in confidence score
 			if sum(list(distro_value)) < 1500:
-				self.genotype_flags['NoisyDistributions'] += 1
+				self.genotype_flags['LowReadDistributions'] += 1
 
 			##
 			## Generate KDE graph parameters
 			## Generate CAG inspector Object for 2Pass-Algorithm
-			graph_parameters = [20, '{}{}{}'.format('CAG',str(cag_key),'DensityEstimation.png'), 'CAG Density Distribution', ['Read Count', 'Bin Density']]
+			graph_parameters = [200, '{}{}{}'.format('CAG',str(cag_key),'DensityEstimation.png'), 'CAG Density Distribution', ['Read Count', 'Bin Density']]
 			cag_inspector = SequenceTwoPass(prediction_path=self.prediction_path,
 											input_distribution=distro_value,
 											peak_target=peak_target,
@@ -459,7 +459,7 @@ class GenotypePrediction:
 			Get warnings encountered by this instance of SequenceTwoPass
 			Update equivalent warning flags within GenotypePrediction
 			"""
-			first_pass = cag_inspector.density_estimation(plot_flag=False)
+			first_pass = cag_inspector.density_estimation(plot_flag=True)
 			density_warnings = cag_inspector.get_warnings()
 			self.update_flags(density_warnings)
 
@@ -556,48 +556,43 @@ class GenotypePrediction:
 		has probably been a strong effect on the precision and accuracy of
 		the genotype prediction.. user should probably manually check results
 		"""
-
+		print '\n'
 		##
 		## Check distributions for fucking AWFUL read count
-		if self.genotype_flags['NoisyDistributions'] > 0:
-			current_confidence -= (50*self.genotype_flags['NoisyDistributions'])
-
-		## Check for deterministics
-		detlist = [self.genotype_flags['PotentialHomozygousHaplotype'],self.genotype_flags['DiminishedPeak'],self.genotype_flags['NeighbouringPeaks']]
-		for flag in detlist:
-			if flag: current_confidence -= 30
+		if self.genotype_flags['LowReadDistributions'] > 0:
+			print 'Reduction! NoisyDistributions -35'
+			current_confidence -= (35*self.genotype_flags['LowReadDistributions'])
 
 		##
 		## Threshold utilisation during FOD peak calling
 		if self.genotype_flags['ThresholdUsed'] != 0.5:
-			if self.genotype_flags['ThresholdUsed'] < 0.5: current_confidence -= 15
-			elif self.genotype_flags['ThresholdUsed'] < 0.3: current_confidence -= 20
-			else: current_confidence -= 30
-		else: current_confidence += 20
+			if self.genotype_flags['ThresholdUsed'] < 0.5: current_confidence -= 5; print 'Threshold usage! -5'
+			elif self.genotype_flags['ThresholdUsed'] < 0.3: current_confidence -= 10; print 'Threshold usage! -10'
+			else: current_confidence -= 20; print 'Threshold usage! -20'
+		else: current_confidence += 10; print 'Threshold usage! +10'
 
 		##
 		## Recall count/CAG-CCG specific recall warnings
 		if self.genotype_flags['RecallCount'] != 0:
-			if self.genotype_flags['RecallCount'] < 3: current_confidence -= 10
-			elif self.genotype_flags['RecallCount'] <= 4: current_confidence -= 15
-			else: current_confidence -= 25
-			if self.genotype_flags['CCGRecallWarning']: current_confidence -= 15
-			if self.genotype_flags['CAGRecallWarning']: current_confidence -= 10
-		else: current_confidence += 20
+			if self.genotype_flags['RecallCount'] < 3: current_confidence -= 10; print 'Recall count! -10'
+			elif self.genotype_flags['RecallCount'] <= 6: current_confidence -= 20; print 'Recall count! -20'
+			else: current_confidence -= 30; print 'Recall count! -30'
+			if self.genotype_flags['CCGRecallWarning']: current_confidence -= 15; print 'CCGRecall! -15'
+			if self.genotype_flags['CAGRecallWarning']: current_confidence -= 10; print 'CAGRecall! -10'
+		else: current_confidence += 20; print 'No Recall! +20'
 
 		##
 		## SVM Possible failure
-		if self.genotype_flags['SVMPossibleFailure']: current_confidence -= 30
+		if self.genotype_flags['SVMPossibleFailure']: current_confidence -= 30; print 'SVMFailure! -30'
 
 		##
 		## PeakOOB: >2 peaks returned per allele (i.e. results were sliced)
 		for peakoob in [self.genotype_flags['CAGPeakOOB'],self.genotype_flags['CCGPeakOOB']]:
-			if peakoob: current_confidence -= 15
-			else: current_confidence += 5
+			if peakoob is True: current_confidence -= 40; print 'PeakOOB! -10'
 
 		##
 		## Sample wasn't aligned to CAG1-200/CCG1-20.. padded but raises questions...
-		if self.genotype_flags['AlignmentPadding']: current_confidence -= 25
+		if self.genotype_flags['AlignmentPadding']: current_confidence -= 30; print 'Alignment Padding! -30'
 
 		"""
 		>> Medium severity <<
@@ -609,30 +604,32 @@ class GenotypePrediction:
 		##
 		## Homozygous Haplotype detection?
 		if self.genotype_flags['PotentialHomozygousHaplotype']:
-			current_confidence -= 5
+			print 'PHH! -10'
+			current_confidence -= 10
 			if self.genotype_flags['PHHInterpDistance'] > 1.0:
+				print 'PHHDist>1! -5'
 				current_confidence -= 5
 
 		##
 		## Peaks are neighbouring? (e.g. 16/17)
-		if self.genotype_flags['NeighbouringPeaks']: current_confidence -= 15
+		if self.genotype_flags['NeighbouringPeaks']: current_confidence -= 10; print 'Neighbours! -10'
 
 		##
 		## Diminished peak detection (e.g. 40k vs 100)
 		if self.genotype_flags['DiminishedPeak']:
-			current_confidence -= 2.5
-			if self.genotype_flags['DiminishedUncertainty']: current_confidence -= 7.5
+			current_confidence -= 25
+			print 'Diminished! -25'
+			if self.genotype_flags['DiminishedUncertainty']: current_confidence -= 10; print 'DiminishedUncertain! -10'
 		else:
 			self.genotype_flags['DiminishedUncertainty'] = False
-			current_confidence += 5
 
 		##
 		## Peak / Density ambiguity (only matters if re-call occurred)
 		if self.genotype_flags['RecallCount'] != 0:
-			if self.genotype_flags['CAGPeakAmbiguous']: current_confidence -= 5
-			if self.genotype_flags['CCGPeakAmbiguous']: current_confidence -= 10
-			if self.genotype_flags['CAGDensityAmbiguous']: current_confidence -= 10
-			if self.genotype_flags['CCGDensityAmbiguous']: current_confidence -= 20
+			if self.genotype_flags['CAGPeakAmbiguous']: current_confidence -= 2.5; print 'CAGPeakAmb -2.5'
+			if self.genotype_flags['CCGPeakAmbiguous']: current_confidence -= 20; print 'CCGPeakAmb -20'
+			if self.genotype_flags['CAGDensityAmbiguous']: current_confidence -= 2.5; print 'CAGDensAmb -2.5'
+			if self.genotype_flags['CCGDensityAmbiguous']: current_confidence -= 15; print 'CCGDensAmb -15'
 
 		"""
 		>> Lowest severity <<
@@ -643,14 +640,14 @@ class GenotypePrediction:
 
 		##
 		## Slippage
-		if self.genotype_flags['CAGBackwardsSlippage']: current_confidence -= 5
-		elif self.genotype_flags['CAGForwardSlippage']: current_confidence -= 2
-		else: current_confidence += 5
+		if self.genotype_flags['CAGBackwardsSlippage']: current_confidence -= 5; print 'CAGBackSlip -5'
+		elif self.genotype_flags['CAGForwardSlippage']: current_confidence -= 2; print 'CAGForwSlip -2'
+		else: current_confidence += 5; print 'CAGNoSlip +5'
 
 		##
 		## Peak Expansion Skew..
-		if self.genotype_flags['PeakExpansionSkew']: current_confidence -= 5
-		else: current_confidence += 5
+		if self.genotype_flags['PeakExpansionSkew']: current_confidence -= 5; print 'PeakExpansionSkew -5'
+		else: current_confidence += 15; print 'NoPeakExpSkew +5'
 
 		"""
 		>> Mosaicism Investigation <<
@@ -661,15 +658,16 @@ class GenotypePrediction:
 
 		##
 		## Mosaicism!
-		if self.genotype_flags['PrimaryMosaicism'][0]['NMinusOne-Over-N'] > 0.30: current_confidence -= 2.5
-		if self.genotype_flags['PrimaryMosaicism'][0]['NPlusOne-Over-N'] > 0.25: current_confidence -= 4.25
-		if self.genotype_flags['SecondaryMosaicism'][0]['NMinusOne-Over-N'] > 0.65: current_confidence -= 7.5
-		if self.genotype_flags['SecondaryMosaicism'][0]['NPlusOne-Over-N'] > 0.70: current_confidence -= 10
+		if self.genotype_flags['PrimaryMosaicism'][0]['NMinusOne-Over-N'] > 0.30: current_confidence -= 2.5; print 'NMO/n > 0.3, -2.5'
+		if self.genotype_flags['PrimaryMosaicism'][0]['NPlusOne-Over-N'] > 0.25: current_confidence -= 4.25; print 'NPO/n > 0.24, -4.25'
+		if self.genotype_flags['SecondaryMosaicism'][0]['NMinusOne-Over-N'] > 0.65: current_confidence -= 7.5; print 'SecNMO/n > 0.65, -7.5'
+		if self.genotype_flags['SecondaryMosaicism'][0]['NPlusOne-Over-N'] > 0.70: current_confidence -= 10; print 'SecNPO/n > 0.70, -10'
 
 		##
 		## With all flags processed; assign confidence score for this instance
 		## Limit output to 100%
 		self.prediction_confidence = sorted([0, current_confidence, 100])[1]
+		print 'Confidence: ', self.prediction_confidence
 
 	def generate_report(self):
 		"""
@@ -719,7 +717,7 @@ class GenotypePrediction:
 										'CAG Forwards Slippage', self.genotype_flags['CAGForwardSlippage'],
 										'\nOther Flags', '',
 										'FPSP Disconnect', self.genotype_flags['FPSPDisconnect'],
-										'Noisy Distributions', self.genotype_flags['NoisyDistributions'],
+										'LowRead Distributions', self.genotype_flags['LowReadDistributions'],
 										'Potential SVM Failure', self.genotype_flags['SVMPossibleFailure'],
 										'Homozygous Haplotype', self.genotype_flags['PotentialHomozygousHaplotype'],
 										'Haplotype Interp Distance', self.genotype_flags['PHHInterpDistance'],
@@ -765,7 +763,7 @@ class GenotypePrediction:
 				  'CAGBackwardsSlippage':self.genotype_flags['CAGBackwardsSlippage'],
 				  'CAGForwardSlippage':self.genotype_flags['CAGForwardSlippage'],
 				  'FPSPDisconnect':self.genotype_flags['FPSPDisconnect'],
-				  'NoisyDistributions':self.genotype_flags['NoisyDistributions']}
+				  'LowReadDistributions':self.genotype_flags['LowReadDistributions']}
 
 		return report
 
@@ -829,7 +827,7 @@ class SequenceTwoPass:
 		:param filename: Filename for graph to be saved as..
 		:param graph_title: self explanatory
 		:param axes: self explanatory
-		:param plot_flag: CCG? Plot KDE. CAG? Don't.
+		:param plot_flag: True? Do. False? Don't.
 		:return: histogram, bins
 		"""
 
@@ -843,6 +841,7 @@ class SequenceTwoPass:
 			plt.title(graph_title)
 			plt.xlabel(axes[0])
 			plt.ylabel(axes[1])
+			##TODO plt.legend([])
 			plt.bar(center, hist, width=bin_width)
 			plt.savefig(os.path.join(self.prediction_path, filename), format='png')
 			plt.close()
@@ -1025,7 +1024,8 @@ class SequenceTwoPass:
 		peak_threshold = first_pass['PeakThreshold']
 		if threshold_bias or fod_recall:
 			self.RecallCount+=1
-			if self.RecallCount > 8: raise Exception('7+ recalls. Unable to determine genotype.\n')
+			print self.RecallCount
+			if self.RecallCount > 7: raise Exception('7+ recalls. Unable to determine genotype.\n')
 			first_pass['PeakThreshold'] -= 0.06
 			peak_threshold -= 0.06
 			peak_threshold = max(peak_threshold,0.05)
@@ -1090,7 +1090,7 @@ class SequenceTwoPass:
 				first_pass['SecondaryPeak'] = fixed_indexes.item(1)
 			except IndexError:
 				grep_list = [x,y,buffered_y,peak_indexes]
-				if self.RecallCount <= 7:
+				if self.RecallCount < 6:
 					fail_state = True
 				else:
 					homozygous_fail, interp_distance = self.homozygous_deterministic(grep_list)

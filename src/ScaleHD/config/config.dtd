@@ -37,7 +37,6 @@ The Config Element deals with specifying any required sub-configs (elements), an
 <!ATTLIST alignment_flags min_seed_length CDATA #REQUIRED>
 <!ATTLIST alignment_flags band_width CDATA #REQUIRED>
 <!ATTLIST alignment_flags seed_length_extension CDATA #REQUIRED>
-<!ATTLIST alignment_flags seed_occurrence CDATA #REQUIRED>
 <!ATTLIST alignment_flags skip_seed_with_occurrence CDATA #REQUIRED>
 <!ATTLIST alignment_flags chain_drop CDATA #REQUIRED>
 <!ATTLIST alignment_flags seeded_chain_drop CDATA #REQUIRED>
