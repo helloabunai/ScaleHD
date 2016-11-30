@@ -195,6 +195,7 @@ class BayesianLikelihood:
             '''
             weight_matrix <- function(pp, rcounts, p=0.1)
             {
+
                 require("proxy")
                 point = which(pp == min(pp), arr.ind = TRUE)
                 edistmat =p*dist(-point[1]:((nrow(pp)-point[1])-1), -point[2]:((ncol(pp)-point[2])-1))

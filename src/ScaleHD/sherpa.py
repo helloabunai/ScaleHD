@@ -363,22 +363,30 @@ class ScaleHD:
 				##############################################
 				## Stage two!! Sequence alignment via bwa.. ##
 				##############################################
-				#try:
-				alignment_flag = self.instance_params.config_dict['instance_flags']['@sequence_alignment']
-				if alignment_flag == 'True':
-					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing alignment workflow..'))
-					align.SeqAlign(sequence_label, sequencepair_data, align_path, reference_indexes, self.instance_params)
-					gc.collect()
-					align_report = get_alignreport()
-					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Sequence alignment workflow complete!'))
-				#except Exception, e:
-				#	self.instance_summary[sequence_label] = {'R1Alignment':'Fail','R2Alignment':'Fail'}
-				#	log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Alignment failure on ',sequence_label,str(e)))
-				#	continue
+				try:
+					alignment_flag = self.instance_params.config_dict['instance_flags']['@sequence_alignment']
+					if alignment_flag == 'True':
+						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing alignment workflow..'))
+						align.SeqAlign(sequence_label, sequencepair_data, align_path, reference_indexes, self.instance_params)
+						gc.collect()
+						align_report = get_alignreport()
+						log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Sequence alignment workflow complete!'))
+				except Exception, e:
+					self.instance_summary[sequence_label] = {'R1Alignment':'Fail','R2Alignment':'Fail'}
+					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Alignment failure on ',sequence_label,str(e)))
+					continue
 
-				#############################################
-				## Stage three!! Distribution Genotyping.. ##
-				#############################################
+				###############################################
+				## Stage three!! Scan for atypical alleles.. ##
+				###############################################
+				log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Scanning for atypical alleles..'))
+				align.ScanAtypical(sequencepair_data[5])
+				gc.collect()
+				log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Scanning complete!'))
+
+				############################################
+				## Stage four!! Distribution Genotyping.. ##
+				############################################
 				#try:
 				genotyping_flag = self.instance_params.config_dict['instance_flags']['@genotype_prediction']
 				if genotyping_flag == 'True':
@@ -395,7 +403,7 @@ class ScaleHD:
 				#	continue
 
 				########################################
-				## Stage four!! Bayesian Genotyping.. ##
+				## Stage five!! Bayesian Genotyping.. ##
 				########################################
 				##todo bring in sync with assembly_workflow
 				# try:

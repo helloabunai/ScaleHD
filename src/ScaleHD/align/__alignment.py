@@ -47,8 +47,8 @@ class SeqAlign:
 
 		##
 		## Align the two FastQ files in the pair
-		forward_distribution, forward_report = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1')
-		reverse_distribution, reverse_report = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2')
+		forward_distribution, forward_report, forward_assembly = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1')
+		reverse_distribution, reverse_report, reverse_assembly = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2')
 		ALN_REPORT.append(forward_report); ALN_REPORT.append(reverse_report)
 
 		##
@@ -57,6 +57,7 @@ class SeqAlign:
 		## list[1] was reverse read FASTQ >> will be >> reverse read's repeat distribution
 		self.sequencepair_data = replace_fqfile(self.sequencepair_data, forward_reads, forward_distribution)
 		self.sequencepair_data = replace_fqfile(self.sequencepair_data, reverse_reads, reverse_distribution)
+		self.sequencepair_data.append(forward_assembly)
 
 	def execute_alignment(self, reference_index, target_fqfile, feedback_string, io_index):
 
@@ -125,13 +126,13 @@ class SeqAlign:
 		## the respective files are sent for read count extraction as normal
 		if self.purge_flag:
 			purged_sam = self.purge_alignment_map(alignment_outdir, aln_outpath)
-			csv_path = self.extract_repeat_distributions(self.sample_root, alignment_outdir, purged_sam)
+			csv_path, sorted_assembly = self.extract_repeat_distributions(self.sample_root, alignment_outdir, purged_sam)
 			sys.stdout.flush()
 		else:
-			csv_path = self.extract_repeat_distributions(self.sample_root, alignment_outdir, aln_outpath)
+			csv_path, sorted_assembly = self.extract_repeat_distributions(self.sample_root, alignment_outdir, aln_outpath)
 			sys.stdout.flush()
 
-		return csv_path, alignment_report
+		return csv_path, alignment_report, sorted_assembly
 
 	@staticmethod
 	def purge_alignment_map(alignment_outdir, alignment_outfile):
@@ -182,7 +183,7 @@ class SeqAlign:
 		## We return this single csv for when the function is called from shd/prediction
 		## That call loops through a -i/-b sam input file individually, doesn't need a list
 		## -c input utilises the distribution_files list and the below getter function
-		return csv_path
+		return csv_path, sorted_assembly
 
 def get_alignreport():
 	return ALN_REPORT

@@ -556,43 +556,41 @@ class GenotypePrediction:
 		has probably been a strong effect on the precision and accuracy of
 		the genotype prediction.. user should probably manually check results
 		"""
-		print '\n'
 		##
 		## Check distributions for fucking AWFUL read count
 		if self.genotype_flags['LowReadDistributions'] > 0:
-			print 'Reduction! NoisyDistributions -35'
 			current_confidence -= (35*self.genotype_flags['LowReadDistributions'])
 
 		##
 		## Threshold utilisation during FOD peak calling
 		if self.genotype_flags['ThresholdUsed'] != 0.5:
-			if self.genotype_flags['ThresholdUsed'] < 0.5: current_confidence -= 5; print 'Threshold usage! -5'
-			elif self.genotype_flags['ThresholdUsed'] < 0.3: current_confidence -= 10; print 'Threshold usage! -10'
-			else: current_confidence -= 20; print 'Threshold usage! -20'
-		else: current_confidence += 10; print 'Threshold usage! +10'
+			if self.genotype_flags['ThresholdUsed'] < 0.5: current_confidence -= 5
+			elif self.genotype_flags['ThresholdUsed'] < 0.3: current_confidence -= 10
+			else: current_confidence -= 20
+		else: current_confidence += 10
 
 		##
 		## Recall count/CAG-CCG specific recall warnings
 		if self.genotype_flags['RecallCount'] != 0:
-			if self.genotype_flags['RecallCount'] < 3: current_confidence -= 10; print 'Recall count! -10'
-			elif self.genotype_flags['RecallCount'] <= 6: current_confidence -= 20; print 'Recall count! -20'
-			else: current_confidence -= 30; print 'Recall count! -30'
-			if self.genotype_flags['CCGRecallWarning']: current_confidence -= 15; print 'CCGRecall! -15'
-			if self.genotype_flags['CAGRecallWarning']: current_confidence -= 10; print 'CAGRecall! -10'
-		else: current_confidence += 20; print 'No Recall! +20'
+			if self.genotype_flags['RecallCount'] < 3: current_confidence -= 10
+			elif self.genotype_flags['RecallCount'] <= 6: current_confidence -= 20
+			else: current_confidence -= 30
+			if self.genotype_flags['CCGRecallWarning']: current_confidence -= 15
+			if self.genotype_flags['CAGRecallWarning']: current_confidence -= 10
+		else: current_confidence += 20
 
 		##
 		## SVM Possible failure
-		if self.genotype_flags['SVMPossibleFailure']: current_confidence -= 30; print 'SVMFailure! -30'
+		if self.genotype_flags['SVMPossibleFailure']: current_confidence -= 30
 
 		##
 		## PeakOOB: >2 peaks returned per allele (i.e. results were sliced)
 		for peakoob in [self.genotype_flags['CAGPeakOOB'],self.genotype_flags['CCGPeakOOB']]:
-			if peakoob is True: current_confidence -= 40; print 'PeakOOB! -10'
+			if peakoob is True: current_confidence -= 40
 
 		##
 		## Sample wasn't aligned to CAG1-200/CCG1-20.. padded but raises questions...
-		if self.genotype_flags['AlignmentPadding']: current_confidence -= 30; print 'Alignment Padding! -30'
+		if self.genotype_flags['AlignmentPadding']: current_confidence -= 30
 
 		"""
 		>> Medium severity <<
@@ -604,32 +602,29 @@ class GenotypePrediction:
 		##
 		## Homozygous Haplotype detection?
 		if self.genotype_flags['PotentialHomozygousHaplotype']:
-			print 'PHH! -10'
 			current_confidence -= 10
 			if self.genotype_flags['PHHInterpDistance'] > 1.0:
-				print 'PHHDist>1! -5'
 				current_confidence -= 5
 
 		##
 		## Peaks are neighbouring? (e.g. 16/17)
-		if self.genotype_flags['NeighbouringPeaks']: current_confidence -= 10; print 'Neighbours! -10'
+		if self.genotype_flags['NeighbouringPeaks']: current_confidence -= 10
 
 		##
 		## Diminished peak detection (e.g. 40k vs 100)
 		if self.genotype_flags['DiminishedPeak']:
 			current_confidence -= 25
-			print 'Diminished! -25'
-			if self.genotype_flags['DiminishedUncertainty']: current_confidence -= 10; print 'DiminishedUncertain! -10'
+			if self.genotype_flags['DiminishedUncertainty']: current_confidence -= 10
 		else:
 			self.genotype_flags['DiminishedUncertainty'] = False
 
 		##
 		## Peak / Density ambiguity (only matters if re-call occurred)
 		if self.genotype_flags['RecallCount'] != 0:
-			if self.genotype_flags['CAGPeakAmbiguous']: current_confidence -= 2.5; print 'CAGPeakAmb -2.5'
-			if self.genotype_flags['CCGPeakAmbiguous']: current_confidence -= 20; print 'CCGPeakAmb -20'
-			if self.genotype_flags['CAGDensityAmbiguous']: current_confidence -= 2.5; print 'CAGDensAmb -2.5'
-			if self.genotype_flags['CCGDensityAmbiguous']: current_confidence -= 15; print 'CCGDensAmb -15'
+			if self.genotype_flags['CAGPeakAmbiguous']: current_confidence -= 2.5
+			if self.genotype_flags['CCGPeakAmbiguous']: current_confidence -= 20
+			if self.genotype_flags['CAGDensityAmbiguous']: current_confidence -= 2.5
+			if self.genotype_flags['CCGDensityAmbiguous']: current_confidence -= 15
 
 		"""
 		>> Lowest severity <<
@@ -640,14 +635,14 @@ class GenotypePrediction:
 
 		##
 		## Slippage
-		if self.genotype_flags['CAGBackwardsSlippage']: current_confidence -= 5; print 'CAGBackSlip -5'
-		elif self.genotype_flags['CAGForwardSlippage']: current_confidence -= 2; print 'CAGForwSlip -2'
-		else: current_confidence += 5; print 'CAGNoSlip +5'
+		if self.genotype_flags['CAGBackwardsSlippage']: current_confidence -= 5
+		elif self.genotype_flags['CAGForwardSlippage']: current_confidence -= 2
+		else: current_confidence += 5
 
 		##
 		## Peak Expansion Skew..
-		if self.genotype_flags['PeakExpansionSkew']: current_confidence -= 5; print 'PeakExpansionSkew -5'
-		else: current_confidence += 15; print 'NoPeakExpSkew +5'
+		if self.genotype_flags['PeakExpansionSkew']: current_confidence -= 5
+		else: current_confidence += 15
 
 		"""
 		>> Mosaicism Investigation <<
@@ -658,10 +653,10 @@ class GenotypePrediction:
 
 		##
 		## Mosaicism!
-		if self.genotype_flags['PrimaryMosaicism'][0]['NMinusOne-Over-N'] > 0.30: current_confidence -= 2.5; print 'NMO/n > 0.3, -2.5'
-		if self.genotype_flags['PrimaryMosaicism'][0]['NPlusOne-Over-N'] > 0.25: current_confidence -= 4.25; print 'NPO/n > 0.24, -4.25'
-		if self.genotype_flags['SecondaryMosaicism'][0]['NMinusOne-Over-N'] > 0.65: current_confidence -= 7.5; print 'SecNMO/n > 0.65, -7.5'
-		if self.genotype_flags['SecondaryMosaicism'][0]['NPlusOne-Over-N'] > 0.70: current_confidence -= 10; print 'SecNPO/n > 0.70, -10'
+		if self.genotype_flags['PrimaryMosaicism'][0]['NMinusOne-Over-N'] > 0.30: current_confidence -= 2.5
+		if self.genotype_flags['PrimaryMosaicism'][0]['NPlusOne-Over-N'] > 0.25: current_confidence -= 4.25
+		if self.genotype_flags['SecondaryMosaicism'][0]['NMinusOne-Over-N'] > 0.65: current_confidence -= 7.5
+		if self.genotype_flags['SecondaryMosaicism'][0]['NPlusOne-Over-N'] > 0.70: current_confidence -= 10
 
 		##
 		## With all flags processed; assign confidence score for this instance

@@ -84,7 +84,8 @@ setup(
 					  'scipy',
 					  'peakutils',
                       'django',
-                      'pandas'
+                      'pandas',
+					  'pysam',
 					  ],
 
     # These are the data files to be included in the package
