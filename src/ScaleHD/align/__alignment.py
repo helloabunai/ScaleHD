@@ -47,8 +47,8 @@ class SeqAlign:
 
 		##
 		## Align the two FastQ files in the pair
-		forward_distribution, forward_report, forward_assembly = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1')
-		reverse_distribution, reverse_report, reverse_assembly = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2')
+		forward_distribution, forward_report, forward_assembly_tuple = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1')
+		reverse_distribution, reverse_report, reverse_assembly_tuple = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2')
 		ALN_REPORT.append(forward_report); ALN_REPORT.append(reverse_report)
 
 		##
@@ -57,7 +57,7 @@ class SeqAlign:
 		## list[1] was reverse read FASTQ >> will be >> reverse read's repeat distribution
 		self.sequencepair_data = replace_fqfile(self.sequencepair_data, forward_reads, forward_distribution)
 		self.sequencepair_data = replace_fqfile(self.sequencepair_data, reverse_reads, reverse_distribution)
-		self.sequencepair_data.append(forward_assembly)
+		self.sequencepair_data.append(forward_assembly_tuple)
 
 	def execute_alignment(self, reference_index, target_fqfile, feedback_string, io_index):
 
@@ -132,7 +132,7 @@ class SeqAlign:
 			csv_path, sorted_assembly = self.extract_repeat_distributions(self.sample_root, alignment_outdir, aln_outpath)
 			sys.stdout.flush()
 
-		return csv_path, alignment_report, sorted_assembly
+		return csv_path, alignment_report, (alignment_outdir, sorted_assembly)
 
 	@staticmethod
 	def purge_alignment_map(alignment_outdir, alignment_outfile):

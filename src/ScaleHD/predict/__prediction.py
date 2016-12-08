@@ -662,7 +662,6 @@ class GenotypePrediction:
 		## With all flags processed; assign confidence score for this instance
 		## Limit output to 100%
 		self.prediction_confidence = sorted([0, current_confidence, 100])[1]
-		print 'Confidence: ', self.prediction_confidence
 
 	def generate_report(self):
 		"""

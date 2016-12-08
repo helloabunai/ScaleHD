@@ -1,9 +1,8 @@
 from __future__ import division
 import pysam
 import os
-import glob
 import difflib
-import random
+import subprocess
 from collections import Counter
 
 # class subsample:
@@ -62,22 +61,30 @@ from collections import Counter
 # 	print("done!")
 
 class ScanAtypical:
-	def __init__(self, input_sorted_assembly):
+	def __init__(self, input_assembly_tuple):
 		"""
-		FILL THIS OUT
-		:param input_sorted_assembly:
+		Class which utilises basic Digital Signal Processing to determine whether an aligned assembly
+		contains any atypical alleles, for the most commonly aligned references contigs. Sometimes,
+		variation in the Intevening sequence of the HD repeat tract can have variations which confuse
+		alignment algorithms, and reads are incorrectly assigned to a reference that does not truly
+		represent the length of the specific repeat tracts. This scans the sample, detects atypical alleles
+		and informs the user. If --config, realignment to a specific reference is executed. If --batch,
+		the user is informed in the situation of atypical detection; but since the sequence data is missing in batch
+		mode, re-alignment is not possible.
+		:param input_assembly_tuple: Tuple of (sample_output_folder, specific_assembly_file)
 		"""
-
-		##TODO ATYPICAL ALLELE SUBSAMPLING
-		##if you can't get a way to subsample from the pysam iterator
-		##fucking subsample the sam file, it takes too long using all reads
 
 		##
 		## Variables for this class/assembly data
-		self.sorted_assembly = input_sorted_assembly
+		self.sequence_path = input_assembly_tuple[0]
+		self.sorted_assembly = input_assembly_tuple[1]
+		self.subsample_assembly = None
+		self.subsample_index = None
 		self.assembly_object = None
 		self.present_references = None
 		self.assembly_targets = None
+		self.allele_status = 'Typical'
+		self.atypical_info = {}
 
 		##
 		## Fill objects with data
@@ -85,17 +92,30 @@ class ScanAtypical:
 
 		##
 		## Run the scanning algorithm
-		try:
-			self.scan_reference_reads()
-		except StopIteration:
-			self.assembly_object.close()
+		## Exception for (unexpected) EOF
+		try: self.scan_reference_reads()
+		except StopIteration: self.assembly_object.close()
 
 	def process_assembly(self):
 		"""
-		FILL THIS OUT
-		:return:
+		Function to take the complete aligned assembly and subsample to 10% of the reads (for speed purposes).
+		Will implement user specified subsample threshold eventually. Once subsampled, pass to processing.
+		:return: None
 		"""
-		self.assembly_object = pysam.AlignmentFile(self.sorted_assembly, 'rb')
+
+		##
+		## Subsample reads (10% -- will be user specified eventually)
+		## Index the subsampled assembly
+		self.subsample_assembly = os.path.join(self.sequence_path,'subsample.sam')
+		self.subsample_index = os.path.join(self.sequence_path,'subsample.sam.bai')
+		assem_obj = open(self.subsample_assembly,'w')
+		subsample_process = subprocess.Popen(['samtools','view','-s','0.1','-b', self.sorted_assembly], stdout=assem_obj)
+		subsample_process.wait(); assem_obj.close()
+		index_process = subprocess.Popen(['samtools','index',self.subsample_assembly]); index_process.wait()
+
+		##
+		## Load into object, determine references
+		self.assembly_object = pysam.AlignmentFile(self.subsample_assembly, 'rb')
 		self.present_references = self.assembly_object.references
 		assembly_refdat = []
 		for reference in self.present_references:
@@ -127,9 +147,7 @@ class ScanAtypical:
 		##
 		## Iterate over top 3 aligned references in this assembly
 		## Fetch the reads aligned to the current reference
-		print '\nWorking on file: ', self.sorted_assembly
 		for investigation in self.assembly_targets:
-			print 'Working on reference: ', investigation[0], ' ({} reads)'.format(investigation[1])
 			reference_data = self.assembly_object.fetch(reference=investigation[0])
 
 			##
@@ -202,17 +220,24 @@ class ScanAtypical:
 			##
 			## Determine most frequent intervening sequence
 			atypical_population = Counter(reference_atypicals).most_common()
-
-			##
-			## Print information to user.. (will go into a report when implemented in workflow)
-			print 'Typical alleles: {} ({}%)'.format(typical_count, ref_typical)
-			print 'Atypical alleles: {} ({}%)'.format(atypical_count, ref_atypical)
+			reference_dictionary = {'TotalReads':investigation[1],
+									'TypicalCount': typical_count,
+									'TypicalPcnt': ref_typical,
+									'AtypicalCount': atypical_count,
+									'AtypicalPcnt': ref_atypical,
+									'Status':self.allele_status}
 			if atypical_count > typical_count:
-				print 'Atypical allele!'
-				print 'Estimated REAL genotype: CAG{}CCG{}CCT{}'.format(est_cag, est_ccg, est_cct)
-				print 'Sample atypical allele intervening: {}'.format(atypical_population[0][0])
-			else:
-				print 'Typical allele.. trust reference.'
+				self.allele_status = 'Atypical'
+				reference_dictionary['Status'] = self.allele_status
+				reference_dictionary['EstimatedCAG'] = est_cag
+				reference_dictionary['EstimatedCCG'] = est_ccg
+				reference_dictionary['EstimatedCCT'] = est_cct
+				reference_dictionary['InterveningSequence'] = atypical_population[0][0]
+
+			self.atypical_info[investigation[0]] = reference_dictionary
+
+		os.remove(self.subsample_assembly)
+		os.remove(self.subsample_index)
 
 	def get_repeat_tract(self, triplet_input, mask):
 
@@ -307,7 +332,8 @@ class ScanAtypical:
 	def similar(seq1, seq2):
 		return difflib.SequenceMatcher(a=seq1.lower(), b=seq2.lower()).ratio()
 
-if __name__ == '__main__':
-	assem_path = os.path.join('/Users/alastairm/Documents/Work/ScaleHDTests/Data/atypical_fails/')
-	for bamfile in glob.glob(os.path.join(assem_path, '*'))[::2]:
-		ScanAtypical(bamfile)
+	def get_allele_status(self):
+		return self.allele_status
+
+	def get_atypical_info(self):
+		return self.atypical_info

@@ -174,7 +174,6 @@ class ConfigReader(object):
 
 		##
 		## Instance flag settings
-
 		sequence_qc_flag = self.config_dict['instance_flags']['@quality_control']
 		if not (sequence_qc_flag == 'True' or sequence_qc_flag == 'False'):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Sequence Quality control flag is not set to True/False.'))
@@ -183,11 +182,14 @@ class ConfigReader(object):
 		if not (alignment_flag == 'True' or alignment_flag == 'False'):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Sequence Alignment flag is not set to True/False.'))
 			trigger = True
+		atypical_flag = self.config_dict['instance_flags']['@atypical_realignment']
+		if not (atypical_flag == 'True' or atypical_flag == 'False'):
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Atypical Realignment flag is not True/False.'))
+			trigger = True
 		genotype_flag = self.config_dict['instance_flags']['@genotype_prediction']
 		if not (genotype_flag == 'True' or genotype_flag == 'False'):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Genotype Prediction control flag is not True/False.'))
 			trigger = True
-
 
 		##
 		## Trimming flag settings
@@ -405,20 +407,20 @@ def sanitise_inputs(parsed_arguments):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified batch folder could not be found.'))
 			trigger = True
 		for samfile in glob.glob(os.path.join(parsed_arguments.batch[0], '*')):
-			if not check_input_files('.sam',samfile):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified batch folder contains non SAM files.'))
+			if not (check_input_files('.sam',samfile)) and not (check_input_files('.bam', samfile)):
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified batch folder contains non SAM/BAM files.'))
 				trigger = True
 
 	##
 	## Config mode check
 	if parsed_arguments.config:
 		if not filesystem_exists_check(parsed_arguments.config[0]):
-			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified config file could not be found.')); print 'config not found'
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified config file could not be found.'))
 			trigger = True
 
 		for xmlfile in parsed_arguments.config:
 			if not check_input_files('.xml',xmlfile):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified config file is not an XML file.')); print 'config not xml'
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified config file is not an XML file.'))
 				trigger = True
 
 	return trigger
@@ -515,12 +517,10 @@ def filesystem_exists_check(path, raise_exception=True):
 		log.error('{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Specified -b/-c path could not be found.'))
 	return False
 
-def check_input_files(input_format, input_file, raise_exception=True):
+def check_input_files(input_format, input_file):
 
 	if input_file.endswith(input_format):
 		return True
-	if raise_exception:
-		log.error('{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Unrecognised file format found in -b/-c path.'))
 	return False
 
 def initialise_libraries(instance_params):

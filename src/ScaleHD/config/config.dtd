@@ -21,6 +21,7 @@ The Config Element deals with specifying any required sub-configs (elements), an
 <!ELEMENT instance_flags (#PCDATA)>
 <!ATTLIST instance_flags quality_control CDATA #REQUIRED>
 <!ATTLIST instance_flags sequence_alignment CDATA #REQUIRED>
+<!ATTLIST instance_flags atypical_realignment CDATA #REQUIRED>
 <!ATTLIST instance_flags genotype_prediction CDATA #REQUIRED>
 
 <!-- TRIM_FLAGS ELEMENT -->
