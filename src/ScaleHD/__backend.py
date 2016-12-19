@@ -38,7 +38,7 @@ class Colour:
 
 
 class ScaleHDException:
-	def __init__(self):
+	def __init__(self, e):
 		pass
 
 
@@ -563,10 +563,14 @@ def initialise_libraries(instance_params):
 		except ScaleHDException: trigger=True
 		try:which('samtools')
 		except ScaleHDException: trigger=True
+		try:which('generatr')
+		except ScaleHDException: trigger=True
 	if genotyping == 'True':
 		try:which('samtools')
 		except ScaleHDException: trigger=True
 		try:which('r')
+		except ScaleHDException: trigger=True
+		try:which('generatr')
 		except ScaleHDException: trigger=True
 
 	return trigger
@@ -614,6 +618,68 @@ def replace_fqfile(mutate_list, target_fqfile, altered_path):
 		loc = mutate_list.index(target_fqfile)
 		mutate_list[loc] = altered_path
 	return mutate_list
+
+def generate_atypical_xml(direction, atypical_count, index_path, input_alleles):
+
+	"""
+	TODO!! Deal with alleles where both are atypical...
+	currently unsupported.
+	:param direction:
+	:param atypical_count:
+	:param index_path:
+	:param input_alleles:
+	:return:
+	"""
+
+	cag_start = None; cag_end = None; header=''
+	if direction == 'fw': cag_start = '1'; cag_end = '200'; header=direction
+	if direction == 'rv': cag_start = '100'; cag_end = '100'; header=direction
+
+	atypical_path = ''
+	if atypical_count == 1:
+		for allele in input_alleles:
+			if allele['Status'] == 'Atypical':
+
+				atypical_path = os.path.join(index_path, header+allele['Reference']+'.xml')
+				fp_flank = allele['5PFlank']
+				intv = allele['InterveningSequence']
+				cctlen = allele['EstimatedCCT']
+				tp_flank = allele['3PFlank']
+
+				##
+				## Create XML
+				data_root = etree.Element('data')
+				loci_root = etree.Element('loci', label=allele['Reference']); data_root.append(loci_root)
+
+				##
+				## Loci Nodes
+				fp_input = etree.Element('input', type='fiveprime', flank=fp_flank)
+				cag_region = etree.Element('input', type='repeat_region', order='1', unit='CAG', start=cag_start, end=cag_end)
+				intervening = etree.Element('input', type='intervening', sequence=intv, prior='1')
+				ccg_region = etree.Element('input', type='repeat_region', order='2', unit='CCG', start='1', end='20')
+				cct_region = etree.Element('input', type='repeat_region', order='3', unit='CCT', start=str(cctlen), end=str(cctlen))
+				tp_input = etree.Element('input', type='threeprime', flank=tp_flank)
+
+				for node in [fp_input, cag_region, intervening, ccg_region, cct_region, tp_input]:
+					loci_root.append(node)
+
+				s = etree.tostring(data_root, pretty_print=True)
+				with open(atypical_path, 'w') as xmlfi:
+					xmlfi.write(s)
+					xmlfi.close()
+
+		return atypical_path
+	else:
+		raise Exception
+
+def generate_reference(input_xml, index_path):
+
+	label = input_xml.split('/')[-1].split('.')[0]
+	target_output = os.path.join(index_path, label+'.fa')
+	gen_process = subprocess.Popen(['generatr', '-i', input_xml, '-o', target_output], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	gen_process.wait()
+
+	return target_output
 
 def seek_target(input_list, target):
 

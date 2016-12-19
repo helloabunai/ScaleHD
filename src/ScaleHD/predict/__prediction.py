@@ -27,7 +27,7 @@ from ..__backend import DataLoader
 from ..__backend import Colour as clr
 
 class GenotypePrediction:
-	def __init__(self, data_pair, prediction_path, training_data, instance_params):
+	def __init__(self, data_pair, prediction_path, training_data, instance_params, processed_atypical):
 		"""
 		Prediction stage of the pipeline -- use of SVM, density estimation and first order differentials.
 		Automates calling of sample's genotype based on data information dervied from aligned read counts.
@@ -47,6 +47,7 @@ class GenotypePrediction:
 		:param prediction_path: Output path to save all resultant files from this process
 		:param training_data: Data to be used in building CCG SVM model
 		:param instance_params: redundant parameters--unused in this build
+		:param processed_atypical: any atypical allele information processed
 		"""
 
 		##
@@ -55,6 +56,7 @@ class GenotypePrediction:
 		self.prediction_path = prediction_path
 		self.training_data = training_data
 		self.instance_params = instance_params
+		self.processed_atypicals = processed_atypical
 
 		##
 		## Build a classifier and class label hash-encoder for CCG SVM
@@ -139,6 +141,7 @@ class GenotypePrediction:
 
 		##
 		## >> Stage five -- Calculate confidence in genotype, report
+		self.append_atypicals()
 		self.confidence_calculation()
 		self.gtype_report = self.generate_report()
 
@@ -540,6 +543,17 @@ class GenotypePrediction:
 		mosaicism_values = [allele_calcs, padded_distro]
 		return mosaicism_values
 
+	def append_atypicals(self):
+
+		pass
+
+		##
+		## Match Primary allele (SVM) with allele in processed_atypicals
+		## If that processed_atypicals[allele] is atypical:
+		## 		Append status, reference, and original reference to genotype_flags
+		## if that processed_atypicals[allele] is typical:
+		##		Append status, reference and "n/a" to genotype_flags
+
 	def confidence_calculation(self):
 		"""
 		Function that will calculate a score for confidence in the genotype
@@ -675,50 +689,47 @@ class GenotypePrediction:
 		## Will get changed at a later date
 		sample_name = self.prediction_path.split('/')[-2]
 		sample_report_name = os.path.join(self.prediction_path, sample_name+'QuickReport.txt')
-		sample_report = '{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}%\n' \
-						'{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}\n'\
-						'{}: {}\n{}: {}'.format('File Name', sample_name,
-										'Primary Allele', self.genotype_flags['PrimaryAllele'],
-										'Secondary Allele', self.genotype_flags['SecondaryAllele'],
-										'Prediction Confidence', self.prediction_confidence,
-										'Threshold Used', self.genotype_flags['ThresholdUsed'],
-										'Recall Count', self.genotype_flags['RecallCount'],
-										'Alignment Padding', self.genotype_flags['AlignmentPadding'],
-										'\nCCG Flags', '',
-										'CCG Zygosity Disconnect', self.genotype_flags['CCGZygDisconnect'],
-										'CCG Peak Ambiguity', self.genotype_flags['CCGPeakAmbiguous'],
-										'CCG Density Ambiguity', self.genotype_flags['CCGDensityAmbiguous'],
-										'CCG Recall Warning', self.genotype_flags['CCGRecallWarning'],
-										'CCG Peak OOB', self.genotype_flags['CCGPeakOOB'],
-										'\nCAG Flags', '',
-										'CAG Peak Ambiguity', self.genotype_flags['CAGPeakAmbiguous'],
-										'CAG Density Ambiguity', self.genotype_flags['CAGDensityAmbiguous'],
-										'CAG Recall Warning', self.genotype_flags['CAGRecallWarning'],
-										'CAG Peak OOB', self.genotype_flags['CAGPeakOOB'],
-										'CAG Backwards Slippage', self.genotype_flags['CAGBackwardsSlippage'],
-										'CAG Forwards Slippage', self.genotype_flags['CAGForwardSlippage'],
-										'\nOther Flags', '',
-										'FPSP Disconnect', self.genotype_flags['FPSPDisconnect'],
-										'LowRead Distributions', self.genotype_flags['LowReadDistributions'],
-										'Potential SVM Failure', self.genotype_flags['SVMPossibleFailure'],
-										'Homozygous Haplotype', self.genotype_flags['PotentialHomozygousHaplotype'],
-										'Haplotype Interp Distance', self.genotype_flags['PHHInterpDistance'],
-										'Peak Expansion Skew', self.genotype_flags['PeakExpansionSkew'],
-										'Neighbouring Peaks', self.genotype_flags['NeighbouringPeaks'],
-										'Diminished Peak', self.genotype_flags['DiminishedPeak'],
-										'Diminished Peak Uncertainty', self.genotype_flags['DiminishedUncertainty'])
+		sample_report = '{}: {}\n{}: {}\n{}: {}\n{}: {}%\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n'.format('File Name', sample_name,
+												'Primary Allele', self.genotype_flags['PrimaryAllele'],
+												'Secondary Allele', self.genotype_flags['SecondaryAllele'],
+												'Prediction Confidence', self.prediction_confidence,
+												'Threshold Used', self.genotype_flags['ThresholdUsed'],
+												'Recall Count', self.genotype_flags['RecallCount'],
+												'Alignment Padding', self.genotype_flags['AlignmentPadding'],
+												'\nAtypical Flags', '',
+												'Primary Allele status', self.genotype_flags[''],
+												'Primary Allele reference', self.genotype_flags[''],
+												'Primary Allele original', self.genotype_flags[''],
+												'Secondary Allele status', self.genotype_flags[''],
+												'Secondary Allele reference', self.genotype_flags[''],
+												'Secondary Allele original', self.genotype_flags[''],
+												'\nCCG Flags', '',
+												'CCG Zygosity Disconnect', self.genotype_flags['CCGZygDisconnect'],
+												'CCG Peak Ambiguity', self.genotype_flags['CCGPeakAmbiguous'],
+												'CCG Density Ambiguity', self.genotype_flags['CCGDensityAmbiguous'],
+												'CCG Recall Warning', self.genotype_flags['CCGRecallWarning'],
+												'CCG Peak OOB', self.genotype_flags['CCGPeakOOB'],
+												'\nCAG Flags', '',
+												'CAG Peak Ambiguity', self.genotype_flags['CAGPeakAmbiguous'],
+												'CAG Density Ambiguity', self.genotype_flags['CAGDensityAmbiguous'],
+												'CAG Recall Warning', self.genotype_flags['CAGRecallWarning'],
+												'CAG Peak OOB', self.genotype_flags['CAGPeakOOB'],
+												'CAG Backwards Slippage', self.genotype_flags['CAGBackwardsSlippage'],
+												'CAG Forwards Slippage', self.genotype_flags['CAGForwardSlippage'],
+												'\nOther Flags', '',
+												'FPSP Disconnect', self.genotype_flags['FPSPDisconnect'],
+												'LowRead Distributions', self.genotype_flags['LowReadDistributions'],
+												'Potential SVM Failure', self.genotype_flags['SVMPossibleFailure'],
+												'Homozygous Haplotype', self.genotype_flags['PotentialHomozygousHaplotype'],
+												'Haplotype Interp Distance', self.genotype_flags['PHHInterpDistance'],
+												'Peak Expansion Skew', self.genotype_flags['PeakExpansionSkew'],
+												'Neighbouring Peaks', self.genotype_flags['NeighbouringPeaks'],
+												'Diminished Peak', self.genotype_flags['DiminishedPeak'],
+												'Diminished Peak Uncertainty', self.genotype_flags['DiminishedUncertainty'])
 		sample_file = open(sample_report_name, 'w')
 		sample_file.write(sample_report)
 		sample_file.close()

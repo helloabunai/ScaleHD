@@ -58,6 +58,7 @@ class SeqAlign:
 		self.sequencepair_data = replace_fqfile(self.sequencepair_data, forward_reads, forward_distribution)
 		self.sequencepair_data = replace_fqfile(self.sequencepair_data, reverse_reads, reverse_distribution)
 		self.sequencepair_data.append(forward_assembly_tuple)
+		self.sequencepair_data.append((forward_reads, reverse_reads))
 
 	def execute_alignment(self, reference_index, target_fqfile, feedback_string, io_index):
 
@@ -113,7 +114,7 @@ class SeqAlign:
 		bwa_process.wait()
 		aln_outfi.close()
 
-		##
+		##4
 		## Generate an alignment report (i.e. console output to file)
 		alignment_report = os.path.join(alignment_outdir, 'AlignmentReport.txt')
 		report_file = open(alignment_report, 'w')
@@ -187,7 +188,6 @@ class SeqAlign:
 
 def get_alignreport():
 	return ALN_REPORT
-
 
 class ReferenceIndex:
 

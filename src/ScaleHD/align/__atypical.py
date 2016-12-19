@@ -83,7 +83,7 @@ class ScanAtypical:
 		self.assembly_object = None
 		self.present_references = None
 		self.assembly_targets = None
-		self.allele_status = 'Typical'
+		self.atypical_count = 0
 		self.atypical_info = {}
 
 		##
@@ -152,7 +152,7 @@ class ScanAtypical:
 
 			##
 			## Counts of atypical/typical reads
-			typical_count = 0; atypical_count = 0; reference_atypicals = []
+			typical_count = 0; atypical_count = 0; reference_atypicals = []; fp_flanks = []; tp_flanks = []
 			ref_cag = 0; ref_ccg = 0; ref_cct = 0
 
 			##
@@ -184,10 +184,12 @@ class ScanAtypical:
 
 					##
 					## CCT Masking/Intervening calculation
-					intervene_range = 0; intervene_string = ''
+					intervene_string = ''; fp_flank_string = ''; tp_flank_string = ''
 					for mask in cct_masks: cct_tracts.append((mask, self.get_cct_tract(sequence_windows, mask, ccg_tract[-1])))
 					cct_tract = sorted(cct_tracts, key=lambda a: len(a[1]), reverse=True)[0][1]
 					intervene_range = range(cag_tract[-1]+1, ccg_tract[0])
+					fp_flank_range = range(0, cag_tract[0]-1)
+					tp_flank_range = range(cct_tract[-1]+1, len(sequence_windows))
 				except IndexError:
 					continue
 
@@ -196,6 +198,20 @@ class ScanAtypical:
 				ref_cag += len(cag_tract)
 				ref_ccg += len(ccg_tract)
 				ref_cct += len(cct_tract)
+
+				##
+				## Count fp flank occurrences
+				for i in range(0, len(sequence_windows)):
+					if i in fp_flank_range:
+						fp_flank_string += str(sequence_windows[i])
+				fp_flanks.append(fp_flank_string)
+
+				##
+				## Count tp flank occurrences
+				for i in range (0, len(sequence_windows)):
+					if i in tp_flank_range:
+						tp_flank_string += str(sequence_windows[i])
+				tp_flanks.append(tp_flank_string)
 
 				##
 				## Atypical Detection
@@ -220,19 +236,25 @@ class ScanAtypical:
 			##
 			## Determine most frequent intervening sequence
 			atypical_population = Counter(reference_atypicals).most_common()
+			fp_flank_population = Counter(fp_flanks).most_common()
+			tp_flank_population = Counter(tp_flanks).most_common()
 			reference_dictionary = {'TotalReads':investigation[1],
 									'TypicalCount': typical_count,
 									'TypicalPcnt': ref_typical,
 									'AtypicalCount': atypical_count,
 									'AtypicalPcnt': ref_atypical,
-									'Status':self.allele_status}
+									'Status':self.atypical_count,
+									'5PFlank':fp_flank_population[0][0],
+									'3PFlank':tp_flank_population[0][0],
+									'EstimatedCAG': est_cag,
+									'EstimatedCCG': est_ccg,
+									'EstimatedCCT': est_cct,
+									'InterveningSequence': atypical_population[0][0]}
 			if atypical_count > typical_count:
-				self.allele_status = 'Atypical'
-				reference_dictionary['Status'] = self.allele_status
-				reference_dictionary['EstimatedCAG'] = est_cag
-				reference_dictionary['EstimatedCCG'] = est_ccg
-				reference_dictionary['EstimatedCCT'] = est_cct
-				reference_dictionary['InterveningSequence'] = atypical_population[0][0]
+				self.atypical_count += 1
+				reference_dictionary['Status'] = 'Atypical'
+			else:
+				reference_dictionary['Status'] = 'Typical'
 
 			self.atypical_info[investigation[0]] = reference_dictionary
 
@@ -333,7 +355,7 @@ class ScanAtypical:
 		return difflib.SequenceMatcher(a=seq1.lower(), b=seq2.lower()).ratio()
 
 	def get_allele_status(self):
-		return self.allele_status
+		return self.atypical_count
 
 	def get_atypical_info(self):
 		return self.atypical_info
