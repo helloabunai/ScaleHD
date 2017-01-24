@@ -86,6 +86,9 @@ setup(
                       'django',
                       'pandas',
 					  'pysam',
+					  'regex',
+					  'PyPDF2',
+					  'reportlab',
 					  ],
 
     # These are the data files to be included in the package

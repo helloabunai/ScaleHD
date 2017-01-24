@@ -15,10 +15,16 @@ import subprocess
 import logging as log
 import numpy as np
 import csv
+import regex
+import StringIO
+import PyPDF2
 from sklearn import preprocessing
 from collections import defaultdict
 from xml.etree import cElementTree
 from lxml import etree
+from collections import Counter
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
 
 class Colour:
 
@@ -148,7 +154,7 @@ class ConfigReader(object):
 
 		data_directory = self.config_dict['@data_dir']
 		if not os.path.exists(data_directory):
-			log.error('{}{}{}{}'.format(Colour.red, 'shd__', Colour.end, 'XML Config: Specified data directory could not be found.'))
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified data directory could not be found.'))
 			trigger = True
 		for fqfile in glob.glob(os.path.join(data_directory, '*')):
 			if not (fqfile.endswith('.fq') or fqfile.endswith('.fastq') or fqfile.endswith('.fq.gz') or fqfile.endswith('.fastq.gz')):
@@ -618,6 +624,225 @@ def replace_fqfile(mutate_list, target_fqfile, altered_path):
 		loc = mutate_list.index(target_fqfile)
 		mutate_list[loc] = altered_path
 	return mutate_list
+
+def scrape_atypical(atypical_info):
+
+	##
+	## Constructs
+	sorted_info = sorted(atypical_info.iteritems(), key=lambda (x, y): y['TotalReads'], reverse=True)
+	if len(sorted_info) != 3: raise IndexError('< 3 references in sorted top; alignment failure?')
+
+	##
+	## Check % dropoff in read count between #2 and #3
+	beta_diff = float(abs(sorted_info[1][1]['TotalReads'] - sorted_info[2][1]['TotalReads']))
+	beta_drop = float(beta_diff / sorted_info[1][1]['TotalReads'])
+
+	##
+	## TODO fix this garbage dumpster fire
+	## TODO oh my god it's so ugly
+	## Top1 always used
+	## Check Top2 vs Top3, if drop is > 20%, ok
+	## If not >= 20%, investigate further:
+	##   If T2_CCG == T3_CCG, potential slippage event
+	##     if T2_CAG-T3_CAG > 1, no slippage, use Top1 and Top2
+	##     if T2_CAG-T3_CAG == 1, maybe slippage
+	##       if T2-T3 read drop is <= 0.1, use Top1 and Top3, slippage event
+	##       otherwise, use Top1 and Top2, no slippage
+	##   If T2_CCG and T3_CCG differ, no slippage
+	##     Check T1_CAG and T3_CAG for n-1, check diff between 2 and 3 > 10%
+	primary_allele = sorted_info[0][1]; primary_allele['Reference'] = sorted_info[0][0]
+	if not beta_drop >= 0.20:
+		##
+		## CCG match, potential slippage
+		if sorted_info[1][1]['EstimatedCCG'] == sorted_info[2][1]['EstimatedCCG']:
+			if abs(sorted_info[1][1]['EstimatedCAG'] - sorted_info[2][1]['EstimatedCAG']) > 1:
+				secondary_allele = sorted_info[1][1]
+				secondary_allele['Reference'] = sorted_info[1][0]
+			elif abs(sorted_info[1][1]['EstimatedCAG'] - sorted_info[2][1]['EstimatedCAG']) == 1:
+				if beta_drop <= 0.1:
+					secondary_allele = sorted_info[2][1]
+					secondary_allele['Reference'] = sorted_info[2][0]
+				else:
+					secondary_allele = sorted_info[1][1]
+					secondary_allele['Reference'] = sorted_info[1][0]
+			else:
+				secondary_allele = sorted_info[1][1]
+				secondary_allele['Reference'] = sorted_info[1][0]
+		##
+		## CCG don't match, no slippage
+		else:
+			if abs(sorted_info[0][1]['EstimatedCAG']-sorted_info[2][1]['EstimatedCAG']) == 1 and beta_drop >= 0.10:
+				secondary_allele = sorted_info[1][1]
+				secondary_allele['Reference'] = sorted_info[1][0]
+			else:
+				secondary_allele = sorted_info[2][1]
+				secondary_allele['Reference'] = sorted_info[2][0]
+	##
+	## Otherwise the drop between #2 and #3 is so big that #3 isn't possible
+	else:
+		secondary_allele = sorted_info[1][1]; secondary_allele['Reference'] = sorted_info[1][0]
+
+	##
+	## For each of the alleles we've determined..
+	## Get intervening lengths, create accurate genotype string
+	atypical_count = 0
+	for allele in [primary_allele, secondary_allele]:
+		new_genotype = create_genotype_label(allele)
+		allele['OriginalReference'] = allele['Reference']
+		allele['Reference'] = new_genotype
+		allele['ClassicGenotype'] = '{},{}'.format(allele['EstimatedCAG'], allele['EstimatedCCG'])
+		if allele['Status'] == 'Atypical': atypical_count += 1
+
+	return [primary_allele, secondary_allele], atypical_count
+
+def rotation_check(string1, string2):
+	size1 = len(string1)
+	size2 = len(string2)
+
+	# Check if sizes of two strings are same
+	if size1 != size2: return 0
+
+	# Create a temp string with value str1.str1
+	temp = string1 + string1
+
+	# Now check if str2 is a substring of temp (with s = 1 mismatch)
+	rotation_match = regex.findall(r"(?:" + string2 + "){s<=1}", temp, regex.BESTMATCH)
+
+	if len(rotation_match) > 0:	return 1
+	else: return 0
+
+def create_genotype_label(input_reference):
+
+	intervening = input_reference['InterveningSequence']
+	intervening_freq = Counter(list((intervening[0 + i:6 + i] for i in range(0, len(intervening), 6)))).items()
+	caacag_count = 0; ccgcca_count = 0
+	caacag_flag = False; ccgcca_flag = False
+
+	##
+	## TODO fix this dumpster garbage shit
+	## TODO oh my god it's so ugly
+	if len(intervening_freq) < 1:
+		caacag_count = 1; ccgcca_count = 1
+	if len(intervening_freq) < 2:
+		caacag_count = 1; ccgcca_count = 1
+
+	##
+	## Check CAACAG
+	try:
+		caacag_freq = intervening_freq[0]
+		if rotation_check('CAACAG', caacag_freq[0]):
+			caacag_count = caacag_freq[1]
+		else:
+			if input_reference['Status'] == 'Typical':
+				caacag_count = 1; ccgcca_count = 1
+	except IndexError: caacag_flag = True
+
+	##
+	## Check CCGCCA
+	try:
+		ccgcca_freq = intervening_freq[1]
+		if rotation_check('CCGCCA', ccgcca_freq[0]):
+			ccgcca_count = ccgcca_freq[1]
+		else:
+			if input_reference['Status'] == 'Typical':
+				caacag_count = 1; ccgcca_count = 1
+	except IndexError: ccgcca_flag = True
+
+	##
+	## Parse flags in event of error
+	if caacag_flag: caacag_count = 0; ccgcca_count = 0
+	if ccgcca_flag:
+		if not caacag_flag: caacag_count = 1; ccgcca_count = 0
+		else: caacag_count = 0; ccgcca_count = 0
+
+	##
+	## Safety check
+	if input_reference['Status'] == 'Typical' and (caacag_count != 1 or ccgcca_count != 1):
+		caacag_count = 1; ccgcca_count = 1
+
+	genotype_label = '{}_{}_{}_{}_{}'.format(input_reference['EstimatedCAG'], caacag_count, ccgcca_count,
+											 input_reference['EstimatedCCG'], input_reference['EstimatedCCT'])
+	return genotype_label
+
+def scrape_summary_data(stage, input_report_file):
+	##
+	## If the argument input_report_file is from trimming..
+	if stage == 'trim':
+		with open(input_report_file, 'r') as trpf:
+			trim_lines = trpf.readlines()
+			##
+			## Determine buffer size to slice from above array
+			scraping_buffer = 8
+			if '-q' in trim_lines[1]:
+				scraping_buffer += 1
+			##
+			## Get Anchor
+			summary_start = 0
+			for i in range(0, len(trim_lines)):
+				if '== Summary ==' in trim_lines[i]:
+					summary_start = i
+			##
+			## Slice and close
+			summary_data = trim_lines[summary_start:summary_start + scraping_buffer]
+			trpf.close()
+		return summary_data[2:]
+
+	##
+	## If the argument input_report_file is from alignment..
+	if stage == 'align':
+		with open(input_report_file, 'r') as alnrpf:
+			align_lines = alnrpf.readlines()
+			alnrpf.close()
+		##
+		## No ranges required, only skip first line
+		return align_lines[1:]
+
+	##
+	## No need to tidy up report for genotyping
+	## since we already have the data from our own objects
+	if stage == 'gtype':
+		pass
+
+def collate_peaks(predict_path, sample_prefix):
+
+	##
+	## Generate single page PDF of current sample name (for ctrl+f)
+	packet = StringIO.StringIO()
+	can = canvas.Canvas(packet, pagesize=(350,150))
+	can.drawCentredString(175, 75, sample_prefix)
+	can.save()
+
+	packet.seek(0)
+	header_page = PyPDF2.PdfFileReader(packet).getPage(0)
+	header_output = PyPDF2.PdfFileWriter()
+	header_output.addPage(header_page)
+	test = os.path.join(predict_path, 'Header.pdf')
+	header_output.write(file(test, 'wb'))
+
+	##
+	## Scan prediction folder for the passed sample instance
+	sample_merge = os.path.join(predict_path, 'SampleResults.pdf')
+	merge_object = PyPDF2.PdfFileMerger()
+	for peak_graph in glob.glob(os.path.join(predict_path, '*')):
+		if 'PeakDetection' in peak_graph:
+			try:
+				curr_file = file(peak_graph, 'rb')
+				merge_object.append(PyPDF2.PdfFileReader(curr_file))
+				curr_file.close()
+			except PyPDF2.utils.PdfReadError:
+				pass
+		if 'Header' in peak_graph:
+			try:
+				curr_file = file(peak_graph, 'rb')
+				merge_object.merge(0, PyPDF2.PdfFileReader(curr_file))
+				curr_file.close()
+			except PyPDF2.utils.PdfReadError:
+				pass
+
+	merge_object.write(sample_merge)
+	merge_object.close()
+	os.remove(os.path.join(predict_path, 'Header.pdf'))
+	return sample_merge
 
 def generate_atypical_xml(direction, atypical_count, index_path, input_alleles):
 

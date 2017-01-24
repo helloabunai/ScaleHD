@@ -5,61 +5,6 @@ import difflib
 import subprocess
 from collections import Counter
 
-# class subsample:
-# 	def __init__(self):
-# 		pass
-#
-# 	parser = argparse.ArgumentParser()
-# 	parser.add_argument("input", help="input FASTQ filename")
-# 	parser.add_argument("output", help="output FASTQ filename")
-# 	parser.add_argument("-f", "--fraction", type=float, help="fraction of reads to sample")
-# 	parser.add_argument("-n", "--number", type=int, help="number of reads to sample")
-# 	parser.add_argument("-s", "--sample", type=int, help="number of output files to write", default=1)
-# 	args = parser.parse_args()
-#
-# 	if args.fraction and args.number:
-# 		sys.exit("give either a fraction or a number, not both")
-#
-# 	if not args.fraction and not args.number:
-# 		sys.exit("you must give either a fraction or a number")
-#
-# 	print("counting records....")
-# 	with open(args.input) as input:
-# 		num_lines = sum([1 for line in input])
-# 	total_records = int(num_lines / 4)
-#
-# 	if args.fraction:
-# 		args.number = int(total_records * args.fraction)
-#
-# 	print("sampling " + str(args.number) + " out of " + str(total_records) + " records")
-#
-# 	output_files = []
-# 	output_sequence_sets = []
-# 	for i in range(args.sample):
-# 		output_files.append(open(args.output + "." + str(i), "w"))
-# 		output_sequence_sets.append(set(random.sample(xrange(total_records + 1), args.number)))
-#
-# 	record_number = 0
-# 	with open(args.input) as input:
-# 			for line1 in input:
-# 				line2 = input.next()
-# 				line3 = input.next()
-# 				line4 = input.next()
-# 				for i, output in enumerate(output_files):
-# 					if record_number in output_sequence_sets[i]:
-# 							output.write(line1)
-# 							output.write(line2)
-# 							output.write(line3)
-# 							output.write(line4)
-# 				record_number += 1
-# 				if record_number % 100000 == 0:
-# 					print(str((record_number / total_records) * 100)  + " % done")
-#
-#
-# 	for output in output_files:
-# 		output.close()
-# 	print("done!")
-
 class ScanAtypical:
 	def __init__(self, input_assembly_tuple):
 		"""
@@ -153,7 +98,7 @@ class ScanAtypical:
 			##
 			## Counts of atypical/typical reads
 			typical_count = 0; atypical_count = 0; reference_atypicals = []; fp_flanks = []; tp_flanks = []
-			ref_cag = 0; ref_ccg = 0; ref_cct = 0
+			ref_cag = []; ref_ccg = []; ref_cct = []
 
 			##
 			## For every read in this reference, get the aligned sequence
@@ -195,9 +140,9 @@ class ScanAtypical:
 
 				##
 				## Add length to reference-run
-				ref_cag += len(cag_tract)
-				ref_ccg += len(ccg_tract)
-				ref_cct += len(cct_tract)
+				ref_cag.append(len(cag_tract))
+				ref_ccg.append(len(ccg_tract))
+				ref_cct.append(len(cct_tract))
 
 				##
 				## Count fp flank occurrences
@@ -229,15 +174,17 @@ class ScanAtypical:
 			## Calculate the presence of each 'state' of reference
 			ref_typical = format(((typical_count / investigation[1]) * 100), '.2f')
 			ref_atypical = format(((atypical_count / investigation[1]) * 100), '.2f')
-			est_cag = int(round(ref_cag / investigation[1]))
-			est_ccg = int(round(ref_ccg / investigation[1]))
-			est_cct = int(round(ref_cct / investigation[1]))
+			est_cag = Counter(ref_cag).most_common()[0][0]
+			est_ccg = Counter(ref_ccg).most_common()[0][0]
+			est_cct = Counter(ref_cct).most_common()[0][0]
 
 			##
 			## Determine most frequent intervening sequence
 			atypical_population = Counter(reference_atypicals).most_common()
 			fp_flank_population = Counter(fp_flanks).most_common()
 			tp_flank_population = Counter(tp_flanks).most_common()
+
+			if len(atypical_population) == 0: atypical_population = [['CAACAGCCGCCA']]
 			reference_dictionary = {'TotalReads':investigation[1],
 									'TypicalCount': typical_count,
 									'TypicalPcnt': ref_typical,
@@ -256,6 +203,14 @@ class ScanAtypical:
 			else:
 				reference_dictionary['Status'] = 'Typical'
 
+			##
+			## If the intervening is longer in #2, assume poor sequencing in #1 and use #2
+			try:
+				if len(atypical_population[0][0]) < len(atypical_population[1][0]):
+					if reference_dictionary['Status'] == 'Typical':
+						reference_dictionary['InterveningSequence'] = max([atypical_population[0][0],atypical_population[1][0]], key=len)
+			except IndexError:
+				reference_dictionary['InterveningSequence'] = atypical_population[0][0]
 			self.atypical_info[investigation[0]] = reference_dictionary
 
 		os.remove(self.subsample_assembly)

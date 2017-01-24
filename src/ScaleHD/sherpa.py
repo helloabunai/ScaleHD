@@ -10,12 +10,12 @@ import os
 import sys
 import csv
 import gc
-import shutil
+import PyPDF2
 import argparse
 import pkg_resources
 import logging as log
-from collections import Counter
 from multiprocessing import cpu_count
+
 
 ##
 ## Backend junk
@@ -26,6 +26,9 @@ from __backend import sanitise_inputs
 from __backend import extract_data
 from __backend import sequence_pairings
 from __backend import sanitise_outputs
+from __backend import scrape_atypical
+from __backend import collate_peaks
+from __backend import scrape_summary_data
 from __backend import generate_atypical_xml
 from __backend import generate_reference
 
@@ -92,6 +95,7 @@ class ScaleHD:
 			sys.exit(2)
 		self.instance_rundir = sanitise_outputs(self.args.jobname, self.args.output)
 		self.instance_summary = {}
+		self.instance_graphs = {}
 
 		##
 		## Set up config dictionary of all params.
@@ -115,8 +119,12 @@ class ScaleHD:
 		## Depending on input mode, direct flow of functions
 		## -b == multiple files, loop files to class
 		## -c == config, do as config parsed flags
-		if not self.args.config: self.assembly_workflow()
-		else: self.sequence_workflow()
+		if not self.args.config:
+			self.assembly_workflow()
+			self.render_instance()
+		else:
+			self.sequence_workflow()
+			self.render_instance()
 
 		##
 		## Instance wide output results
@@ -161,7 +169,8 @@ class ScaleHD:
 		##
 		## Temporary report file to be appended to for each instance
 		master_results_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		header = '{},{},{},{},{},{},{},{},{},{}\n'.format('SampleName','Primary CAG','Primary CCG','Status','Label','Secondary CAG','Secondary CCG','Status','Label','Confidence')
+		header = '{},{},{},{},{},{},{},{},{},{}\n'.format('SampleName', 'Primary GTYPE', 'Status','Label', 'Original',
+														  'Secondary GTYPE','Status', 'Label', 'Original', 'Confidence')
 		with open(master_results_file, 'w') as outfi: outfi.write(header); outfi.close()
 
 		##
@@ -186,6 +195,11 @@ class ScaleHD:
 				predict_path = assembly_data[2]
 				bayesian_path = os.path.join(predict_path,'Bayesian')
 				instance_params = self.set_prediction_params()
+				placeholder_dict = {'PrimaryAllele': 'Fail', 'PrimaryAlleleStatus': 'Fail',
+							   'PrimaryAlleleReference': 'Fail', 'PrimaryAlleleOriginal': 'Fail',
+							   'SecondaryAllele': 'Fail', 'SecondaryAlleleStatus': 'Fail',
+							   'SecondaryAlleleReference': 'Fail', 'SecondaryAlleleOriginal': 'Fail',
+							   'PredictionConfidence': 0, 'ForwardDistribution':[0]*4000, 'ReverseDistribution':[0]*4000}
 
 				##
 				## Specific paths to pass to distribution scraper
@@ -203,34 +217,15 @@ class ScaleHD:
 				#############################################
 				try:
 					log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,'Scanning for atypical alleles..'))
-					scanner_object = align.ScanAtypical((forward_path,forward_assembly)); atypical_count = scanner_object.get_allele_status()
+					scanner_object = align.ScanAtypical((forward_path,forward_assembly))
+					atypical_count = scanner_object.get_allele_status()
 					atypical_info = scanner_object.get_atypical_info()
-					processed_atypical = self.scrape_atypical(atypical_info)
+					processed_atypical, legitimate_atypicals = scrape_atypical(atypical_info)
+					if atypical_count != 0: log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Scanning complete! Atypical allele(s) present.'))
+					else: log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Scanning complete! No atypical allele(s) present.'))
 					gc.collect()
-
-					if atypical_count != 0:
-						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Scanning complete! Atypical allele(s) present.'))
-						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Cannot perform realignment in --batch mode. Assuming DSP precision.'))
-
-						##
-						## Process information gathered from DSP into report..
-						genotype_report = {'PrimaryAllele':processed_atypical[0]['ClassicGenotype'],
-										   'SecondaryAllele':processed_atypical[1]['ClassicGenotype'],
-										   'PredictionConfidence':'Atypical_DSP',
-										   'ForwardDistribution':[0]*4000,
-										   'ReverseDistribution':[0]*4000,
-										   'AtypicalInfo':processed_atypical}
-						workflow_dictionary = {'GenotypeReport': genotype_report, 'SampleLabel': assembly_label,
-											   'MasterResultsFile':master_results_file, 'MasterMatrixFile':master_matrix_file}
-						self.write_to_report(workflow_dictionary, 'Atypical')
-						log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Assembly pair workflow complete!\n'))
-						break
-					else:
-						log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Scanning complete! No atypical allele(s) present.'))
 				except Exception, e:
-					self.instance_summary[assembly_label] = {'SampleGenotype': {'PrimaryAllele': 'Fail',
-																				'SecondaryAllele': 'Fail',
-																				'PredictionConfidence': 0}}
+					self.write_failure([assembly_label, placeholder_dict, master_results_file, master_matrix_file])
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Atypical scanning failure on ', assembly_label, str(e)))
 					continue
 
@@ -248,24 +243,42 @@ class ScaleHD:
 					assembly_data[1] = align.SeqAlign.extract_repeat_distributions(assembly_label,reverse_path,reverse_assembly)
 				log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Repeat distribution extraction complete!'))
 
-				#############################################
-				## Stage three!! Distribution Genotyping.. ##
-				#############################################
+				###########################################
+				## Stage three!! Process allele status.. ##
+				###########################################
+				if atypical_count != 0:
+					try:
+						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Currently in --batch mode, cannot realign. Trusting DSP genotyping.'))
+						genotype_report = predict.DSPResultsGenerator(assembly_data, predict_path, processed_atypical).get_report()
+						self.instance_graphs[assembly_label] = collate_peaks(predict_path, assembly_label)
+						gc.collect()
+						log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
+						workflow_dictionary = {'GenotypeReport': genotype_report, 'SampleLabel': assembly_label, 'MasterResultsFile': master_results_file, 'MasterMatrixFile': master_matrix_file}
+						self.write_to_report(workflow_dictionary)
+						del genotype_report  # rework when reporting overhaul
+						log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Assembly pair workflow complete!\n'))
+						continue
+					except Exception, e:
+						self.write_failure([assembly_label, placeholder_dict, master_results_file, master_matrix_file])
+						log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Processing atypical allele failure on ', assembly_label, str(e)))
+						continue
+
+				############################################
+				## Stage four!! Distribution Genotyping.. ##
+				############################################
 				try:
 					log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing genotyping workflow..'))
-					genotype_report = predict.GenotypePrediction(assembly_data, predict_path,
-																 self.training_data, instance_params).get_report()
+					genotype_report = predict.GenotypePrediction(assembly_data, predict_path, self.training_data, instance_params, processed_atypical).get_report()
+					self.instance_graphs[assembly_label] = collate_peaks(predict_path, assembly_label)
 					gc.collect()
 					log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
 				except Exception, e:
-					self.instance_summary[assembly_label] = {'SampleGenotype':{'PrimaryAllele':'Fail',
-																			   'SecondaryAllele':'Fail',
-																			   'PredictionConfidence':0}}
+					self.write_failure([assembly_label, placeholder_dict, master_results_file, master_matrix_file])
 					log.info('{}{}{}{}{}: {}'.format(clr.red,'shd__ ',clr.end,'Genotyping failure on ',assembly_label,str(e)))
 					continue
 
 				########################################
-				## Stage four!! Bayesian Genotyping.. ##
+				## Stage five!! Bayesian Genotyping.. ##
 				########################################
 				#try:
 				# log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Experimental Bayesian workflow..'))
@@ -284,7 +297,7 @@ class ScaleHD:
 				## Add dictionary to instance parent dictionary (dict of dicts for all data pairs in run...)
 				workflow_dictionary = {'GenotypeReport': genotype_report, 'SampleLabel': assembly_label,
 									   'MasterResultsFile':master_results_file, 'MasterMatrixFile':master_matrix_file}
-				self.write_to_report(workflow_dictionary, 'Typical')
+				self.write_to_report(workflow_dictionary)
 
 				##
 				## Finished all desired stages for this file pair, inform user if -v
@@ -340,7 +353,7 @@ class ScaleHD:
 		##
 		## Temporary report file to be appended to for each instance
 		master_results_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		header = '{},{},{},{},{},{},{},{},{},{}\n'.format('SampleName', 'Primary CAG', 'Primary CCG', 'Status', 'Label', 'Secondary CAG', 'Secondary CCG', 'Status', 'Label', 'Confidence')
+		header = '{},{},{},{},{},{},{},{},{},{},\n'.format('SampleName', 'Primary GTYPE', 'Status', 'Label', 'Original', 'Secondary GTYPE', 'Status', 'Label', 'Original', 'Confidence')
 		with open(master_results_file, 'w') as outfi: outfi.write(header); outfi.close()
 
 		##
@@ -367,11 +380,11 @@ class ScaleHD:
 				align_path = sequencepair_data[3]
 				predict_path = sequencepair_data[4]
 				bayesian_path = os.path.join(predict_path,'Bayesian')
-
-				##
-				## Constructs needed out of scope
-				processed_atypical = []
-				legitimate_atypicals = 0
+				placeholder_dict = {'PrimaryAllele': 'Fail', 'PrimaryAlleleStatus': 'Fail',
+							   'PrimaryAlleleReference': 'Fail', 'PrimaryAlleleOriginal': 'Fail',
+							   'SecondaryAllele': 'Fail', 'SecondaryAlleleStatus': 'Fail',
+							   'SecondaryAlleleReference': 'Fail', 'SecondaryAlleleOriginal': 'Fail',
+							   'PredictionConfidence': 0, 'ForwardDistribution':[0]*4000, 'ReverseDistribution':[0]*4000}
 
 				############################################
 				## Stage one!! Sequence quality control.. ##
@@ -381,12 +394,12 @@ class ScaleHD:
 					if seq_qc_flag == 'True':
 						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing sequence quality control workflow..'))
 						if seq_qc.SeqQC(sequencepair_data,qc_path,'valid',self.instance_params):
-							log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,'Initialising trimming.'))
+							log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,'Initialising trimming..'))
 							seq_qc.SeqQC(sequencepair_data,qc_path,'trim',self.instance_params)
 							gc.collect()
 							log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Trimming complete!'))
 				except Exception, e:
-					self.instance_summary[sequence_label] = {'R1Trimming':'Fail','R2Trimming':'Fail'}
+					self.write_failure([sequence_label, placeholder_dict, master_results_file, master_matrix_file])
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'SeqQC failure on ',sequence_label,str(e)))
 					continue
 
@@ -401,7 +414,7 @@ class ScaleHD:
 						gc.collect()
 						log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Sequence alignment workflow complete!'))
 				except Exception, e:
-					self.instance_summary[sequence_label] = {'R1Alignment':'Fail','R2Alignment':'Fail'}
+					self.write_failure([sequence_label, placeholder_dict, master_results_file, master_matrix_file])
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd_1_ ',clr.end,'Alignment failure on ',sequence_label,str(e)))
 					continue
 
@@ -410,86 +423,50 @@ class ScaleHD:
 				###############################################
 				try:
 					log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,'Scanning for atypical alleles..'))
-					scanner_object = align.ScanAtypical(sequencepair_data[5]); atypical_count = scanner_object.get_allele_status()
-					if atypical_count != 0:
-						atypical_info = scanner_object.get_atypical_info()
-						processed_atypical, legitimate_atypicals = self.scrape_atypical(atypical_info)
-						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Scanning complete! Atypical allele(s) present.'))
-					else:
-						log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end,'Scanning complete! No atypical allele(s) present.'))
+					scanner_object = align.ScanAtypical(sequencepair_data[5])
+					atypical_count = scanner_object.get_allele_status()
+					atypical_info = scanner_object.get_atypical_info()
+					processed_atypical, legitimate_atypicals = scrape_atypical(atypical_info)
+					if atypical_count != 0:	log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Scanning complete! Atypical allele(s) present.'))
+					else: log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end,'Scanning complete! No atypical allele(s) present.'))
 					gc.collect()
 				except Exception, e:
-					self.instance_summary[sequence_label] = {'SampleGenotype': {'PrimaryAllele': 'Fail','SecondaryAllele': 'Fail','PredictionConfidence': 0}}
+					self.write_failure([sequence_label, placeholder_dict, master_results_file, master_matrix_file])
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Atypical scanning failure on ',sequence_label, str(e)))
 					continue
 
 				##########################################
 				## Stage four!! Process allele status.. ##
 				##########################################
+				if atypical_count != 0:
+					try:
+						if self.instance_params.config_dict['instance_flags']['@atypical_realignment'] == 'True':
+							log.info('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'User specified sequence re-alignment. Currently un-implemented.'))
 
-				"""
-				##	For allele in processed_atypical
-				##		if allele is typical:
-				##			pass to genotype as normal
-				##		if allele is atypical:
-				##			if user wants realign:
-				##				generate reference
-				##				realign
-				##				pass to genotyping
-				##			if user doesn't want to realign:
-				##				trust DSP
-				##	Combine allele results..
-				##	Reporting/output
-				"""
+							##TODO generate atypical reference based on DSP findings
+							##TODO re-align to atypical reference
+							##TODO pass newly generated distributions to genotyping stage
 
-				##
-				## OLD ATTEMPT.. needs refactoring!!
-
-				# if self.instance_params.config_dict['instance_flags']['@atypical_realignment'] == 'True':
-				# 	log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,'User specified sequence re-alignment. Generating atypical reference.'))
-				# 	try:
-				# 		atypical_fw_xml = generate_atypical_xml('fw', legitimate_atypicals, index_path, processed_atypical)
-				# 		atypical_rv_xml = generate_atypical_xml('rv', legitimate_atypicals, index_path, processed_atypical)
-				# 	except Exception, e:
-				# 		log.info('{}{}{}{}\n'.format(clr.red,'shd__ ',clr.end,'2 Atypicals detected; currently unsupported.', e))
-				# 		self.instance_summary[sequence_label] = {'R1Alignment': 'Fail', 'R2Alignment': 'Fail'}
-				# 		continue
-				# 	new_fwref = generate_reference(atypical_fw_xml, index_path); new_rvref = generate_reference(atypical_rv_xml, index_path)
-				# 	fw_idx = align.ReferenceIndex(new_fwref, index_path).get_index_path(); rv_idx = align.ReferenceIndex(new_rvref, index_path).get_index_path()
-				# 	reference_indexes[0] = fw_idx; reference_indexes[1] = rv_idx
-				#
-				# 	##
-				# 	## Initial alignment stage replaced FastQ files in sequencepair_data with repeat_distributions
-				# 	## Before re-aligning to custom atypical reference, change this back
-				# 	#sequencepair_data[0] = sequencepair_data[6][0]
-				# 	sequencepair_data[1] = sequencepair_data[6][1]
-				#
-				# 	##
-				# 	## Try aligning the forward reads only to this new atypical reference
-				# 	try:
-				# 		if alignment_flag == 'True':
-				# 			align.SeqAlign(sequence_label, sequencepair_data, align_path, reference_indexes, self.instance_params)
-				# 			gc.collect()
-				# 			log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence re-alignment workflow complete!'))
-				# 	except Exception, e:
-				# 		self.instance_summary[sequence_label] = {'R1Alignment': 'Fail', 'R2Alignment': 'Fail'}
-				# 		log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Re-alignment failure on ', sequence_label, str(e)))
-				# 		continue
-				#
-				# else:
-				# 	log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'User specified to not re-align. Assuming DSP precision.'))
-				# 	genotype_report = {'PrimaryAllele': processed_atypical[0]['ClassicGenotype'],
-				# 					   'SecondaryAllele': processed_atypical[1]['ClassicGenotype'],
-				# 					   'PredictionConfidence': 'Atypical_DSP',
-				# 					   'ForwardDistribution': [0]*4000,
-				# 					   'ReverseDistribution': [0]*4000,
-				# 					   'AtypicalInfo': processed_atypical}
-				# 	workflow_dictionary = {'GenotypeReport': genotype_report, 'SampleLabel': sequence_label,
-				# 						   'MasterResultsFile': master_results_file,
-				# 						   'MasterMatrixFile': master_matrix_file}
-				# 	self.write_to_report(workflow_dictionary, atypical_count)
-				# 	log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence pair workflow complete!\n'))
-				# 	break
+							self.write_failure([sequence_label, placeholder_dict, master_results_file, master_matrix_file])
+							log.info('{}{}{}{}: {}'.format(clr.red,'shd__ ',clr.end,'Cannot process sample with current settings ', sequence_label))
+							continue
+						else:
+							log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'User specified no sequence re-alignment. Trusting DSP genotyping.'))
+							genotype_report = predict.DSPResultsGenerator(sequencepair_data, predict_path, processed_atypical).get_report()
+							self.instance_graphs[sequence_label] = collate_peaks(predict_path, sequence_label)
+							gc.collect()
+							log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
+							workflow_dictionary = {'GenotypeReport': genotype_report, 'SampleLabel': sequence_label,
+												   'MasterResultsFile': master_results_file,
+												   'MasterMatrixFile': master_matrix_file}
+							self.write_to_report(workflow_dictionary)
+							del genotype_report  # rework when reporting overhaul
+							log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence pair workflow complete!\n'))
+							continue
+					except Exception, e:
+						self.write_failure([sequence_label, genotype_report, master_results_file, master_matrix_file])
+						log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Processing atypical allele failure on ', sequence_label, str(e)))
+						continue
 
 				###########################################
 				## Stage five!! Genotype distributions.. ##
@@ -499,10 +476,11 @@ class ScaleHD:
 					if genotyping_flag == 'True':
 						log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing genotyping workflow..'))
 						genotype_report = predict.GenotypePrediction(sequencepair_data, predict_path, self.training_data, self.instance_params, processed_atypical).get_report()
+						self.instance_graphs[sequence_label] = collate_peaks(predict_path, sequence_label)
 						gc.collect()
 						log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
 				except Exception, e:
-					self.instance_summary[sequence_label] = {'SampleGenotype': {'PrimaryAllele': 'Fail','SecondaryAllele': 'Fail', 'PredictionConfidence': 0}}
+					self.write_failure([sequence_label, genotype_report, master_results_file, master_matrix_file])
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Genotyping failure on ',sequence_label,str(e)))
 					continue
 
@@ -510,9 +488,7 @@ class ScaleHD:
 				## Stage six!! Bayesian Genotyping.. ##
 				#######################################
 
-				##
-				##TODO Take distro and work into R functions
-
+				# TODO take distro and work into R functions
 				# try:
 				# 	log.info('{}{}{}{}'.format(clr.yellow,'shd__',clr.end,'Experimental Bayesian workflow..'))
 				# 	predict.BayesianLikelihood(bayesian_path, self.likelihood_matrix, self.raw_matrix)
@@ -525,71 +501,35 @@ class ScaleHD:
 				# 	log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Bayesian failure on ',sequence_label,str(e)))
 				# 	continue
 
-				##
-				## Finished all desired stages for this file pair
+				#############################
+				## Finished! File output.. ##
+				#############################
 				workflow_dictionary = {'GenotypeReport': genotype_report, 'SampleLabel': sequence_label,
 									   'MasterResultsFile':master_results_file, 'MasterMatrixFile':master_matrix_file}
-				self.write_to_report(workflow_dictionary, 'Typical')
+				self.write_to_report(workflow_dictionary)
 				del genotype_report #rework when reporting overhaul
-
-				##
-				## Reset reference indexes to typical format
-				reference_indexes = typical_indexes
+				reference_indexes = typical_indexes # Reset reference indexes to typical format
 				log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence pair workflow complete!\n'))
 
-	def scrape_atypical(self, atypical_info):
+	def write_failure(self, fail_list):
 
-		##
-		## Constructs
-		sorted_info = sorted(atypical_info.iteritems(), key=lambda (x, y): y['TotalReads'], reverse=True)
+		sequence_label = fail_list[0]
+		genotype_report = fail_list[1]
+		master_results_file = fail_list[2]
+		master_matrix_file = fail_list[3]
 
-		##
-		## Check % dropoff in read count between #2 and #3
-		diff = abs(sorted_info[1][1]['TotalReads']-sorted_info[2][1]['TotalReads'])
-		drop = diff / sorted_info[1][1]['TotalReads']
+		self.instance_summary[sequence_label] = {
+			'SampleGenotype': {'PrimaryAllele': 'Fail', 'PrimaryAlleleStatus': 'Fail',
+							   'PrimaryAlleleReference': 'Fail', 'PrimaryAlleleOriginal': 'Fail',
+							   'SecondaryAllele': 'Fail', 'SecondaryAlleleStatus': 'Fail',
+							   'SecondaryAlleleReference': 'Fail', 'SecondaryAlleleOriginal': 'Fail',
+							   'PredictionConfidence': 0, 'ForwardDistribution':[0]*4000, 'ReverseDistribution':[0]*4000}}
+		workflow_dictionary = {'GenotypeReport': genotype_report, 'SampleLabel': sequence_label,
+							   'MasterResultsFile': master_results_file,
+							   'MasterMatrixFile': master_matrix_file}
+		self.write_to_report(workflow_dictionary)
 
-		if drop > 0.35:
-			primary_allele = sorted_info[0][1]; primary_allele['Reference'] = sorted_info[0][0]
-			secondary_allele = sorted_info[1][1]; secondary_allele['Reference'] = sorted_info[1][0]
-		else:
-			top2_label = self.create_genotype_label(sorted_info[1][1])
-			top3_label = self.create_genotype_label(sorted_info[2][1])
-			if top2_label == top3_label:
-				primary_allele = sorted_info[0][1]; primary_allele['Reference'] = sorted_info[0][0]
-				secondary_allele = sorted_info[1][1]; secondary_allele['Reference'] = sorted_info[1][0]
-			else:
-				primary_allele = sorted_info[0][1]; primary_allele['Reference'] = sorted_info[0][0]
-				secondary_allele = sorted_info[2][1]; secondary_allele['Reference'] = sorted_info[2][0]
-
-		##
-		## For each of the alleles we've determined..
-		## Get intervening lengths, create accurate genotype string
-		atypical_count = 0
-		for allele in [primary_allele, secondary_allele]:
-			if allele['Status'] == 'Atypical':
-				new_genotype = self.create_genotype_label(allele)
-				allele['OriginalReference'] = allele['Reference']
-				allele['Reference'] = new_genotype
-				allele['ClassicGenotype'] = '{},{}'.format(allele['EstimatedCAG'], allele['EstimatedCCG'])
-				atypical_count += 1
-			else:
-				cag_val = allele['Reference'].split('_')[0]
-				ccg_val = allele['Reference'].split('_')[3]
-				allele['ClassicGenotype'] = '{},{}'.format(cag_val, ccg_val)
-
-		return [primary_allele, secondary_allele], atypical_count
-
-	@staticmethod
-	def create_genotype_label(input_reference):
-
-		intervening =  input_reference['InterveningSequence']
-		intervening_freq = Counter(list((intervening[0 + i:6 + i] for i in range(0, len(intervening), 6))))
-		caacag_count = intervening_freq['CAACAG']; ccgcca_count = intervening_freq['CCGCCA']
-		genotype_label = '{}_{}_{}_{}_{}'.format(input_reference['EstimatedCAG'], caacag_count, ccgcca_count,
-											   input_reference['EstimatedCCG'], input_reference['EstimatedCCT'])
-		return genotype_label
-
-	def write_to_report(self, workflow_dictionary, allele_status):
+	def write_to_report(self, workflow_dictionary):
 
 		"""
 		Function to take information gathered during the specified workflow
@@ -603,7 +543,6 @@ class ScaleHD:
 		assembly_label = workflow_dictionary['SampleLabel']
 		master_results_file = workflow_dictionary['MasterResultsFile']
 		master_matrix_file = workflow_dictionary['MasterMatrixFile']
-
 		datapair_summary = {'R1Trimming': 'n/a', 'R1Alignment': 'n/a',
 							'R2Trimming': 'n/a', 'R2Alignment': 'n/a',
 							'SampleGenotype': genotype_report}
@@ -611,24 +550,17 @@ class ScaleHD:
 
 		##
 		## Write the current sample's results to the temporary instance results file
-		if allele_status == 'Typical':
-			a1 = '"{}"'.format(genotype_report['PrimaryAllele'])[1:-1]
-			a1status = 'Typical'
-			a1label = 'N/A'
-			a2 = '"{}"'.format(genotype_report['SecondaryAllele'])[1:-1]
-			a2status = 'Typical'
-			a2label = 'N/A'
-			conf = genotype_report['PredictionConfidence']
-		else:
-			a1 = '"{}"'.format(genotype_report['PrimaryAllele'])[1:-1]
-			a1status = genotype_report['AtypicalInfo'][0]['Status']
-			a1label = genotype_report['AtypicalInfo'][0]['Reference']
-			a2 = '"{}"'.format(genotype_report['SecondaryAllele'])[1:-1]
-			a2status = genotype_report['AtypicalInfo'][1]['Status']
-			a2label = genotype_report['AtypicalInfo'][1]['Reference']
-			conf = genotype_report['PredictionConfidence']
+		a1 = '"{}"'.format(genotype_report['PrimaryAllele'])
+		a1status = genotype_report['PrimaryAlleleStatus']
+		a1label = genotype_report['PrimaryAlleleReference']
+		a1original = genotype_report['PrimaryAlleleOriginal']
+		a2 = '"{}"'.format(genotype_report['SecondaryAllele'])
+		a2status = genotype_report['SecondaryAlleleStatus']
+		a2label = genotype_report['SecondaryAlleleReference']
+		a2original = genotype_report['SecondaryAlleleOriginal']
+		conf = genotype_report['PredictionConfidence']
 
-		indie_row = '{},{},{},{},{},{},{},{}\n'.format(assembly_label, a1, a1status, a1label, a2, a2status, a2label, conf)
+		indie_row = '{},{},{},{},{},{},{},{},{},{}\n'.format(assembly_label, a1, a1status, a1label, a1original, a2, a2status, a2label, a2original, conf)
 		with open(master_results_file, 'a') as outfi: outfi.write(indie_row); outfi.close()
 
 		##
@@ -639,70 +571,21 @@ class ScaleHD:
 		aggregate_dist.append('{}{}\n'.format(genotype_report['PrimaryAllele'], genotype_report['SecondaryAllele']))
 		with open(master_matrix_file, 'a') as neofi: wr = csv.writer(neofi); wr.writerow(aggregate_dist); neofi.close()
 
-	@staticmethod
-	def scrape_summary_data(stage, input_report_file):
-
-		##
-		## If the argument input_report_file is from trimming..
-		if stage == 'trim':
-			with open(input_report_file, 'r') as trpf:
-				trim_lines = trpf.readlines()
-				##
-				## Determine buffer size to slice from above array
-				scraping_buffer = 8
-				if '-q' in trim_lines[1]:
-					scraping_buffer += 1
-				##
-				## Get Anchor
-				summary_start = 0
-				for i in range(0, len(trim_lines)):
-					if '== Summary ==' in trim_lines[i]:
-						summary_start = i
-				##
-				## Slice and close
-				summary_data = trim_lines[summary_start:summary_start+scraping_buffer]
-				trpf.close()
-			return summary_data[2:]
-
-		##
-		## If the argument input_report_file is from alignment..
-		if stage == 'align':
-			with open(input_report_file,'r') as alnrpf:
-				align_lines = alnrpf.readlines()
-				alnrpf.close()
-			##
-			## No ranges required, only skip first line
-			return align_lines[1:]
-
-		##
-		## No need to tidy up report for genotyping
-		## since we already have the data from our own objects
-		if stage == 'gtype':
-			pass
-
-	def mini_report(self):
+	def render_instance(self):
 
 		"""
-		Temporary function to write Sample Name: Genotype to a file
-		for each sample processed in this run..
-		Will be replaced by a HTML-Django report when i have time to write functions
-		:return: None
+		Function to iterate over all graphs present for each sample in the instance-scoped dictionary
+		i.e. dict[sample_name] = [graph1, graph2, etc]
+		:return:
 		"""
-
-		master_results_file = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		header = '{},{},{},{},{},{}\n'.format('SampleName','Primary Allele (SHD)','Secondary Allele (SHD)','Confidence (SHD)','Allele Status','Genotype')
-		rows = []; sorted_instance = iter(sorted(self.instance_summary.iteritems()))
-		for key, child_dict in sorted_instance:
-			a1 = '"{}"'.format(child_dict['SampleGenotype']['PrimaryAllele'])
-			a2 = '"{}"'.format(child_dict['SampleGenotype']['SecondaryAllele'])
-			conf = child_dict['SampleGenotype']['PredictionConfidence']
-			indi_row = '{},{},{},{}\n'.format(key, a1, a2, conf)
-			rows.append(indi_row)
-		with open(master_results_file, 'w') as outfi:
-			outfi.write(header)
-			for samplerow in rows:
-				outfi.write(samplerow)
-			outfi.close()
+		instance_path = os.path.join(self.instance_rundir, 'InstanceGraphs.pdf')
+		merger = PyPDF2.PdfFileMerger()
+		for k, v in self.instance_graphs.iteritems():
+			try:
+				merger.append(file(v, 'rb'), bookmark=k)
+			except PyPDF2.utils.PdfReadError:
+				pass
+		merger.write(instance_path)
 
 def main():
 	try:

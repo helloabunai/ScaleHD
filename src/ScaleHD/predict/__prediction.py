@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 from collections import Counter
 from sklearn import preprocessing
 from peakutils.plot import plot as pplot
+from matplotlib.patches import Rectangle
 from sklearn.multiclass import OutputCodeClassifier
 
 ##
@@ -75,13 +76,20 @@ class GenotypePrediction:
 							   'CCGZygDisconnect':False, 'CCGPeakAmbiguous':False, 'CCGDensityAmbiguous':False,
 							   'CCGRecallWarning':False, 'CCGPeakOOB':False, 'CAGPeakAmbiguous':False,
 							   'CAGDensityAmbiguous':False, 'CAGRecallWarning':False, 'CAGPeakOOB':False,
-							   'CAGBackwardsSlippage':False, 'CAGForwardSlippage':False, 'FPSPDisconnect':False}
+							   'CAGBackwardsSlippage':False, 'CAGForwardSlippage':False, 'FPSPDisconnect':False,
+							   'DSPCorrection':False}
 
 		##
 		## Unlabelled distributions to utilise for SVM prediction
 		## Padded distro = None, in case where SAM aligned to (0-100,0-20 NOT 1-200,1-20), use this
-		self.forward_distribution = self.scrape_distro(self.data_pair[0])
-		self.reverse_distribution = self.scrape_distro(self.data_pair[1])
+		self.forward_distribution = np.empty(shape=(1,1)); self.reverse_distribution = np.empty(shape=(1,1))
+		if type(self.data_pair[0]) == str:
+			self.forward_distribution = self.scrape_distro(self.data_pair[0])
+			self.reverse_distribution = self.scrape_distro(self.data_pair[1])
+		if type(self.data_pair[1]) == tuple:
+			self.forward_distribution = self.scrape_distro(self.data_pair[0][0])
+			self.reverse_distribution = self.scrape_distro(self.data_pair[1][0])
+
 		self.forwardccg_aggregate = None; self.reverseccg_aggregate = None
 		self.forward_distr_padded = None; self.zygosity_state = None
 		self.gtype_report = None
@@ -330,7 +338,7 @@ class GenotypePrediction:
 
 		##
 		## Create object for 2-Pass algorithm to use with CCG
-		graph_parameters = [20, 'CCGDensityEstimation.png', 'CCG Density Distribution', ['Read Count', 'Bin Density']]
+		graph_parameters = [20, 'CCGDensityEstimation.pdf', 'CCG Density Distribution', ['Read Count', 'Bin Density']]
 		ccg_inspector = SequenceTwoPass(prediction_path=self.prediction_path,
 										input_distribution=self.reverseccg_aggregate,
 										peak_target=peak_target,
@@ -354,7 +362,7 @@ class GenotypePrediction:
 		Now we have our estimates from the KDE sub-stage, we can use these findings
 		in our FOD peak identification for more specific peak calling and thus, genotyping
 		"""
-		fod_param = [[0,20,21],'CCG Peaks',['CCG Value', 'Read Count'], 'CCGPeakDetection.png']
+		fod_param = [[0,20,21],'CCG Peaks',['CCG Value', 'Read Count'], 'CCGPeakDetection.pdf']
 		fod_failstate, second_pass = ccg_inspector.differential_peaks(first_pass, fod_param, threshold_bias)
 		while fod_failstate:
 			fod_failstate, second_pass = ccg_inspector.differential_peaks(first_pass, fod_param, threshold_bias, fod_recall=True)
@@ -447,7 +455,7 @@ class GenotypePrediction:
 			##
 			## Generate KDE graph parameters
 			## Generate CAG inspector Object for 2Pass-Algorithm
-			graph_parameters = [200, '{}{}{}'.format('CAG',str(cag_key),'DensityEstimation.png'), 'CAG Density Distribution', ['Read Count', 'Bin Density']]
+			graph_parameters = [200, '{}{}{}'.format('CAG',str(cag_key),'DensityEstimation.pdf'), 'CAG Density Distribution', ['Read Count', 'Bin Density']]
 			cag_inspector = SequenceTwoPass(prediction_path=self.prediction_path,
 											input_distribution=distro_value,
 											peak_target=peak_target,
@@ -471,7 +479,7 @@ class GenotypePrediction:
 			Now we have our estimates from the KDE sub-stage, we can use these findings
 			in our FOD peak identification for more specific peak calling and thus, genotyping
 			"""
-			fod_param = [[0,200,201],'{}{})'.format('CAG Peaks (CCG',str(cag_key)),['CAG Value', 'Read Count'], '{}{}{}'.format('CCG',str(cag_key),'-CAGPeakDetection.png')]
+			fod_param = [[0,200,201],'{}{})'.format('CAG Peaks (CCG',str(cag_key)),['CAG Value', 'Read Count'], '{}{}{}'.format('CCG',str(cag_key),'-CAGPeakDetection.pdf')]
 			fod_failstate, second_pass = cag_inspector.differential_peaks(first_pass, fod_param, threshold_bias)
 			while fod_failstate:
 				fod_failstate, second_pass = cag_inspector.differential_peaks(first_pass, fod_param, threshold_bias, fod_recall=True)
@@ -545,14 +553,34 @@ class GenotypePrediction:
 
 	def append_atypicals(self):
 
-		pass
+		"""
+		Match SVM and DSP alleles, check for slippage
+		TODO: rewrite this pile of dumpster shit
+		:return:
+		"""
 
-		##
-		## Match Primary allele (SVM) with allele in processed_atypicals
-		## If that processed_atypicals[allele] is atypical:
-		## 		Append status, reference, and original reference to genotype_flags
-		## if that processed_atypicals[allele] is typical:
-		##		Append status, reference and "n/a" to genotype_flags
+		for dsp_allele in self.processed_atypicals:
+			if self.genotype_flags['PrimaryAllele'][0] == dsp_allele['EstimatedCAG'] and self.genotype_flags['PrimaryAllele'][1] == dsp_allele['EstimatedCCG']:
+				self.genotype_flags['PrimaryAlleleStatus'] = dsp_allele['Status']
+				self.genotype_flags['PrimaryAlleleReference'] = dsp_allele['Reference']
+				self.genotype_flags['PrimaryAlleleOriginal'] = dsp_allele['OriginalReference']
+				continue
+			if self.genotype_flags['SecondaryAllele'][0] == dsp_allele['EstimatedCAG'] and self.genotype_flags['SecondaryAllele'][1] == dsp_allele['EstimatedCCG']:
+				self.genotype_flags['SecondaryAlleleStatus'] = dsp_allele['Status']
+				self.genotype_flags['SecondaryAlleleReference'] = dsp_allele['Reference']
+				self.genotype_flags['SecondaryAlleleOriginal'] = dsp_allele['OriginalReference']
+				continue
+			else:
+				self.genotype_flags['SecondaryAlleleStatus'] = dsp_allele['Status']
+				self.genotype_flags['SecondaryAlleleReference'] = dsp_allele['Reference']
+				self.genotype_flags['SecondaryAlleleOriginal'] = dsp_allele['OriginalReference']
+				if abs(self.genotype_flags['SecondaryAllele'][0] - dsp_allele['EstimatedCAG']) == 1:
+					if self.genotype_flags['SecondaryAllele'][0] > dsp_allele['EstimatedCAG']:
+						self.genotype_flags['CAGForwardSlippage'] = True
+					if self.genotype_flags['SecondaryAllele'][0] < dsp_allele['EstimatedCAG']:
+						self.genotype_flags['CAGBackwardsSlippage'] = True
+					self.genotype_flags['SecondaryAllele'][0] = dsp_allele['EstimatedCAG']
+					self.genotype_flags['DSPCorrection'] = True
 
 	def confidence_calculation(self):
 		"""
@@ -605,6 +633,10 @@ class GenotypePrediction:
 		##
 		## Sample wasn't aligned to CAG1-200/CCG1-20.. padded but raises questions...
 		if self.genotype_flags['AlignmentPadding']: current_confidence -= 30
+
+		##
+		## DSP Correction occurred on SVM results
+		if self.genotype_flags['DSPCorrection']: current_confidence -= 25
 
 		"""
 		>> Medium severity <<
@@ -693,7 +725,7 @@ class GenotypePrediction:
 						'{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n' \
 						'{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n' \
 						'{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n' \
-						'{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n'.format('File Name', sample_name,
+						'{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n'.format('File Name', sample_name,
 												'Primary Allele', self.genotype_flags['PrimaryAllele'],
 												'Secondary Allele', self.genotype_flags['SecondaryAllele'],
 												'Prediction Confidence', self.prediction_confidence,
@@ -701,12 +733,12 @@ class GenotypePrediction:
 												'Recall Count', self.genotype_flags['RecallCount'],
 												'Alignment Padding', self.genotype_flags['AlignmentPadding'],
 												'\nAtypical Flags', '',
-												'Primary Allele status', self.genotype_flags[''],
-												'Primary Allele reference', self.genotype_flags[''],
-												'Primary Allele original', self.genotype_flags[''],
-												'Secondary Allele status', self.genotype_flags[''],
-												'Secondary Allele reference', self.genotype_flags[''],
-												'Secondary Allele original', self.genotype_flags[''],
+												'Primary Allele status', self.genotype_flags['PrimaryAlleleStatus'],
+												'Primary Allele reference', self.genotype_flags['PrimaryAlleleReference'],
+												'Primary Allele original', self.genotype_flags['PrimaryAlleleOriginal'],
+												'Secondary Allele status', self.genotype_flags['SecondaryAlleleStatus'],
+												'Secondary Allele reference', self.genotype_flags['SecondaryAlleleReference'],
+												'Secondary Allele original', self.genotype_flags['SecondaryAlleleOriginal'],
 												'\nCCG Flags', '',
 												'CCG Zygosity Disconnect', self.genotype_flags['CCGZygDisconnect'],
 												'CCG Peak Ambiguity', self.genotype_flags['CCGPeakAmbiguous'],
@@ -721,6 +753,7 @@ class GenotypePrediction:
 												'CAG Backwards Slippage', self.genotype_flags['CAGBackwardsSlippage'],
 												'CAG Forwards Slippage', self.genotype_flags['CAGForwardSlippage'],
 												'\nOther Flags', '',
+												'DSP Correction', self.genotype_flags['DSPCorrection'],
 												'FPSP Disconnect', self.genotype_flags['FPSPDisconnect'],
 												'LowRead Distributions', self.genotype_flags['LowReadDistributions'],
 												'Potential SVM Failure', self.genotype_flags['SVMPossibleFailure'],
@@ -744,6 +777,12 @@ class GenotypePrediction:
 				  'PrimaryAllele':self.genotype_flags['PrimaryAllele'],
 				  'SecondaryAllele':self.genotype_flags['SecondaryAllele'],
 				  'PredictionConfidence':self.prediction_confidence,
+				  'PrimaryAlleleStatus':self.genotype_flags['PrimaryAlleleStatus'],
+				  'PrimaryAlleleReference':self.genotype_flags['PrimaryAlleleReference'],
+				  'PrimaryAlleleOriginal':self.genotype_flags['PrimaryAlleleOriginal'],
+				  'SecondaryAlleleStatus':self.genotype_flags['SecondaryAlleleStatus'],
+				  'SecondaryAlleleReference':self.genotype_flags['SecondaryAlleleReference'],
+				  'SecondaryAlleleOriginal':self.genotype_flags['SecondaryAlleleOriginal'],
 				  'PrimaryMosaicism':self.genotype_flags['PrimaryMosaicism'],
 				  'SecondaryMosaicism':self.genotype_flags['SecondaryMosaicism'],
 				  'ThresholdUsed':self.genotype_flags['ThresholdUsed'],
@@ -768,6 +807,7 @@ class GenotypePrediction:
 				  'CAGBackwardsSlippage':self.genotype_flags['CAGBackwardsSlippage'],
 				  'CAGForwardSlippage':self.genotype_flags['CAGForwardSlippage'],
 				  'FPSPDisconnect':self.genotype_flags['FPSPDisconnect'],
+				  'DSPCorrection':self.genotype_flags['DSPCorrection'],
 				  'LowReadDistributions':self.genotype_flags['LowReadDistributions']}
 
 		return report
@@ -848,7 +888,7 @@ class SequenceTwoPass:
 			plt.ylabel(axes[1])
 			##TODO plt.legend([])
 			plt.bar(center, hist, width=bin_width)
-			plt.savefig(os.path.join(self.prediction_path, filename), format='png')
+			plt.savefig(os.path.join(self.prediction_path, filename), format='pdf')
 			plt.close()
 
 		##
@@ -1029,7 +1069,6 @@ class SequenceTwoPass:
 		peak_threshold = first_pass['PeakThreshold']
 		if threshold_bias or fod_recall:
 			self.RecallCount+=1
-			print self.RecallCount
 			if self.RecallCount > 7: raise Exception('7+ recalls. Unable to determine genotype.\n')
 			first_pass['PeakThreshold'] -= 0.06
 			peak_threshold -= 0.06
@@ -1156,7 +1195,7 @@ class SequenceTwoPass:
 		pplot(x,buffered_y,fixed_indexes)
 		if fixed_indexes.item(0) == fixed_indexes.item(1): plt.legend(['Genotype: {}'.format(fixed_indexes.item(0))])
 		else: plt.legend(['Genotype: {},{}'.format(fixed_indexes.item(0),fixed_indexes.item(1))])
-		plt.savefig(os.path.join(self.prediction_path,filename), format='png')
+		plt.savefig(os.path.join(self.prediction_path,filename), format='pdf')
 		plt.close()
 
 		return fail_state, first_pass
@@ -1512,3 +1551,340 @@ class MosaicismInvestigator:
 		padded_distribution = left_buffer + unpadded_distribution + right_buffer
 
 		return padded_distribution
+
+class DSPResultsGenerator:
+	def __init__(self, sequencepair_data, predict_path, processed_atypical):
+		"""
+		Temporary workaround class for producing distribution graphs when the user wants to trust DSP genotyping
+		instead of re-aligning to a custom reference. This will be removed when GenotypePrediction is re-written
+		to account for allele-based data rather than distribution-based. Hence this is a messy repetetive piece of shit.
+		:param sequencepair_data: current sample pair (fw/rv) data
+		:param predict_path: prediction path for the current instance of SHD
+		:param processed_atypical: results from DSP atypical allele detection
+		"""
+
+		##
+		## Class objects of input
+		self.data_pair = sequencepair_data
+		self.prediction_path = predict_path
+		self.processed_atypical = processed_atypical
+
+		##
+		## Flags
+		self.genotype_flags = {'AlignmentPadding':False, 'PrimaryAllele':(0,0), 'SecondaryAllele':(0,0)}
+
+		##
+		## Distributions
+		## Unlabelled distributions to utilise for SVM prediction
+		## Padded distro = None, in case where SAM aligned to (0-100,0-20 NOT 1-200,1-20), use this
+		self.forward_distr_padded = None
+		self.forward_distribution = np.empty(shape=(1,1)); self.reverse_distribution = np.empty(shape=(1,1))
+		if type(self.data_pair[0]) == str:
+			self.forward_distribution = self.scrape_distro(self.data_pair[0])
+			self.reverse_distribution = self.scrape_distro(self.data_pair[1])
+		if type(self.data_pair[1]) == tuple:
+			self.forward_distribution = self.scrape_distro(self.data_pair[0][0])
+			self.reverse_distribution = self.scrape_distro(self.data_pair[1][0])
+		self.forwardccg_aggregate = self.distribution_collapse(self.forward_distribution, st=True)
+		self.reverseccg_aggregate = self.distribution_collapse(self.reverse_distribution)
+		self.target_distribution = {}
+
+		##
+		## CAG Targets
+		if not self.genotype_flags['AlignmentPadding']: forward_utilisation = self.forward_distribution
+		else: forward_utilisation = self.forward_distr_padded
+
+		##
+		## :: Workflow ::
+		## Get alleles in (CAG,CCG) format from input
+		## Determine which is normal/expanded (size based)
+		## Split CAG target CCG distribution from master distribution
+		## Render graphs, save graphs
+		## Return dictionary of sample name/path of graphs (for master PDF output)
+		self.alleles = self.get_alleles()
+		if self.alleles[0][1] > self.alleles[1][1]:
+			self.genotype_flags['PrimaryAllele'] = self.alleles[1]
+			self.genotype_flags['SecondaryAllele'] = self.alleles[0]
+		else:
+			self.genotype_flags['PrimaryAllele'] = self.alleles[0]
+			self.genotype_flags['SecondaryAllele'] = self.alleles[1]
+
+		for atypical in self.processed_atypical:
+			if atypical['EstimatedCAG'] == self.alleles[0][0] and atypical['EstimatedCCG'] == self.alleles[0][1]:
+				self.genotype_flags['PrimaryAlleleDict'] = atypical
+			if atypical['EstimatedCAG'] == self.alleles[1][0] and atypical['EstimatedCCG'] == self.alleles[1][1]:
+				self.genotype_flags['SecondaryAlleleDict'] = atypical
+
+		cag_target_major = self.split_cag_target(forward_utilisation, self.genotype_flags['PrimaryAllele'][1])
+		cag_target_minor = self.split_cag_target(forward_utilisation, self.genotype_flags['SecondaryAllele'][1])
+		self.target_distribution[self.genotype_flags['PrimaryAllele'][1]] = cag_target_major
+		self.target_distribution[self.genotype_flags['SecondaryAllele'][1]] = cag_target_minor
+		self.process_alleles()
+		self.genotype_report = self.process_report()
+
+	@staticmethod
+	def scrape_distro(distributionfi):
+		"""
+		Function to take the aligned read-count distribution from CSV into a numpy array
+		:param distributionfi:
+		:return: np.array(data_from_csv_file)
+		"""
+
+		##
+		## Open CSV file with information within; append to temp list
+		## Scrape information, cast to np.array(), return
+		placeholder_array = []
+		with open(distributionfi) as dfi:
+			source = csv.reader(dfi, delimiter=',')
+			next(source) #skip header
+			for row in source:
+				placeholder_array.append(int(row[2]))
+			dfi.close()
+		unlabelled_distro = np.array(placeholder_array)
+		return unlabelled_distro
+
+	@staticmethod
+	def split_cag_target(input_distribution, ccg_target):
+		"""
+		Function to gather the relevant CAG distribution for the specified CCG value
+		We gather this information from the forward distribution of this sample pair as CCG reads are
+		of higher quality in the forward sequencing direction.
+		We split the entire fw_dist into contigs/bins for each CCG (4000 -> 200*20)
+		:param input_distribution: input forward distribution (4000d)
+		:param ccg_target: target value we want to select the 200 values for
+		:return: the sliced CAG distribution for our specified CCG value
+		"""
+
+		cag_split = [input_distribution[i:i+200] for i in xrange(0, len(input_distribution), 200)]
+		distribution_dict = {}
+		for i in range(0, len(cag_split)):
+			distribution_dict['CCG'+str(i+1)] = cag_split[i]
+
+		current_target_distribution = distribution_dict['CCG' + str(ccg_target)]
+		return current_target_distribution
+
+	def distribution_collapse(self, distribution_array, st=False):
+		"""
+		Function to take a full 200x20 array (struc: CAG1-200,CCG1 -- CAG1-200CCG2 -- etc CCG20)
+		and aggregate all CAG values for each CCG
+		:param distribution_array: input dist (should be (1-200,1-20))
+		:param st: flag for if we're in forward stage; i.e. input aligned to wrong ref -> assign padded to fwrd
+		:return: 1x20D np(array)
+		"""
+
+		##
+		## Object for CCG split
+		ccg_arrays = None
+
+		##
+		## Hopefully the user has aligned to the right reference dimensions
+		## Check.. if not, hopefully we can pad (and raise flag.. since it is not ideal)
+		try:
+			ccg_arrays = np.split(distribution_array, 20)
+		##
+		## User aligned to the wrong reference..
+		except ValueError:
+			self.genotype_flags['AlignmentPadding'] = True
+
+			##
+			## If the distro is this size, they aligned to (0-100,0-20)...
+			## Split by 21, append with 99x1's to end of each CCG
+			## Trim first entry in new list (CCG0.. lol who even studies that)
+			## If we're on a forward distro collapse, assign padded distro (for mosaicism later)
+			if len(distribution_array) == 2121:
+				altref_split = np.split(distribution_array, 21)
+				padded_split = []
+				for ccg in altref_split:
+					current_pad = np.append(ccg[1:], np.ones(100))
+					padded_split.append(current_pad)
+				ccg_arrays = padded_split[1:]
+
+				if st:
+					self.forward_distr_padded = np.asarray([item for sublist in ccg_arrays for item in sublist])
+
+		##
+		## Aggregate each CCG
+		ccg_counter = 1
+		collapsed_array = []
+		for ccg_array in ccg_arrays:
+			collapsed_array.append(np.sum(ccg_array))
+			ccg_counter+=1
+		return np.asarray(collapsed_array)
+
+	def get_alleles(self):
+
+		sample_alleles = []
+		for allele in self.processed_atypical:
+			singular_allele = (allele['EstimatedCAG'], allele['EstimatedCCG'])
+			sample_alleles.append(singular_allele)
+
+		if sample_alleles[0][1] == sample_alleles[1][1]: sample_alleles.sort(key=lambda x: x[0])
+		else: sample_alleles.sort(key=lambda x: x[1])
+
+		return sample_alleles
+
+	def process_alleles(self):
+
+		##
+		## Generate atypical labels
+		allele_labels = []
+		for target_allele in self.alleles:
+			for atypical_dict in self.processed_atypical:
+				if atypical_dict['EstimatedCAG'] == target_allele[0] and atypical_dict['EstimatedCCG'] == target_allele[1]:
+					allele_label = 'Allele status: {}\nOriginal Genotype: {}\nLiteral genotype: {}'.format(
+						atypical_dict['Status'],atypical_dict['OriginalReference'],atypical_dict['Reference']
+					)
+					allele_labels.append(allele_label)
+
+		##
+		## Render CCG peak detection graph (one graph regardless)
+		ccg_idx = [x[1] for x in self.alleles]
+		ccg_parameters = [[0,19,20], 'CCG Peaks', ['CCG Value', 'Read Count'], 'CCGPeakDetection.pdf', allele_labels, ccg_idx]
+		self.graph_render(ccg_parameters, self.reverseccg_aggregate)
+
+		##
+		## Determine CCG zygosity, thus determining CAG graph requirements
+		if self.alleles[0][1] == self.alleles[1][1]:
+			cag_idx = [x[0] for x in self.alleles]
+			cag_parameters = [[0,199,200],'{}{})'.format('CAG Peaks (CCG',str(self.alleles[0][1])),['CAG Value', 'Read Count'], '{}{}{}'.format('CCG',str(self.alleles[0][1]),'-CAGPeakDetection.pdf'), allele_labels, cag_idx]
+			self.graph_render(cag_parameters, self.target_distribution[self.genotype_flags['PrimaryAllele'][1]])
+		else:
+			for ccg_value, cag_distro in self.target_distribution.iteritems():
+				cag_idx = []
+				if ccg_value == self.alleles[0][1]: cag_idx = []
+				if ccg_value == self.alleles[1][1]: cag_idx = [self.alleles[1][0]-1]
+				cag_parameters = [[0,199,200],'{}{})'.format('CAG Peaks (CCG',str(ccg_value)),['CAG Value', 'Read Count'], '{}{}{}'.format('CCG',str(ccg_value),'-CAGPeakDetection.pdf'), allele_labels, cag_idx]
+				self.graph_render(cag_parameters, cag_distro)
+
+	def graph_render(self, dimension_params, input_distribution):
+
+		##
+		## Graph argument expansion
+		linspace_dim = dimension_params[0]
+		graph_title = dimension_params[1]
+		axes_labels = dimension_params[2]
+		filename = dimension_params[3]
+		allele_labels = dimension_params[4]
+		curr_idx = dimension_params[5]
+
+		##
+		## Create planar space for plotting
+		## Increment results by 1 (to resolve 0 indexing)
+		x = np.linspace(linspace_dim[0], linspace_dim[1], linspace_dim[2])
+		#buffered_y = np.asarray([0] + list(input_distribution))
+		y = input_distribution
+
+		##
+		## Plot Graph!
+		## Set up dimensions for plotting
+		plt.figure(figsize=(13,8)); plt.title(graph_title)
+		plt.xlabel(axes_labels[0]); plt.ylabel(axes_labels[1])
+
+		##
+		## Execute actual plotting
+		## Generate transparent handles for legend
+		## Append atypical legend text.. highlight atypical allele in red
+		pplot(x, y, curr_idx)
+		handle = Rectangle((0,0), 0, 0, alpha=0.0)
+		leg = plt.legend([handle, handle], allele_labels, framealpha=0, loc='best', handlelength=0)
+		for text in leg.get_texts():
+			if 'Atypical' in text.get_text(): text.set_color("red")
+
+		plt.savefig(os.path.join(self.prediction_path, filename), format='pdf')
+		plt.close()
+
+	def process_report(self):
+
+		##
+		## Hideous string based report for individual samples
+		## Will get changed at a later date
+		sample_name = self.prediction_path.split('/')[-2]
+		sample_report_name = os.path.join(self.prediction_path, sample_name+'QuickReport.txt')
+		sample_report = '{}: {}\n{}: {}\n{}: {}\n{}: {}%\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n' \
+						'{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n'.format('File Name', sample_name,
+												'Primary Allele', self.genotype_flags['PrimaryAllele'],
+												'Secondary Allele', self.genotype_flags['SecondaryAllele'],
+												'Prediction Confidence', 'Atypical_DSP',
+												'Threshold Used', 'N/A',
+												'Recall Count', 'N/A',
+												'Alignment Padding', 'N/A',
+												'\nAtypical Flags', '',
+												'Primary Allele status', self.genotype_flags['PrimaryAlleleDict']['Status'],
+												'Primary Allele reference', self.genotype_flags['PrimaryAlleleDict']['Reference'],
+												'Primary Allele original', self.genotype_flags['PrimaryAlleleDict']['OriginalReference'],
+												'Secondary Allele status', self.genotype_flags['SecondaryAlleleDict']['Status'],
+												'Secondary Allele reference', self.genotype_flags['SecondaryAlleleDict']['Reference'],
+												'Secondary Allele original', self.genotype_flags['SecondaryAlleleDict']['OriginalReference'],
+												'\nCCG Flags', '',
+												'CCG Zygosity Disconnect', 'N/A',
+												'CCG Peak Ambiguity', 'N/A',
+												'CCG Density Ambiguity', 'N/A',
+												'CCG Recall Warning', 'N/A',
+												'CCG Peak OOB', 'N/A',
+												'\nCAG Flags', '',
+												'CAG Peak Ambiguity', 'N/A',
+												'CAG Density Ambiguity', 'N/A',
+												'CAG Recall Warning', 'N/A',
+												'CAG Peak OOB', 'N/A',
+												'CAG Backwards Slippage', 'N/A',
+												'CAG Forwards Slippage', 'N/A',
+												'\nOther Flags', '',
+												'FPSP Disconnect', 'N/A',
+												'LowRead Distributions', 'N/A',
+												'Potential SVM Failure', 'N/A',
+												'Homozygous Haplotype', 'N/A',
+												'Haplotype Interp Distance', 'N/A',
+												'Peak Expansion Skew', 'N/A',
+												'Neighbouring Peaks', 'N/A',
+												'Diminished Peak', 'N/A',
+												'Diminished Peak Uncertainty', 'N/A')
+		sample_file = open(sample_report_name, 'w')
+		sample_file.write(sample_report)
+		sample_file.close()
+
+		report = {'ForwardDistribution':'N/A',
+				  'ReverseDistribution':'N/A',
+				  'PrimaryAllele':self.genotype_flags['PrimaryAllele'],
+				  'SecondaryAllele':self.genotype_flags['SecondaryAllele'],
+				  'PredictionConfidence':'Atypical_DSP',
+				  'PrimaryAlleleStatus': self.genotype_flags['PrimaryAlleleDict']['Status'],
+				  'PrimaryAlleleReference': self.genotype_flags['PrimaryAlleleDict']['Reference'],
+				  'PrimaryAlleleOriginal': self.genotype_flags['PrimaryAlleleDict']['OriginalReference'],
+				  'SecondaryAlleleStatus': self.genotype_flags['SecondaryAlleleDict']['Status'],
+				  'SecondaryAlleleReference': self.genotype_flags['SecondaryAlleleDict']['Reference'],
+				  'SecondaryAlleleOriginal': self.genotype_flags['SecondaryAlleleDict']['OriginalReference'],
+				  'PrimaryMosaicism':'N/A',
+				  'SecondaryMosaicism':'N/A',
+				  'ThresholdUsed':'N/A',
+				  'RecallCount':'N/A',
+				  'AlignmentPadding':'N/A',
+				  'SVMPossibleFailure':'N/A',
+				  'PotentialHomozygousHaplotype':'N/A',
+				  'PHHIntepDistance':'N/A',
+				  'NeighbouringPeaks':'N/A',
+				  'DiminishedPeak':'N/A',
+				  'DiminishedUncertainty':'N/A',
+				  'PeakExpansionSkew':'N/A',
+				  'CCGZygDisconnect':'N/A',
+				  'CCGPeakAmbiguous':'N/A',
+				  'CCGDensityAmbiguous':'N/A',
+				  'CCGRecallWarning':'N/A',
+				  'CCGPeakOOB':'N/A',
+				  'CAGPeakAmbiguous':'N/A',
+				  'CAGDensityAmbiguous':'N/A',
+				  'CAGRecallWArning':'N/A',
+				  'CAGPeakOOB':'N/A',
+				  'CAGBackwardsSlippage':'N/A',
+				  'CAGForwardSlippage':'N/A',
+				  'FPSPDisconnect':'N/A',
+				  'LowReadDistributions':'N/A'
+		}
+
+		return report
+
+	def get_report(self):
+
+		return self.genotype_report
