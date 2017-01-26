@@ -464,7 +464,7 @@ class ScaleHD:
 							log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Sequence pair workflow complete!\n'))
 							continue
 					except Exception, e:
-						self.write_failure([sequence_label, genotype_report, master_results_file, master_matrix_file])
+						self.write_failure([sequence_label, placeholder_dict, master_results_file, master_matrix_file])
 						log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Processing atypical allele failure on ', sequence_label, str(e)))
 						continue
 
@@ -480,7 +480,7 @@ class ScaleHD:
 						gc.collect()
 						log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
 				except Exception, e:
-					self.write_failure([sequence_label, genotype_report, master_results_file, master_matrix_file])
+					self.write_failure([sequence_label, placeholder_dict, master_results_file, master_matrix_file])
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Genotyping failure on ',sequence_label,str(e)))
 					continue
 

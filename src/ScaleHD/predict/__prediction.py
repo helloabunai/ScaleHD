@@ -575,6 +575,10 @@ class GenotypePrediction:
 				self.genotype_flags['SecondaryAlleleReference'] = dsp_allele['Reference']
 				self.genotype_flags['SecondaryAlleleOriginal'] = dsp_allele['OriginalReference']
 				if abs(self.genotype_flags['SecondaryAllele'][0] - dsp_allele['EstimatedCAG']) == 1:
+
+					##
+					##TODO add read count double-check here
+
 					if self.genotype_flags['SecondaryAllele'][0] > dsp_allele['EstimatedCAG']:
 						self.genotype_flags['CAGForwardSlippage'] = True
 					if self.genotype_flags['SecondaryAllele'][0] < dsp_allele['EstimatedCAG']:
