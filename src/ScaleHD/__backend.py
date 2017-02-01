@@ -15,16 +15,13 @@ import subprocess
 import logging as log
 import numpy as np
 import csv
-import regex
 import StringIO
 import PyPDF2
 from sklearn import preprocessing
 from collections import defaultdict
 from xml.etree import cElementTree
 from lxml import etree
-from collections import Counter
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
 
 class Colour:
 
@@ -488,12 +485,8 @@ def sequence_pairings(data_path, instance_rundir, workflow_type):
 			seq_qc_path = os.path.join(instance_rundir, sample_root, 'SeqQC')
 			align_path = os.path.join(instance_rundir, sample_root, 'Align')
 			predict_path = os.path.join(instance_rundir, sample_root, 'Predict')
-
-			paths = [seq_qc_path, align_path, predict_path]
-			for path in paths:
-				if not os.path.exists(path): os.makedirs(path)
-
-			file_pair[sample_root] = [forward_data, reverse_data, seq_qc_path, align_path, predict_path]
+			bayes_path = os.path.join(instance_rundir, sample_root, 'Bayes')
+			file_pair[sample_root] = [forward_data, reverse_data, seq_qc_path, align_path, predict_path, bayes_path]
 			sequence_pairs.append(file_pair)
 
 		if workflow_type == 'assembly':
@@ -502,9 +495,8 @@ def sequence_pairings(data_path, instance_rundir, workflow_type):
 			## Assembly only requires a prediction folder so we do a slightly different thing here
 			sample_root = '_'.join(forward_data_name.split('_')[:-1])
 			predict_path = os.path.join(instance_rundir, sample_root, 'Predict')
-			if not os.path.exists(predict_path): os.makedirs(predict_path)
-
-			file_pair[sample_root] = [forward_data, reverse_data, predict_path]
+			bayes_path = os.path.join(instance_rundir, sample_root, 'Bayes')
+			file_pair[sample_root] = [forward_data, reverse_data, predict_path, bayes_path]
 			sequence_pairs.append(file_pair)
 
 	return sequence_pairs
@@ -625,145 +617,6 @@ def replace_fqfile(mutate_list, target_fqfile, altered_path):
 		mutate_list[loc] = altered_path
 	return mutate_list
 
-def scrape_atypical(atypical_info):
-
-	##
-	## Constructs
-	sorted_info = sorted(atypical_info.iteritems(), key=lambda (x, y): y['TotalReads'], reverse=True)
-	if len(sorted_info) != 3: raise IndexError('< 3 references in sorted top; alignment failure?')
-
-	##
-	## Check % dropoff in read count between #2 and #3
-	beta_diff = float(abs(sorted_info[1][1]['TotalReads'] - sorted_info[2][1]['TotalReads']))
-	beta_drop = float(beta_diff / sorted_info[1][1]['TotalReads'])
-
-	##
-	## TODO fix this garbage dumpster fire
-	## TODO oh my god it's so ugly
-	## Top1 always used
-	## Check Top2 vs Top3, if drop is > 20%, ok
-	## If not >= 20%, investigate further:
-	##   If T2_CCG == T3_CCG, potential slippage event
-	##     if T2_CAG-T3_CAG > 1, no slippage, use Top1 and Top2
-	##     if T2_CAG-T3_CAG == 1, maybe slippage
-	##       if T2-T3 read drop is <= 0.1, use Top1 and Top3, slippage event
-	##       otherwise, use Top1 and Top2, no slippage
-	##   If T2_CCG and T3_CCG differ, no slippage
-	##     Check T1_CAG and T3_CAG for n-1, check diff between 2 and 3 > 10%
-	primary_allele = sorted_info[0][1]; primary_allele['Reference'] = sorted_info[0][0]
-	if not beta_drop >= 0.20:
-		##
-		## CCG match, potential slippage
-		if sorted_info[1][1]['EstimatedCCG'] == sorted_info[2][1]['EstimatedCCG']:
-			if abs(sorted_info[1][1]['EstimatedCAG'] - sorted_info[2][1]['EstimatedCAG']) > 1:
-				secondary_allele = sorted_info[1][1]
-				secondary_allele['Reference'] = sorted_info[1][0]
-			elif abs(sorted_info[1][1]['EstimatedCAG'] - sorted_info[2][1]['EstimatedCAG']) == 1:
-				if beta_drop <= 0.1:
-					secondary_allele = sorted_info[2][1]
-					secondary_allele['Reference'] = sorted_info[2][0]
-				else:
-					secondary_allele = sorted_info[1][1]
-					secondary_allele['Reference'] = sorted_info[1][0]
-			else:
-				secondary_allele = sorted_info[1][1]
-				secondary_allele['Reference'] = sorted_info[1][0]
-		##
-		## CCG don't match, no slippage
-		else:
-			if abs(sorted_info[0][1]['EstimatedCAG']-sorted_info[2][1]['EstimatedCAG']) == 1 and beta_drop >= 0.10:
-				secondary_allele = sorted_info[1][1]
-				secondary_allele['Reference'] = sorted_info[1][0]
-			else:
-				secondary_allele = sorted_info[2][1]
-				secondary_allele['Reference'] = sorted_info[2][0]
-	##
-	## Otherwise the drop between #2 and #3 is so big that #3 isn't possible
-	else:
-		secondary_allele = sorted_info[1][1]; secondary_allele['Reference'] = sorted_info[1][0]
-
-	##
-	## For each of the alleles we've determined..
-	## Get intervening lengths, create accurate genotype string
-	atypical_count = 0
-	for allele in [primary_allele, secondary_allele]:
-		new_genotype = create_genotype_label(allele)
-		allele['OriginalReference'] = allele['Reference']
-		allele['Reference'] = new_genotype
-		allele['ClassicGenotype'] = '{},{}'.format(allele['EstimatedCAG'], allele['EstimatedCCG'])
-		if allele['Status'] == 'Atypical': atypical_count += 1
-
-	return [primary_allele, secondary_allele], atypical_count
-
-def rotation_check(string1, string2):
-	size1 = len(string1)
-	size2 = len(string2)
-
-	# Check if sizes of two strings are same
-	if size1 != size2: return 0
-
-	# Create a temp string with value str1.str1
-	temp = string1 + string1
-
-	# Now check if str2 is a substring of temp (with s = 1 mismatch)
-	rotation_match = regex.findall(r"(?:" + string2 + "){s<=1}", temp, regex.BESTMATCH)
-
-	if len(rotation_match) > 0:	return 1
-	else: return 0
-
-def create_genotype_label(input_reference):
-
-	intervening = input_reference['InterveningSequence']
-	intervening_freq = Counter(list((intervening[0 + i:6 + i] for i in range(0, len(intervening), 6)))).items()
-	caacag_count = 0; ccgcca_count = 0
-	caacag_flag = False; ccgcca_flag = False
-
-	##
-	## TODO fix this dumpster garbage shit
-	## TODO oh my god it's so ugly
-	if len(intervening_freq) < 1:
-		caacag_count = 1; ccgcca_count = 1
-	if len(intervening_freq) < 2:
-		caacag_count = 1; ccgcca_count = 1
-
-	##
-	## Check CAACAG
-	try:
-		caacag_freq = intervening_freq[0]
-		if rotation_check('CAACAG', caacag_freq[0]):
-			caacag_count = caacag_freq[1]
-		else:
-			if input_reference['Status'] == 'Typical':
-				caacag_count = 1; ccgcca_count = 1
-	except IndexError: caacag_flag = True
-
-	##
-	## Check CCGCCA
-	try:
-		ccgcca_freq = intervening_freq[1]
-		if rotation_check('CCGCCA', ccgcca_freq[0]):
-			ccgcca_count = ccgcca_freq[1]
-		else:
-			if input_reference['Status'] == 'Typical':
-				caacag_count = 1; ccgcca_count = 1
-	except IndexError: ccgcca_flag = True
-
-	##
-	## Parse flags in event of error
-	if caacag_flag: caacag_count = 0; ccgcca_count = 0
-	if ccgcca_flag:
-		if not caacag_flag: caacag_count = 1; ccgcca_count = 0
-		else: caacag_count = 0; ccgcca_count = 0
-
-	##
-	## Safety check
-	if input_reference['Status'] == 'Typical' and (caacag_count != 1 or ccgcca_count != 1):
-		caacag_count = 1; ccgcca_count = 1
-
-	genotype_label = '{}_{}_{}_{}_{}'.format(input_reference['EstimatedCAG'], caacag_count, ccgcca_count,
-											 input_reference['EstimatedCCG'], input_reference['EstimatedCCT'])
-	return genotype_label
-
 def scrape_summary_data(stage, input_report_file):
 	##
 	## If the argument input_report_file is from trimming..
@@ -805,6 +658,8 @@ def scrape_summary_data(stage, input_report_file):
 
 def collate_peaks(predict_path, sample_prefix):
 
+	##TODO docstring
+
 	##
 	## Generate single page PDF of current sample name (for ctrl+f)
 	packet = StringIO.StringIO()
@@ -844,60 +699,50 @@ def collate_peaks(predict_path, sample_prefix):
 	os.remove(os.path.join(predict_path, 'Header.pdf'))
 	return sample_merge
 
-def generate_atypical_xml(direction, atypical_count, index_path, input_alleles):
+def generate_atypical_xml(allele_object, index_path):
 
 	"""
-	TODO!! Deal with alleles where both are atypical...
-	currently unsupported.
-	:param direction:
-	:param atypical_count:
+	:param allele_object:
 	:param index_path:
-	:param input_alleles:
 	:return:
 	"""
+	##TODO docstring
 
-	cag_start = None; cag_end = None; header=''
-	if direction == 'fw': cag_start = '1'; cag_end = '200'; header=direction
-	if direction == 'rv': cag_start = '100'; cag_end = '100'; header=direction
+	atypical_path = os.path.join(index_path, '{}{}.xml'.format('RefGenSHD',allele_object.get_reflabel()))
+	fp_flank = allele_object.get_fiveprime()
+	caglen = allele_object.get_cag()
+	intv = allele_object.get_intervening()
+	ccglen = allele_object.get_ccg()
+	cctlen = allele_object.get_cct()
+	tp_flank = allele_object.get_threeprime()
 
-	atypical_path = ''
-	if atypical_count == 1:
-		for allele in input_alleles:
-			if allele['Status'] == 'Atypical':
+	##
+	## Create XML
+	data_root = etree.Element('data')
+	loci_root = etree.Element('loci', label=allele_object.get_reflabel()); data_root.append(loci_root)
 
-				atypical_path = os.path.join(index_path, header+allele['Reference']+'.xml')
-				fp_flank = allele['5PFlank']
-				intv = allele['InterveningSequence']
-				cctlen = allele['EstimatedCCT']
-				tp_flank = allele['3PFlank']
+	##
+	## Loci Nodes
+	fp_input = etree.Element('input', type='fiveprime', flank=fp_flank)
+	cag_region = etree.Element('input', type='repeat_region', order='1', unit='CAG', start=str(caglen), end=str(caglen))
+	intervening = etree.Element('input', type='intervening', sequence=intv, prior='1')
+	ccg_region = etree.Element('input', type='repeat_region', order='2', unit='CCG', start=str(ccglen-2), end=str(ccglen+2))
+	cct_region = etree.Element('input', type='repeat_region', order='3', unit='CCT', start=str(cctlen), end=str(cctlen))
+	tp_input = etree.Element('input', type='threeprime', flank=tp_flank)
 
-				##
-				## Create XML
-				data_root = etree.Element('data')
-				loci_root = etree.Element('loci', label=allele['Reference']); data_root.append(loci_root)
+	for node in [fp_input, cag_region, intervening, ccg_region, cct_region, tp_input]:
+		loci_root.append(node)
 
-				##
-				## Loci Nodes
-				fp_input = etree.Element('input', type='fiveprime', flank=fp_flank)
-				cag_region = etree.Element('input', type='repeat_region', order='1', unit='CAG', start=cag_start, end=cag_end)
-				intervening = etree.Element('input', type='intervening', sequence=intv, prior='1')
-				ccg_region = etree.Element('input', type='repeat_region', order='2', unit='CCG', start='1', end='20')
-				cct_region = etree.Element('input', type='repeat_region', order='3', unit='CCT', start=str(cctlen), end=str(cctlen))
-				tp_input = etree.Element('input', type='threeprime', flank=tp_flank)
+	s = etree.tostring(data_root, pretty_print=True)
+	with open(atypical_path, 'w') as xmlfi:
+		xmlfi.write(s)
+		xmlfi.close()
 
-				for node in [fp_input, cag_region, intervening, ccg_region, cct_region, tp_input]:
-					loci_root.append(node)
-
-				s = etree.tostring(data_root, pretty_print=True)
-				with open(atypical_path, 'w') as xmlfi:
-					xmlfi.write(s)
-					xmlfi.close()
-
-		return atypical_path
-	else:
-		raise Exception
+	return atypical_path
 
 def generate_reference(input_xml, index_path):
+
+	##TODO docstring
 
 	label = input_xml.split('/')[-1].split('.')[0]
 	target_output = os.path.join(index_path, label+'.fa')

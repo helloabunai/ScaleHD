@@ -12,7 +12,7 @@ import logging as log
 ##
 ## Backend junk
 from ..__backend import Colour as clr
-from ..__backend import replace_fqfile
+from ..__backend import mkdir_p
 from multiprocessing import cpu_count
 
 THREADS = str(cpu_count())
@@ -20,18 +20,15 @@ TR_REPORT = []
 
 class SeqQC:
 
-	def __init__(self, sequencepair_data, target_output, stage, instance_params):
-		self.sequencepair_data = sequencepair_data
-		self.input_filepair = [sequencepair_data[0], sequencepair_data[1]]
-		self.target_output = target_output
+	def __init__(self, sequencepair_object, instance_params, stage=None):
+		self.sequencepair_data = sequencepair_object
+		self.input_filepair = [sequencepair_object.get_fwreads(), sequencepair_object.get_rvreads()]
+		self.target_output = sequencepair_object.get_qcpath()
 		self.instance_params = instance_params
 		self.trimming_errors = False
-
-		if stage.lower()=='valid':
-			self.verify_input()
-		if stage.lower()=='trim':
-			self.execute_trimming()
-			self.execute_fastqc()
+		self.trimming_report = []
+		if stage.lower()=='validate': self.verify_input()
+		if stage.lower()=='trim': self.execute_trimming(); self.execute_fastqc()
 
 	def verify_input(self, raise_exception=True):
 
@@ -75,18 +72,19 @@ class SeqQC:
 			if trim_type.lower()=='quality':
 				for i in range(0,len(self.input_filepair)):
 					file_root = self.input_filepair[i].split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
-					trimmed_outdir = '{}/{}{}{}'.format(self.target_output,'trimmed_',file_root,'.fastq')
+					trimmed_outdir = '{}/{}{}{}'.format(self.target_output,'trimmed_',file_root,'.fq')
 					quality_threshold = self.instance_params.config_dict['trim_flags']['@quality_threshold']
 
 					argument_list = ['-e', error_tolerance, '-q', quality_threshold, self.input_filepair[i], '-o', trimmed_outdir]
 					trim_report = execute_cutadapt(argument_list, file_root, self.target_output)
-					self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
-					TR_REPORT.append(trim_report)
+					if i == 0: self.sequencepair_data.set_fwreads(trimmed_outdir)
+					if i == 1: self.sequencepair_data.set_rvreads(trimmed_outdir)
+					self.trimming_report.append(trim_report)
 
 			if trim_type.lower()=='adapter':
 				for i in range(0,len(self.input_filepair)):
 					file_root = self.input_filepair[i].split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
-					trimmed_outdir = '{}/{}{}{}'.format(self.target_output,'trimmed_',file_root,'.fastq')
+					trimmed_outdir = '{}/{}{}{}'.format(self.target_output,'trimmed_',file_root,'.fq')
 					adapter_anchor = self.instance_params.config_dict['trim_flags']['@adapter_flag']
 					adapter_string = self.instance_params.config_dict['trim_flags']['@adapter']
 
@@ -97,13 +95,14 @@ class SeqQC:
 
 					argument_list = ['-e', error_tolerance, adapter_anchor, adapter_string, self.input_filepair[i], '-o', trimmed_outdir]
 					trim_report = execute_cutadapt(argument_list, file_root, self.target_output)
-					self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
-					TR_REPORT.append(trim_report)
+					if i == 0: self.sequencepair_data.set_fwreads(trimmed_outdir)
+					if i == 1: self.sequencepair_data.set_rvreads(trimmed_outdir)
+					self.trimming_report.append(trim_report)
 
 			if trim_type.lower()=='both':
 				for i in range(0,len(self.input_filepair)):
 					file_root = self.input_filepair[i].split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
-					trimmed_outdir = '{}/{}{}{}'.format(self.target_output,'trimmed_',file_root,'.fastq')
+					trimmed_outdir = '{}/{}{}{}'.format(self.target_output,'trimmed_',file_root,'.fq')
 					quality_threshold = self.instance_params.config_dict['trim_flags']['@quality_threshold']
 					adapter_anchor = self.instance_params.config_dict['trim_flags']['@adapter_flag']
 					adapter_string = self.instance_params.config_dict['trim_flags']['@adapter']
@@ -115,8 +114,9 @@ class SeqQC:
 
 					argument_list = ['-e', error_tolerance, '-q', quality_threshold, adapter_anchor, adapter_string, self.input_filepair[i], '-o', trimmed_outdir]
 					trim_report = execute_cutadapt(argument_list, file_root, self.target_output)
-					self.sequencepair_data = replace_fqfile(self.sequencepair_data, self.input_filepair[i], trimmed_outdir)
-					TR_REPORT.append(trim_report)
+					if i == 0: self.sequencepair_data.set_fwreads(trimmed_outdir)
+					if i == 1: self.sequencepair_data.set_rvreads(trimmed_outdir)
+					self.trimming_report.append(trim_report)
 
 		if self.trimming_errors == 'True':
 			log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Trimming errors occurred. Check logging report!'))
@@ -126,11 +126,11 @@ class SeqQC:
 
 		##
 		## For the files in the current file pair, make FastQC output folder and run FastQC
-		for fqfile in self.sequencepair_data[0:1]:
+		for fqfile in self.input_filepair[0:1]:
 			fastqc_outdir = os.path.join(self.target_output, 'FastQC')
-			if not os.path.exists(fastqc_outdir): os.makedirs(fastqc_outdir)
+			mkdir_p(fastqc_outdir)
 			fastqc_process = subprocess.Popen(['fastqc','--quiet','--extract','-t',THREADS,'-o',fastqc_outdir,fqfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			fastqc_process.wait()
 
-def get_trimreport():
-	return TR_REPORT
+	def get_trimreport(self):
+		return self.trimming_report

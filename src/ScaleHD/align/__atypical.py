@@ -3,10 +3,12 @@ import pysam
 import os
 import difflib
 import subprocess
+import regex
 from collections import Counter
+from ..__allelecontainer import IndividualAllele
 
 class ScanAtypical:
-	def __init__(self, input_assembly_tuple):
+	def __init__(self, sequencepair_object, instance_params):
 		"""
 		Class which utilises basic Digital Signal Processing to determine whether an aligned assembly
 		contains any atypical alleles, for the most commonly aligned references contigs. Sometimes,
@@ -21,8 +23,9 @@ class ScanAtypical:
 
 		##
 		## Variables for this class/assembly data
-		self.sequence_path = input_assembly_tuple[0]
-		self.sorted_assembly = input_assembly_tuple[1]
+		self.sequence_path = sequencepair_object.get_alignpath()
+		self.sorted_assembly = sequencepair_object.get_fwassembly()
+		self.instance_params = instance_params
 		self.subsample_assembly = None
 		self.subsample_index = None
 		self.assembly_object = None
@@ -40,6 +43,42 @@ class ScanAtypical:
 		## Exception for (unexpected) EOF
 		try: self.scan_reference_reads()
 		except StopIteration: self.assembly_object.close()
+
+		##
+		## Turn results into objects
+		primary_object = IndividualAllele(); secondary_object = IndividualAllele()
+		primary_data, secondary_data, atypical_count = self.organise_atypicals()
+		sequencepair_object.set_atypical_count(atypical_count)
+		for allele_pair in [(primary_object, primary_data, 'PRI'), (secondary_object, secondary_data, 'SEC')]:
+			obj = allele_pair[0]; dat = allele_pair[1]
+			obj.set_header(allele_pair[2])
+			obj.set_allelestatus(dat['Status'])
+			obj.set_referencelabel(dat['Reference'])
+			obj.set_originalreference(dat['OriginalReference'])
+			obj.set_totalreads(dat['TotalReads'])
+			obj.set_typicalreads(dat['TypicalCount'])
+			obj.set_typicalpcnt(dat['TypicalPcnt'])
+			obj.set_atypicalreads(dat['AtypicalCount'])
+			obj.set_atypicalpcnt(dat['AtypicalPcnt'])
+			obj.set_fiveprime(dat['5PFlank'])
+			obj.set_cagval(dat['EstimatedCAG'])
+			obj.set_caacagval(dat['EstimatedCAACAG'])
+			obj.set_ccgccaval(dat['EstimatedCCGCCA'])
+			obj.set_ccgval(dat['EstimatedCCG'])
+			obj.set_cctval(dat['EstimatedCCT'])
+			obj.set_threeprime(dat['3PFlank'])
+		sequencepair_object.set_primary_allele(primary_object)
+		sequencepair_object.set_secondary_allele(secondary_object)
+
+		##
+		## Generate an atypical report for writing
+		self.atypical_report = os.path.join(self.sequence_path, 'AtypicalReport.txt')
+		report_file = open(self.atypical_report, 'w')
+		report_file.write('{}{}\n{}{}\n{}{}\n{}{}'.format('Primary Allele: ', primary_object.get_reflabel(),
+														  'Primary Original: ', primary_object.get_originalreference(),
+														  'Secondary Allele: ', secondary_object.get_reflabel(),
+														  'Secondary Original: ', secondary_object.get_originalreference()))
+		report_file.close()
 
 	def process_assembly(self):
 		"""
@@ -197,6 +236,7 @@ class ScanAtypical:
 									'EstimatedCCG': est_ccg,
 									'EstimatedCCT': est_cct,
 									'InterveningSequence': atypical_population[0][0]}
+
 			if atypical_count > typical_count:
 				self.atypical_count += 1
 				reference_dictionary['Status'] = 'Atypical'
@@ -305,12 +345,154 @@ class ScanAtypical:
 		## Return
 		return cct_tract
 
+	def organise_atypicals(self):
+
+		##
+		## Constructs
+		sorted_info = sorted(self.atypical_info.iteritems(), key=lambda (x, y): y['TotalReads'], reverse=True)
+		if len(sorted_info) != 3: raise IndexError('< 3 references in sorted top; alignment failure?')
+
+		##
+		## Check % dropoff in read count between #2 and #3
+		beta_diff = float(abs(sorted_info[1][1]['TotalReads'] - sorted_info[2][1]['TotalReads']))
+		beta_drop = float(beta_diff / sorted_info[1][1]['TotalReads'])
+
+		##
+		## TODO fix this garbage dumpster fire
+		## TODO oh my god it's so ugly
+		## Top1 always used
+		## Check Top2 vs Top3, if drop is > 20%, ok
+		## If not >= 20%, investigate further:
+		##   If T2_CCG == T3_CCG, potential slippage event
+		##     if T2_CAG-T3_CAG > 1, no slippage, use Top1 and Top2
+		##     if T2_CAG-T3_CAG == 1, maybe slippage
+		##       if T2-T3 read drop is <= 0.1, use Top1 and Top3, slippage event
+		##       otherwise, use Top1 and Top2, no slippage
+		##   If T2_CCG and T3_CCG differ, no slippage
+		##     Check T1_CAG and T3_CAG for n-1, check diff between 2 and 3 > 10%
+		primary_allele = sorted_info[0][1]; primary_allele['Reference'] = sorted_info[0][0]
+		if not beta_drop >= 0.20:
+			##
+			## CCG match, potential slippage
+			if sorted_info[1][1]['EstimatedCCG'] == sorted_info[2][1]['EstimatedCCG']:
+				if abs(sorted_info[1][1]['EstimatedCAG'] - sorted_info[2][1]['EstimatedCAG']) > 1:
+					secondary_allele = sorted_info[1][1]
+					secondary_allele['Reference'] = sorted_info[1][0]
+				elif abs(sorted_info[1][1]['EstimatedCAG'] - sorted_info[2][1]['EstimatedCAG']) == 1:
+					if beta_drop <= 0.1:
+						secondary_allele = sorted_info[2][1]
+						secondary_allele['Reference'] = sorted_info[2][0]
+					else:
+						secondary_allele = sorted_info[1][1]
+						secondary_allele['Reference'] = sorted_info[1][0]
+				else:
+					secondary_allele = sorted_info[1][1]
+					secondary_allele['Reference'] = sorted_info[1][0]
+			##
+			## CCG don't match, no slippage
+			else:
+				if abs(sorted_info[0][1]['EstimatedCAG'] - sorted_info[2][1]['EstimatedCAG']) == 1 and beta_drop >= 0.10:
+					secondary_allele = sorted_info[1][1]
+					secondary_allele['Reference'] = sorted_info[1][0]
+				else:
+					secondary_allele = sorted_info[2][1]
+					secondary_allele['Reference'] = sorted_info[2][0]
+		##
+		## Otherwise the drop between #2 and #3 is so big that #3 isn't possible
+		else:
+			secondary_allele = sorted_info[1][1]; secondary_allele['Reference'] = sorted_info[1][0]
+
+		##
+		## For each of the alleles we've determined..
+		## Get intervening lengths, create accurate genotype string
+		atypical_count = 0
+		for allele in [primary_allele, secondary_allele]:
+			new_genotype, caacag_count, ccgcca_count = self.create_genotype_label(allele)
+			allele['OriginalReference'] = allele['Reference']
+			allele['Reference'] = new_genotype
+			allele['EstimatedCAACAG'] = caacag_count
+			allele['EstimatedCCGCCA'] = ccgcca_count
+			if allele['Status'] == 'Atypical': atypical_count += 1
+
+		return primary_allele, secondary_allele, atypical_count
+
+	def create_genotype_label(self, input_reference):
+
+		intervening = input_reference['InterveningSequence']
+		intervening_freq = Counter(list((intervening[0 + i:6 + i] for i in range(0, len(intervening), 6)))).items()
+		caacag_count = 0; ccgcca_count = 0
+		caacag_flag = False; ccgcca_flag = False
+
+		##
+		## TODO fix this dumpster garbage shit
+		## TODO oh my god it's so ugly
+		if len(intervening_freq) < 1: caacag_count = 1; ccgcca_count = 1
+		if len(intervening_freq) < 2: caacag_count = 1; ccgcca_count = 1
+
+		##
+		## Check CAACAG
+		try:
+			caacag_freq = intervening_freq[0]
+			if self.rotation_check('CAACAG', caacag_freq[0]):
+				caacag_count = caacag_freq[1]
+			else:
+				if input_reference['Status'] == 'Typical':
+					caacag_count = 1; ccgcca_count = 1
+		except IndexError:
+			caacag_flag = True
+
+		##
+		## Check CCGCCA
+		try:
+			ccgcca_freq = intervening_freq[1]
+			if self.rotation_check('CCGCCA', ccgcca_freq[0]):
+				ccgcca_count = ccgcca_freq[1]
+			else:
+				if input_reference['Status'] == 'Typical':
+					caacag_count = 1; ccgcca_count = 1
+		except IndexError:
+			ccgcca_flag = True
+
+		##
+		## Parse flags in event of error
+		if caacag_flag: caacag_count = 0; ccgcca_count = 0
+		if ccgcca_flag:
+			if not caacag_flag:
+				caacag_count = 1; ccgcca_count = 0
+			else:
+				caacag_count = 0; ccgcca_count = 0
+
+		##
+		## Safety check
+		if input_reference['Status'] == 'Typical' and (caacag_count != 1 or ccgcca_count != 1):
+			caacag_count = 1; ccgcca_count = 1
+
+		genotype_label = '{}_{}_{}_{}_{}'.format(input_reference['EstimatedCAG'], caacag_count, ccgcca_count,
+												 input_reference['EstimatedCCG'], input_reference['EstimatedCCT'])
+		return genotype_label, caacag_count, ccgcca_count
+
+	def get_atypicalreport(self):
+		return self.atypical_report
+
+	@staticmethod
+	def rotation_check(string1, string2):
+		size1 = len(string1)
+		size2 = len(string2)
+
+		# Check if sizes of two strings are same
+		if size1 != size2: return 0
+
+		# Create a temp string with value str1.str1
+		temp = string1 + string1
+
+		# Now check if str2 is a substring of temp (with s = 1 mismatch)
+		rotation_match = regex.findall(r"(?:" + string2 + "){s<=1}", temp, regex.BESTMATCH)
+
+		if len(rotation_match) > 0:
+			return 1
+		else:
+			return 0
+
 	@staticmethod
 	def similar(seq1, seq2):
 		return difflib.SequenceMatcher(a=seq1.lower(), b=seq2.lower()).ratio()
-
-	def get_allele_status(self):
-		return self.atypical_count
-
-	def get_atypical_info(self):
-		return self.atypical_info

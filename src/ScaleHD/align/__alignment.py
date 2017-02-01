@@ -16,21 +16,23 @@ from ..__backend import Colour as clr
 from ..__backend import replace_fqfile
 from ..seq_qc.__quality_control import THREADS
 
-ALN_REPORT = []
-
 class SeqAlign:
 
-	def __init__(self, sequence_label=None, sequencepair_data=None, target_output=None, reference_indexes=None, instance_params=None, purge_flag=None):
+	def __init__(self, sequencepair_object = None, instance_params=None, individual_allele=None):
 
 		##
 		## Instance data and workflow
-		self.sample_root = sequence_label
-		self.sequencepair_data = sequencepair_data
-		self.target_output = target_output
-		self.reference_indexes = reference_indexes
+		self.sequencepair_object = sequencepair_object
+		self.individual_allele = individual_allele
+		self.sample_root = sequencepair_object.get_label()
+		self.target_output = sequencepair_object.get_alignpath()
+		if individual_allele is not None:
+			self.reference_indexes = [individual_allele.get_fwidx(), individual_allele.get_rvidx()]
+		else:
+			self.reference_indexes = [sequencepair_object.get_fwidx(), sequencepair_object.get_rvidx()]
 		self.instance_params = instance_params
-		self.purge_flag = purge_flag
-		self.alignment_reports = []
+		self.purge_flag = sequencepair_object.get_purgeflag()
+		self.align_report = []
 		self.alignment_workflow()
 
 	def alignment_workflow(self):
@@ -38,29 +40,35 @@ class SeqAlign:
 		##
 		## Get forward reference, resultant indexes, and reads
 		forward_index = self.reference_indexes[0]
-		forward_reads = self.sequencepair_data[0]
+		forward_reads = self.sequencepair_object.get_fwreads()
 
 		##
 		## Get reverse reference, resultant indexes, and reads
 		reverse_index = self.reference_indexes[1]
-		reverse_reads = self.sequencepair_data[1]
+		reverse_reads = self.sequencepair_object.get_rvreads()
 
 		##
 		## Align the two FastQ files in the pair
-		forward_distribution, forward_report, forward_assembly_tuple = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1')
-		reverse_distribution, reverse_report, reverse_assembly_tuple = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2')
-		ALN_REPORT.append(forward_report); ALN_REPORT.append(reverse_report)
+		if self.individual_allele is not None: typical_flag = 'atypical'
+		else: typical_flag = 'typical'
+		forward_distribution, forward_report, forward_assembly = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1',typical_flag)
+		reverse_distribution, reverse_report, reverse_assembly = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2',typical_flag)
+		self.align_report.append(forward_report); self.align_report.append(reverse_report)
 
 		##
-		## Update sequence pair:: replace file that was to be aligned with the distribution resulting from that file
-		## list[0] was foward read FASTQ >> will be >> forward read's repeat distribution
-		## list[1] was reverse read FASTQ >> will be >> reverse read's repeat distribution
-		self.sequencepair_data = replace_fqfile(self.sequencepair_data, forward_reads, forward_distribution)
-		self.sequencepair_data = replace_fqfile(self.sequencepair_data, reverse_reads, reverse_distribution)
-		self.sequencepair_data.append(forward_assembly_tuple)
-		self.sequencepair_data.append((forward_reads, reverse_reads))
+		## Update object parameters with appropriate distribution/assembly
+		if self.individual_allele is not None:
+			self.individual_allele.set_fwdist(forward_distribution)
+			self.individual_allele.set_rvdist(reverse_distribution)
+			self.individual_allele.set_fwassembly(forward_assembly)
+			self.individual_allele.set_rvassembly(reverse_assembly)
+		else:
+			self.sequencepair_object.set_fwdist(forward_distribution)
+			self.sequencepair_object.set_rvdist(reverse_distribution)
+			self.sequencepair_object.set_fwassembly(forward_assembly)
+			self.sequencepair_object.set_rvassembly(reverse_assembly)
 
-	def execute_alignment(self, reference_index, target_fqfile, feedback_string, io_index):
+	def execute_alignment(self, reference_index, target_fqfile, feedback_string, io_index, typical_flag):
 
 		##
 		## So. Many. Flags.
@@ -81,7 +89,7 @@ class SeqAlign:
 		##User feedback on alignment progres.. maybe improve later
 		##if you're reading this and want better feedback, you probably know 'top' exists
 		log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,feedback_string))
-		alignment_outdir = os.path.join(self.target_output, self.sample_root+'_'+io_index)
+		alignment_outdir = os.path.join(self.target_output, '{}_{}_{}'.format(self.sample_root, io_index, typical_flag))
 		if not os.path.exists(alignment_outdir): os.makedirs(alignment_outdir)
 		aln_outpath = '{}/{}'.format(alignment_outdir, 'assembly.sam')
 		aln_outfi = open(aln_outpath, 'w')
@@ -114,7 +122,7 @@ class SeqAlign:
 		bwa_process.wait()
 		aln_outfi.close()
 
-		##4
+		##
 		## Generate an alignment report (i.e. console output to file)
 		alignment_report = os.path.join(alignment_outdir, 'AlignmentReport.txt')
 		report_file = open(alignment_report, 'w')
@@ -133,7 +141,7 @@ class SeqAlign:
 			csv_path, sorted_assembly = self.extract_repeat_distributions(self.sample_root, alignment_outdir, aln_outpath)
 			sys.stdout.flush()
 
-		return csv_path, alignment_report, (alignment_outdir, sorted_assembly)
+		return csv_path, alignment_report, sorted_assembly
 
 	@staticmethod
 	def purge_alignment_map(alignment_outdir, alignment_outfile):
@@ -186,8 +194,8 @@ class SeqAlign:
 		## -c input utilises the distribution_files list and the below getter function
 		return csv_path, sorted_assembly
 
-def get_alignreport():
-	return ALN_REPORT
+	def get_alignreport(self):
+		return self.align_report
 
 class ReferenceIndex:
 

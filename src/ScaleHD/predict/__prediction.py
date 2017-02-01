@@ -27,6 +27,197 @@ from sklearn.multiclass import OutputCodeClassifier
 from ..__backend import DataLoader
 from ..__backend import Colour as clr
 
+class AlleleGenotyping:
+	def __init__(self, sequencepair_object, allele_object, instance_params, training_data):
+
+		##
+		## Allele objects and instance data
+		self.sequencepair_object = sequencepair_object
+		self.allele_object = allele_object
+		self.instance_params = instance_params
+		self.training_data = training_data
+		self.allele_report = ''
+
+		##
+		## If current allele object assembly/distro is blank
+		## Allele is typical, didn't assign in __atypical.py
+		## Hence, assign allele with sequencepair_object values
+		if not allele_object.get_rvdist():
+			allele_object.set_fwassembly(sequencepair_object.get_fwassembly())
+			allele_object.set_rvassembly(sequencepair_object.get_rvassembly())
+			allele_object.set_fwdist(sequencepair_object.get_fwdist())
+			allele_object.set_rvdist(sequencepair_object.get_rvdist())
+
+		##
+		## Build a classifier and class label hash-encoder for CCG SVM
+		self.classifier, self.encoder = self.build_zygosity_model()
+
+		##
+		## Information and error flags for this allele
+		self.allele_flags = {'FlagsTODO':True}
+
+		##
+		## Unlablled distribution to utilise for SVM prediction
+		print 'fw: ', allele_object.get_fwdist()
+		print 'rv: ', allele_object.get_rvdist()
+		self.forward_distribution = self.scrape_distro(allele_object.get_fwdist())
+		self.reverse_distribution = self.scrape_distro(allele_object.get_rvdist())
+
+		##
+		## Constructs
+		self.zygosity_state = None; self.forwardccg_aggregate = None; self.reverseccg_aggregate = None
+
+		##
+		## Genotype!!
+		self.main()
+
+	def main(self):
+
+		###############################
+		## Stage one -- CCG Zygosity ##
+		###############################
+		print '>>Stage one'
+		self.forwardccg_aggregate = self.distribution_collapse(self.forward_distribution)
+		self.reverseccg_aggregate = self.distribution_collapse(self.reverse_distribution)
+		self.zygosity_state = self.predict_zygstate()
+
+		############################
+		## Stage two -- CCG Peaks ##
+		############################
+		print '>> Stage two'
+
+		######################################
+		## Stage three -- CAG Investigation ##
+		######################################
+		print '>> Stage three'
+
+		####################################
+		## Stage four -- Ensure integrity ##
+		####################################
+		print '>> Stage four'
+
+		##########################################
+		## Stage five -- Mosaicism calculations ##
+		##########################################
+		print '>> Stage five'
+
+		##############################################
+		## Stage six -- Caluclate allele confidence ##
+		##############################################
+		print '>> Stage six'
+
+	def build_zygosity_model(self):
+		"""
+		Function to build a SVM (wrapped into OvO class) for determining CCG zygosity
+		:return: svm object wrapped into OvO, class-label hash-encoder object
+		"""
+
+		##
+		## Classifier object and relevant parameters for our CCG prediction
+		svc_object = svm.LinearSVC(C=1.0, loss='ovr', penalty='l2', dual=False,
+								   tol=1e-4, multi_class='crammer_singer', fit_intercept=True,
+								   intercept_scaling=1, verbose=0, random_state=0, max_iter=-1)
+
+		##
+		## Take raw training data (CCG zygosity data) into DataLoader model object
+		traindat_ccg_collapsed = self.training_data['CollapsedCCGZygosity']
+		traindat_descriptionfi = self.training_data['GenericDescriptor']
+		traindat_model = DataLoader(traindat_ccg_collapsed, traindat_descriptionfi).load_model()
+
+		##
+		## Model data fitting to SVM
+		X = preprocessing.normalize(traindat_model.DATA)
+		Y = traindat_model.TARGET
+		ovo_svc = OutputCodeClassifier(svc_object, code_size=2, random_state=0).fit(X,Y)
+		encoder = traindat_model.ENCDR
+
+		##
+		## Return the fitted OvO(SVM) and Encoder
+		return ovo_svc, encoder
+
+	def predict_zygstate(self):
+		"""
+		Function which takes the newly collapsed CCG distribution and executes SVM prediction
+		to determine the zygosity state of this sample's CCG value(s). Data is reshaped
+		and normalised to ensure more reliable results. A check is executed between the results of
+		forward and reverse zygosity; if a match, great; if not, not explicitly bad but inform user.
+		:return: zygosity[2:-2] (trimming unrequired characters)
+		"""
+
+		##
+		## Reshape the input distribution so SKL doesn't complain about 1D vectors
+		## Normalise data in addition; cast to float64 for this to be permitted
+		forward_reshape = preprocessing.normalize(np.float64(self.forwardccg_aggregate.reshape(1,-1)))
+		reverse_reshape = preprocessing.normalize(np.float64(self.reverseccg_aggregate.reshape(1,-1)))
+
+		##
+		## Predict the zygstate of these reshapen, noramlised 20D CCG arrays using SVM object earlier
+		## Results from self.classifier are #encoded; so convert with our self.encoder.inverse_transform
+		forward_zygstate = str(self.encoder.inverse_transform(self.classifier.predict(forward_reshape)))
+		reverse_zygstate = str(self.encoder.inverse_transform(self.classifier.predict(reverse_reshape)))
+
+		##
+		## We only particularly care about the reverse zygosity (CCG reads are higher quality in reverse data)
+		## However, for a QoL metric, compare fw/rv results. If match, good! If not, who cares!
+		if not forward_zygstate == reverse_zygstate: self.allele_flags['CCGZygDisconnect'] = True
+		else: self.allele_flags['CCGZyg_disconnect'] = False
+		return reverse_zygstate[2:-2]
+
+	@staticmethod
+	def scrape_distro(distributionfi):
+		"""
+		Function to take the aligned read-count distribution from CSV into a numpy array
+		:param distributionfi:
+		:return: np.array(data_from_csv_file)
+		"""
+
+		##
+		## Open CSV file with information within; append to temp list
+		## Scrape information, cast to np.array(), return
+		placeholder_array = []
+		with open(distributionfi) as dfi:
+			source = csv.reader(dfi, delimiter=',')
+			next(source) #skip header
+			for row in source:
+				placeholder_array.append(int(row[2]))
+			dfi.close()
+		unlabelled_distro = np.array(placeholder_array)
+		return unlabelled_distro
+
+	@staticmethod
+	def distribution_collapse(distribution_array):
+		"""
+		Function to take a full 200x20 array (struc: CAG1-200,CCG1 -- CAG1-200CCG2 -- etc CCG20)
+		and aggregate all CAG values for each CCG
+		:param distribution_array: input dist (should be (1-200,1-20))
+		:return: 1x20D np(array)
+		"""
+
+		##
+		## Object for CCG split
+		ccg_arrays = None
+
+		##
+		## Hopefully the user has aligned to the right reference dimensions
+		try: ccg_arrays = np.split(distribution_array, 20)
+		except ValueError: raise Exception('Input reads individisible by 20. Utilised incorrect reference style.')
+
+		##
+		## Aggregate each CCG
+		ccg_counter = 1
+		collapsed_array = []
+		for ccg_array in ccg_arrays:
+			collapsed_array.append(np.sum(ccg_array))
+			ccg_counter+=1
+
+		print '$DBG: Inner distro collapse'
+		print collapsed_array
+
+		return np.asarray(collapsed_array)
+
+	def get_report(self):
+		return self.allele_report
+
 class GenotypePrediction:
 	def __init__(self, data_pair, prediction_path, training_data, instance_params, processed_atypical):
 		"""
@@ -559,6 +750,7 @@ class GenotypePrediction:
 		:return:
 		"""
 
+		mismatch_flag = False
 		for dsp_allele in self.processed_atypicals:
 			if self.genotype_flags['PrimaryAllele'][0] == dsp_allele['EstimatedCAG'] and self.genotype_flags['PrimaryAllele'][1] == dsp_allele['EstimatedCCG']:
 				self.genotype_flags['PrimaryAlleleStatus'] = dsp_allele['Status']
@@ -570,21 +762,23 @@ class GenotypePrediction:
 				self.genotype_flags['SecondaryAlleleReference'] = dsp_allele['Reference']
 				self.genotype_flags['SecondaryAlleleOriginal'] = dsp_allele['OriginalReference']
 				continue
+			if abs(self.genotype_flags['SecondaryAllele'][0] - dsp_allele['EstimatedCAG']) == 1:
+				if self.genotype_flags['SecondaryAllele'][0] > dsp_allele['EstimatedCAG']:
+					self.genotype_flags['CAGForwardSlippage'] = True
+				if self.genotype_flags['SecondaryAllele'][0] < dsp_allele['EstimatedCAG']:
+					self.genotype_flags['CAGBackwardsSlippage'] = True
+				self.genotype_flags['SecondaryAllele'][0] = dsp_allele['EstimatedCAG']
+				self.genotype_flags['DSPCorrection'] = True
 			else:
-				self.genotype_flags['SecondaryAlleleStatus'] = dsp_allele['Status']
-				self.genotype_flags['SecondaryAlleleReference'] = dsp_allele['Reference']
-				self.genotype_flags['SecondaryAlleleOriginal'] = dsp_allele['OriginalReference']
-				if abs(self.genotype_flags['SecondaryAllele'][0] - dsp_allele['EstimatedCAG']) == 1:
+				mismatch_flag = True
+				break
 
-					##
-					##TODO add read count double-check here
-
-					if self.genotype_flags['SecondaryAllele'][0] > dsp_allele['EstimatedCAG']:
-						self.genotype_flags['CAGForwardSlippage'] = True
-					if self.genotype_flags['SecondaryAllele'][0] < dsp_allele['EstimatedCAG']:
-						self.genotype_flags['CAGBackwardsSlippage'] = True
-					self.genotype_flags['SecondaryAllele'][0] = dsp_allele['EstimatedCAG']
-					self.genotype_flags['DSPCorrection'] = True
+		##TODO this
+		if mismatch_flag:
+			print 'get highest CAG value from self.processed_atypicals'
+			print 'lowest = primary, highest = secondary'
+			print 'set self.genotype_flags[] for primary and secondary allele'
+			print 'set DSP correction to be true'
 
 	def confidence_calculation(self):
 		"""
