@@ -1,9 +1,12 @@
 from __future__ import division
-import pysam
+
+##
+##Imports
 import os
+import regex
+import pysam
 import difflib
 import subprocess
-import regex
 import numpy as np
 from collections import Counter
 from ..__allelecontainer import IndividualAllele
@@ -11,15 +14,16 @@ from ..__allelecontainer import IndividualAllele
 class ScanAtypical:
 	def __init__(self, sequencepair_object, instance_params):
 		"""
-		Class which utilises basic Digital Signal Processing to determine whether an aligned assembly
-		contains any atypical alleles, for the most commonly aligned references contigs. Sometimes,
-		variation in the Intevening sequence of the HD repeat tract can have variations which confuse
-		alignment algorithms, and reads are incorrectly assigned to a reference that does not truly
-		represent the length of the specific repeat tracts. This scans the sample, detects atypical alleles
-		and informs the user. If --config, realignment to a specific reference is executed. If --batch,
-		the user is informed in the situation of atypical detection; but since the sequence data is missing in batch
-		mode, re-alignment is not possible.
-		:param input_assembly_tuple: Tuple of (sample_output_folder, specific_assembly_file)
+		Class which utilises Digital Signal Processing to determine the repeat tract structure of the current sample.
+		General overview:
+			Subsample aligned SAM file (from __alignment.py) to increase speed of function
+			Loop over the references with the top 3 highest number of aligned reads (only ones relevant to genotyping)
+			For each read in that reference, scan for regions using rotating masks
+			Return regions, determine values
+			Assign values to appropriate allele object class variables
+			Return
+		:param sequencepair_object: Object of the current Sequence pair being processed.. see __allelecontainer.py
+		:param instance_params: Dictionary of config settings from the input XML document
 		"""
 
 		##
@@ -91,11 +95,13 @@ class ScanAtypical:
 
 		##
 		## Determine number of reads - for subsampling float
+		## Use awk to read samtools idxstats output (get total read count)
 		awk = ['awk', ' {i+=$3} END {print i}']
 		count_process = subprocess.Popen(['samtools','idxstats', self.sorted_assembly], stdout=subprocess.PIPE)
 		awk_process = subprocess.Popen(awk, stdin=count_process.stdout, stdout=subprocess.PIPE)
 		count_process.wait(); awk_process.wait(); awk_output = int(awk_process.communicate()[0])
 		if awk_output > 20000: subsample_float = 0.05
+		elif 20000 > awk_output > 10000: subsample_float = 0.1
 		else: subsample_float = 0.2
 
 		##
@@ -109,7 +115,7 @@ class ScanAtypical:
 		index_process = subprocess.Popen(['samtools','index',self.subsample_assembly]); index_process.wait()
 
 		##
-		## Load into object, determine references
+		## Load into object, determine references to investigate
 		self.assembly_object = pysam.AlignmentFile(self.subsample_assembly, 'rb')
 		self.present_references = self.assembly_object.references
 		assembly_refdat = []
@@ -117,23 +123,31 @@ class ScanAtypical:
 			reference_tuple = (reference, self.assembly_object.count(reference))
 			if reference_tuple[1] == 0: pass
 			else: assembly_refdat.append(reference_tuple)
+
+		##
+		## Assign our target references (Top 3 sorted references, sorted by read count)
 		self.assembly_targets = sorted(assembly_refdat, key=lambda x:x[1], reverse=True)[0:3]
 
 	@staticmethod
 	def typical_rotation(input_string):
+
+		##
+		## Lengths of target strings
 		size1 = len('CAACAGCCGCCA')
 		size2 = len(input_string)
 		temp = ''
 
-		# Check if sizes of two strings are same
+		##
+		## Size equality comparison
 		if size1 != size2: return 0
 
-		# Create a temp string with value str1.str1
+		##
+		## Duplicate string to encompass all possible rotations
 		temp = 'CAACAGCCGCCA' + 'CAACAGCCGCCA'
 
-		# Now check if str2 is a substring of temp
-		# string.count returns the number of occurences of
-		# the second string in temp
+		##
+		## Now check STR2 is a substring of temp expansion
+		## .count() returns number of occurrences of second string in temp
 		if temp.count(input_string) > 0: return 1
 		else: return 0
 
@@ -391,8 +405,10 @@ class ScanAtypical:
 		##
 		## TODO fix this garbage dumpster fire
 		## TODO oh my god it's so ugly
+
 		## Top1 always used
 		## Check Top2 vs Top3, if drop is > 20%, ok
+
 		## If not >= 20%, investigate further:
 		##   If T2_CCG == T3_CCG, potential slippage event
 		##     if T2_CAG-T3_CAG > 1, no slippage, use Top1 and Top2
