@@ -9,6 +9,7 @@ class SequenceSample:
 		self.sample_predictpath = ''
 		self.sample_bayespath = ''
 		self.purge_flag = False
+
 		self.forward_index = ''
 		self.reverse_index = ''
 		self.forward_reads = ''
@@ -17,13 +18,20 @@ class SequenceSample:
 		self.reverse_assembly = ''
 		self.forward_distribution = []
 		self.reverse_distribution = []
+
 		self.trim_report = []
 		self.align_report = []
 		self.atypical_report = ''
 		self.genotype_report = ''
+
 		self.primary_allele = None
 		self.secondary_allele = None
+
 		self.atypical_count = 0
+		self.recall_count = 0
+		self.homozygous_haplotype = False
+		self.neighbouringpeaks = False
+		self.ccgzygstate = ''
 
 	##
 	## Setters
@@ -33,6 +41,7 @@ class SequenceSample:
 	def set_predictpath(self, predictpath):	self.sample_predictpath = predictpath
 	def set_bayespath(self, bayespath):	self.sample_bayespath = bayespath
 	def set_purgeflag(self, flag): self.purge_flag = flag
+
 	def set_fwidx(self, idx): self.forward_index = idx
 	def set_rvidx(self, idx): self.reverse_index = idx
 	def set_fwreads(self, reads): self.forward_reads = reads
@@ -41,22 +50,30 @@ class SequenceSample:
 	def set_rvassembly(self, assembly): self.reverse_assembly = assembly
 	def set_fwdist(self, dist): self.forward_distribution = dist
 	def set_rvdist(self, dist): self.reverse_distribution = dist
+
 	def set_trimreport(self, report): self.trim_report = report
 	def set_alignreport(self, report): self.align_report = report
 	def set_atypicalreport(self, report): self.atypical_report = report
 	def set_genotypereport(self, report): self.genotype_report = report
+
 	def set_primary_allele(self, alleleobj): self.primary_allele = alleleobj
 	def set_secondary_allele(self, alleleobj): self.secondary_allele = alleleobj
+
 	def set_atypical_count(self, count): self.atypical_count = count
+	def set_recallcount(self, count): self.recall_count = count
+	def set_homozygoushaplotype(self, state): self.homozygous_haplotype = state
+	def set_neighbouringpeaks(self, state): self.neighbouringpeaks = state
+	def set_ccgzygstate(self, state): self.ccgzygstate = state
 
 	##
 	## Getters
 	def get_label(self): return self.sample_label
 	def get_qcpath(self): return self.sample_qcpath
 	def get_alignpath(self): return self.sample_alignpath
-	def get_predictpath(self): return self.sample_alignpath
+	def get_predictpath(self): return self.sample_predictpath
 	def get_bayespath(self): return self.sample_bayespath
 	def get_purgeflag(self): return self.purge_flag
+
 	def get_fwidx(self): return self.forward_index
 	def get_rvidx(self): return self.reverse_index
 	def get_fwreads(self): return self.forward_reads
@@ -65,17 +82,25 @@ class SequenceSample:
 	def get_rvassembly(self): return self.reverse_assembly
 	def get_fwdist(self): return self.forward_distribution
 	def get_rvdist(self): return self.reverse_distribution
+
 	def get_trimreport(self): return self.trim_report
 	def get_alignreport(self): return self.align_report
 	def get_atypicalreport(self): return self.atypical_report
 	def get_genotypereport(self): return self.genotype_report
+
 	def get_primaryallele(self): return self.primary_allele
 	def get_secondaryallele(self): return self.secondary_allele
+
 	def get_atypicalcount(self): return self.atypical_count
+	def get_recallcount(self): return self.recall_count
+	def get_homozygoushaplotype(self): return self.homozygous_haplotype
+	def get_neighbouringpeaks(self): return self.neighbouringpeaks
+	def get_ccgzygstate(self): return self.ccgzygstate
 
 	##
 	## Functions
 	def generate_sampletree(self):
+
 		for path in [self.sample_qcpath, self.sample_alignpath, self.sample_predictpath, self.sample_bayespath]:
 			try:
 				os.makedirs(path)
@@ -86,6 +111,9 @@ class SequenceSample:
 class IndividualAllele:
 	def __init__(self):
 		self.header = ''
+		self.validation = False
+		self.allele_genotype = ''
+		self.allele_confidence = 0
 		self.five_prime = ''
 		self.cag_value = 0
 		self.caacag_value = 0
@@ -110,11 +138,32 @@ class IndividualAllele:
 		self.reverse_assembly = ''
 		self.forward_distribution = []
 		self.reverse_distribution = []
+		self.forward_array = []
+		self.reverse_array = []
+		self.ccg_peak_threshold = 0.0
+		self.cag_peak_threshold = 0.0
+
 		self.genotype_status = False
+		self.fod_ccg = []
+		self.fod_cag = []
+		self.ccg_valid = False
+		self.cag_valid = False
+		self.interp_distance = 0.0
+		self.signaltonoise = 0.0
+		self.immediate_dropoff = []
+		self.allele_report = ''
+		self.allele_graphs = []
+
+		self.interpolation_warning = False
+		self.nminus_warninglevel = 0
+		self.nplus_warninglevel = 0
 
 	##
 	## Setters
 	def set_header(self, header): self.header = header
+	def set_validation(self, validate): self.validation = validate
+	def set_allelegenotype(self, genotype): self.allele_genotype = genotype
+	def set_alleleconfidence(self, confidence): self.allele_confidence = confidence
 	def set_fiveprime(self, fp): self.five_prime = fp
 	def set_cagval(self, cag): self.cag_value = cag
 	def set_caacagval(self, intv1): self.caacag_value = intv1
@@ -139,11 +188,32 @@ class IndividualAllele:
 	def set_rvassembly(self, assembly): self.reverse_assembly = assembly
 	def set_fwdist(self, dist): self.forward_distribution = dist
 	def set_rvdist(self, dist): self.reverse_distribution = dist
+	def set_fwarray(self, array): self.forward_array = array
+	def set_rvarray(self, array): self.reverse_array = array
+	def set_ccgthreshold(self, threshold): self.ccg_peak_threshold = threshold
+	def set_cagthreshold(self, threshold): self.cag_peak_threshold = threshold
+
 	def set_genotypestatus(self, status): self.genotype_status = status
+	def set_fodccg(self, array): self.fod_ccg = array
+	def set_fodcag(self, array): self.fod_cag = array
+	def set_ccgvalid(self, status): self.ccg_valid = status
+	def set_cagvalid(self, status): self.cag_valid = status
+	def set_interpdistance(self,distance): self.interp_distance = distance
+	def set_signaltonoise(self, value): self.signaltonoise = value
+	def set_immediate_dropoff(self, value_list): self.immediate_dropoff = value_list
+	def set_allelereport(self, path): self.allele_report = path
+	def set_allelegraphs(self, graph): self.allele_graphs.append(graph)
+
+	def raise_interpolation_warning(self, bool): self.interpolation_warning = bool
+	def set_nminuswarninglevel(self, amount): self.nminus_warninglevel = amount
+	def set_npluswarninglevel(self, amount): self.nplus_warninglevel = amount
 
 	##
 	## Getters
 	def get_header(self): return self.header
+	def get_validation(self): return self.validation
+	def get_allelegenotype(self): return self.allele_genotype
+	def get_alleleconfidence(self): return self.allele_confidence
 	def get_fiveprime(self): return self.five_prime
 	def get_cag(self): return self.cag_value
 	def get_caacag(self): return self.caacag_value
@@ -168,4 +238,22 @@ class IndividualAllele:
 	def get_rvassembly(self): return self.reverse_assembly
 	def get_fwdist(self): return self.forward_distribution
 	def get_rvdist(self): return self.reverse_distribution
+	def get_fwarray(self): return self.forward_array
+	def get_rvarray(self): return self.reverse_array
+	def get_ccgthreshold(self): return self.ccg_peak_threshold
+	def get_cagthreshold(self): return self.cag_peak_threshold
+
 	def get_genotypestatus(self): return self.genotype_status
+	def get_fodccg(self): return self.fod_ccg
+	def get_fodcag(self): return self.fod_cag
+	def get_ccgvalid(self): return self.ccg_valid
+	def get_cagvalid(self): return self.cag_valid
+	def get_interpdistance(self): return self.interp_distance
+	def get_signaltonoise(self): return self.signaltonoise
+	def get_immediate_dropoff(self): return self.immediate_dropoff
+	def get_allelereport(self): return self.allele_report
+	def get_allelegraphs(self): return self.allele_graphs
+
+	def get_interpolation_warning(self): return self.interpolation_warning
+	def get_nminuswarninglevel(self): return self.nminus_warninglevel
+	def get_npluswarninglevel(self): return self.nplus_warninglevel

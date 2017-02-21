@@ -4,6 +4,7 @@ import os
 import difflib
 import subprocess
 import regex
+import numpy as np
 from collections import Counter
 from ..__allelecontainer import IndividualAllele
 
@@ -62,6 +63,7 @@ class ScanAtypical:
 			obj.set_atypicalpcnt(dat['AtypicalPcnt'])
 			obj.set_fiveprime(dat['5PFlank'])
 			obj.set_cagval(dat['EstimatedCAG'])
+			obj.set_intervening(dat['InterveningSequence'])
 			obj.set_caacagval(dat['EstimatedCAACAG'])
 			obj.set_ccgccaval(dat['EstimatedCCGCCA'])
 			obj.set_ccgval(dat['EstimatedCCG'])
@@ -82,18 +84,27 @@ class ScanAtypical:
 
 	def process_assembly(self):
 		"""
-		Function to take the complete aligned assembly and subsample to 10% of the reads (for speed purposes).
+		Function to take the complete aligned assembly and subsample to 20% of the reads (for speed purposes).
 		Will implement user specified subsample threshold eventually. Once subsampled, pass to processing.
 		:return: None
 		"""
 
 		##
-		## Subsample reads (10% -- will be user specified eventually)
+		## Determine number of reads - for subsampling float
+		awk = ['awk', ' {i+=$3} END {print i}']
+		count_process = subprocess.Popen(['samtools','idxstats', self.sorted_assembly], stdout=subprocess.PIPE)
+		awk_process = subprocess.Popen(awk, stdin=count_process.stdout, stdout=subprocess.PIPE)
+		count_process.wait(); awk_process.wait(); awk_output = int(awk_process.communicate()[0])
+		if awk_output > 20000: subsample_float = 0.05
+		else: subsample_float = 0.2
+
+		##
+		## Subsample reads
 		## Index the subsampled assembly
 		self.subsample_assembly = os.path.join(self.sequence_path,'subsample.sam')
 		self.subsample_index = os.path.join(self.sequence_path,'subsample.sam.bai')
 		assem_obj = open(self.subsample_assembly,'w')
-		subsample_process = subprocess.Popen(['samtools','view','-s','0.1','-b', self.sorted_assembly], stdout=assem_obj)
+		subsample_process = subprocess.Popen(['samtools','view','-s',str(subsample_float),'-b', self.sorted_assembly], stdout=assem_obj)
 		subsample_process.wait(); assem_obj.close()
 		index_process = subprocess.Popen(['samtools','index',self.subsample_assembly]); index_process.wait()
 
@@ -202,7 +213,8 @@ class ScanAtypical:
 				for i in range(0, len(sequence_windows)):
 					if i in intervene_range:
 						intervene_string += str(sequence_windows[i])
-				if self.typical_rotation(intervene_string): intervene_string = 'CAACAGCCGCCA'
+				if self.rotation_check('CAACAGCCGCCA', intervene_string):
+					intervene_string = 'CAACAGCCGCCA'
 				if intervene_string != 'CAACAGCCGCCA':
 					atypical_count += 1
 					reference_atypicals.append(intervene_string)
@@ -240,8 +252,12 @@ class ScanAtypical:
 			if atypical_count > typical_count:
 				self.atypical_count += 1
 				reference_dictionary['Status'] = 'Atypical'
+			elif est_cct != 2:
+				self.atypical_count += 1
+				reference_dictionary['Status'] = 'Atypical'
 			else:
 				reference_dictionary['Status'] = 'Typical'
+				reference_dictionary['InterveningSequence'] = 'CAACAGCCGCCA'
 
 			##
 			## If the intervening is longer in #2, assume poor sequencing in #1 and use #2
@@ -251,6 +267,21 @@ class ScanAtypical:
 						reference_dictionary['InterveningSequence'] = max([atypical_population[0][0],atypical_population[1][0]], key=len)
 			except IndexError:
 				reference_dictionary['InterveningSequence'] = atypical_population[0][0]
+
+			##
+			## Check for mismatch just before intervening sequence
+			try:
+				top_hit = atypical_population[0][1]; second_hit = atypical_population[1][1]
+				diff = ((top_hit-second_hit)/top_hit)*100
+				if diff < 30.00:
+					if len(atypical_population[0][0]) == 15:
+						if np.isclose(self.similar('CAG', atypical_population[0][0][0:3]), [0.66], atol=0.1):
+							reference_dictionary['InterveningSequence'] = 'CAACAGCCGCCA'
+			except IndexError:
+				pass
+
+			##
+			## Append results to reference label
 			self.atypical_info[investigation[0]] = reference_dictionary
 
 		os.remove(self.subsample_assembly)

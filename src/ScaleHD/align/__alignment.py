@@ -13,8 +13,56 @@ import logging as log
 ##
 ## Backend junk
 from ..__backend import Colour as clr
-from ..__backend import replace_fqfile
 from ..seq_qc.__quality_control import THREADS
+
+def purge_alignment_map(alignment_outdir, alignment_outfile):
+	purged_assembly = '{}{}'.format(alignment_outdir, '/assembly_unique.bam')
+	purged_file = open(purged_assembly, 'w')
+	view_subprocess = subprocess.Popen(['samtools', 'view', '-bq', '1', '-@', str(THREADS), alignment_outfile], stdout=purged_file)
+	view_subprocess.wait()
+	purged_file.close()
+	return purged_assembly
+
+def extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfile):
+
+	##
+	## Scrapes repeat distribution from alignment
+	sorted_assembly = '{}{}'.format(alignment_outdir, '/assembly_sorted.bam')
+	view_subprocess = subprocess.Popen(['samtools', 'view', '-bS', '-@', str(THREADS), alignment_outfile], stdout=subprocess.PIPE)
+	sort_subprocess = subprocess.Popen(['samtools', 'sort', '-@', str(THREADS), '-', '-o', sorted_assembly], stdin=view_subprocess.stdout)
+	view_subprocess.wait(); sort_subprocess.wait()
+
+	index_subprocess = subprocess.Popen(['samtools', 'index', sorted_assembly], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	index_subprocess.wait()
+
+	raw_repeat_distribution = os.path.join(alignment_outdir, 'RawRepeatDistribution.txt')
+	rrd_file = open(raw_repeat_distribution, 'w')
+	idxstats_subprocess = subprocess.Popen(['samtools', 'idxstats', sorted_assembly], stdout=rrd_file)
+	idxstats_subprocess.wait()
+	rrd_file.close()
+
+	##
+	## Text to CSV, clean up text distribution
+	with open(raw_repeat_distribution) as text_distribution:
+		repeat_values = []
+		data_string = ''
+		for line in text_distribution.readlines()[:-1]:
+			values = line.split('\t')
+			data_string += values[0] + ',' + values[1] + ',' + values[2] + ',0\n'
+
+	filestring = sample_root + '\n'
+	filestring += data_string
+	csv_path = os.path.join(alignment_outdir, sample_root+'_RepeatDistribution.csv')
+	csv_file = open(csv_path, 'w')
+	csv_file.write(filestring)
+	csv_file.close()
+	os.remove(raw_repeat_distribution)
+
+	##
+	## We return this single csv for when the function is called from shd/prediction
+	## That call loops through a -i/-b sam input file individually, doesn't need a list
+	## -c input utilises the distribution_files list and the below getter function
+	return csv_path, sorted_assembly
 
 class SeqAlign:
 
@@ -57,16 +105,16 @@ class SeqAlign:
 
 		##
 		## Update object parameters with appropriate distribution/assembly
-		if self.individual_allele is not None:
-			self.individual_allele.set_fwdist(forward_distribution)
-			self.individual_allele.set_rvdist(reverse_distribution)
-			self.individual_allele.set_fwassembly(forward_assembly)
-			self.individual_allele.set_rvassembly(reverse_assembly)
-		else:
+		if not self.individual_allele:
 			self.sequencepair_object.set_fwdist(forward_distribution)
 			self.sequencepair_object.set_rvdist(reverse_distribution)
 			self.sequencepair_object.set_fwassembly(forward_assembly)
 			self.sequencepair_object.set_rvassembly(reverse_assembly)
+		else:
+			self.individual_allele.set_fwdist(forward_distribution)
+			self.individual_allele.set_rvdist(reverse_distribution)
+			self.individual_allele.set_fwassembly(forward_assembly)
+			self.individual_allele.set_rvassembly(reverse_assembly)
 
 	def execute_alignment(self, reference_index, target_fqfile, feedback_string, io_index, typical_flag):
 
@@ -89,8 +137,13 @@ class SeqAlign:
 		##User feedback on alignment progres.. maybe improve later
 		##if you're reading this and want better feedback, you probably know 'top' exists
 		log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,feedback_string))
-		alignment_outdir = os.path.join(self.target_output, '{}_{}_{}'.format(self.sample_root, io_index, typical_flag))
-		if not os.path.exists(alignment_outdir): os.makedirs(alignment_outdir)
+		sample_string = '{}_{}_{}'.format(self.sample_root, io_index, typical_flag)
+		alignment_outdir = os.path.join(self.target_output, sample_string)
+		if os.path.exists(alignment_outdir):
+			alignment_outdir = os.path.join(self.target_output, '{}_{}'.format(sample_string, 'alternate'))
+			os.makedirs(alignment_outdir)
+		if not os.path.exists(alignment_outdir):
+			os.makedirs(alignment_outdir)
 		aln_outpath = '{}/{}'.format(alignment_outdir, 'assembly.sam')
 		aln_outfi = open(aln_outpath, 'w')
 
@@ -134,65 +187,14 @@ class SeqAlign:
 		## Then we execute that here..
 		## the respective files are sent for read count extraction as normal
 		if self.purge_flag:
-			purged_sam = self.purge_alignment_map(alignment_outdir, aln_outpath)
-			csv_path, sorted_assembly = self.extract_repeat_distributions(self.sample_root, alignment_outdir, purged_sam)
+			purged_sam = purge_alignment_map(alignment_outdir, aln_outpath)
+			csv_path, sorted_assembly = extract_repeat_distributions(self.sample_root, alignment_outdir, purged_sam)
 			sys.stdout.flush()
 		else:
-			csv_path, sorted_assembly = self.extract_repeat_distributions(self.sample_root, alignment_outdir, aln_outpath)
+			csv_path, sorted_assembly = extract_repeat_distributions(self.sample_root, alignment_outdir, aln_outpath)
 			sys.stdout.flush()
 
 		return csv_path, alignment_report, sorted_assembly
-
-	@staticmethod
-	def purge_alignment_map(alignment_outdir, alignment_outfile):
-		purged_assembly = '{}{}'.format(alignment_outdir, '/assembly_unique.bam')
-		purged_file = open(purged_assembly, 'w')
-		view_subprocess = subprocess.Popen(['samtools', 'view', '-bq', '1', '-@', str(THREADS), alignment_outfile], stdout=purged_file)
-		view_subprocess.wait()
-		purged_file.close()
-		return purged_assembly
-
-	@staticmethod
-	def extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfile):
-
-		##
-		## Scrapes repeat distribution from alignment
-		sorted_assembly = '{}{}'.format(alignment_outdir, '/assembly_sorted.bam')
-		view_subprocess = subprocess.Popen(['samtools', 'view', '-bS', '-@', str(THREADS), alignment_outfile], stdout=subprocess.PIPE)
-		sort_subprocess = subprocess.Popen(['samtools', 'sort', '-@', str(THREADS), '-', '-o', sorted_assembly], stdin=view_subprocess.stdout)
-		view_subprocess.wait(); sort_subprocess.wait()
-
-		index_subprocess = subprocess.Popen(['samtools', 'index', sorted_assembly], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		index_subprocess.wait()
-
-		raw_repeat_distribution = os.path.join(alignment_outdir, 'RawRepeatDistribution.txt')
-		rrd_file = open(raw_repeat_distribution, 'w')
-		idxstats_subprocess = subprocess.Popen(['samtools', 'idxstats', sorted_assembly], stdout=rrd_file)
-		idxstats_subprocess.wait()
-		rrd_file.close()
-
-		##
-		## Text to CSV, clean up text distribution
-		with open(raw_repeat_distribution) as text_distribution:
-			repeat_values = []
-			data_string = ''
-			for line in text_distribution.readlines()[:-1]:
-				values = line.split('\t')
-				data_string += values[0] + ',' + values[1] + ',' + values[2] + ',0\n'
-
-		filestring = sample_root + '\n'
-		filestring += data_string
-		csv_path = os.path.join(alignment_outdir, sample_root+'_RepeatDistribution.csv')
-		csv_file = open(csv_path, 'w')
-		csv_file.write(filestring)
-		csv_file.close()
-		os.remove(raw_repeat_distribution)
-
-		##
-		## We return this single csv for when the function is called from shd/prediction
-		## That call loops through a -i/-b sam input file individually, doesn't need a list
-		## -c input utilises the distribution_files list and the below getter function
-		return csv_path, sorted_assembly
 
 	def get_alignreport(self):
 		return self.align_report

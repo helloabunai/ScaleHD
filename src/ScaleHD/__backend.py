@@ -404,17 +404,6 @@ def sanitise_inputs(parsed_arguments):
 				trigger = True
 
 	##
-	## Batch mode check
-	if parsed_arguments.batch:
-		if not filesystem_exists_check(parsed_arguments.batch[0]):
-			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified batch folder could not be found.'))
-			trigger = True
-		for samfile in glob.glob(os.path.join(parsed_arguments.batch[0], '*')):
-			if not (check_input_files('.sam',samfile)) and not (check_input_files('.bam', samfile)):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified batch folder contains non SAM/BAM files.'))
-				trigger = True
-
-	##
 	## Config mode check
 	if parsed_arguments.config:
 		if not filesystem_exists_check(parsed_arguments.config[0]):
@@ -584,11 +573,24 @@ def sanitise_outputs(jobname, output_argument):
 			run_dir = os.path.join(output_root, jobname)
 			mkdir_p(run_dir)
 		else:
-			log.info('{}{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Clearing pre-existing Jobname Prefix: ', jobname))
-			run_dir = os.path.join(output_root, jobname)
-			if os.path.exists(run_dir):
-				shutil.rmtree(run_dir)
-			mkdir_p(run_dir)
+			purge_choice = ''
+			while True:
+				purge_choice = raw_input('{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Job folder already exists. Delete existing folder? Y/N: '))
+				if not (purge_choice.lower() == 'y') and not (purge_choice.lower() == 'n'):
+					log.info('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Invalid input. Please input Y or N.'))
+					continue
+				else:
+					break
+
+			if purge_choice.lower() == 'y':
+				log.info('{}{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Clearing pre-existing Jobname Prefix: ', jobname))
+				run_dir = os.path.join(output_root, jobname)
+				if os.path.exists(run_dir):
+					shutil.rmtree(run_dir)
+				mkdir_p(run_dir)
+			else:
+				raise Exception('User chose not to delete pre-existing Job folder. Cannot write output.')
+
 	else:
 		## Ensures root output is a real directory
 		## Generates folder name based on date (for run ident)
@@ -699,7 +701,7 @@ def collate_peaks(predict_path, sample_prefix):
 	os.remove(os.path.join(predict_path, 'Header.pdf'))
 	return sample_merge
 
-def generate_atypical_xml(allele_object, index_path):
+def generate_atypical_xml(label, allele_object, index_path, direction):
 
 	"""
 	:param allele_object:
@@ -708,13 +710,21 @@ def generate_atypical_xml(allele_object, index_path):
 	"""
 	##TODO docstring
 
-	atypical_path = os.path.join(index_path, '{}{}.xml'.format('RefGenSHD',allele_object.get_reflabel()))
-	fp_flank = allele_object.get_fiveprime()
-	caglen = allele_object.get_cag()
+	atypical_path = os.path.join(index_path, '{}{}_{}.xml'.format(direction, label, allele_object.get_reflabel()))
+	fp_flank = 'GCGACCCTGGAAAAGCTGATGAAGGCCTTCGAGTCCCTCAAGTCCTTC'
+	cagstart = ''; cagend = ''
 	intv = allele_object.get_intervening()
+	ccgstart = ''; ccgend = ''
 	ccglen = allele_object.get_ccg()
 	cctlen = allele_object.get_cct()
-	tp_flank = allele_object.get_threeprime()
+	tp_flank = 'CAGCTTCCTCAGCCGCCGCCGCAGGCACAGCCGCTGCT'
+
+	if direction == 'fw':
+		cagstart = '1'; cagend = '200'
+		ccgstart = '1'; ccgend = '20'
+	if direction == 'rv':
+		cagstart = '50'; cagend = '50'
+		ccgstart = str(ccglen-3); ccgend = str(ccglen+3)
 
 	##
 	## Create XML
@@ -724,9 +734,9 @@ def generate_atypical_xml(allele_object, index_path):
 	##
 	## Loci Nodes
 	fp_input = etree.Element('input', type='fiveprime', flank=fp_flank)
-	cag_region = etree.Element('input', type='repeat_region', order='1', unit='CAG', start=str(caglen), end=str(caglen))
+	cag_region = etree.Element('input', type='repeat_region', order='1', unit='CAG', start=cagstart, end=cagend)
 	intervening = etree.Element('input', type='intervening', sequence=intv, prior='1')
-	ccg_region = etree.Element('input', type='repeat_region', order='2', unit='CCG', start=str(ccglen-2), end=str(ccglen+2))
+	ccg_region = etree.Element('input', type='repeat_region', order='2', unit='CCG', start=ccgstart, end=ccgend)
 	cct_region = etree.Element('input', type='repeat_region', order='3', unit='CCT', start=str(cctlen), end=str(cctlen))
 	tp_input = etree.Element('input', type='threeprime', flank=tp_flank)
 
