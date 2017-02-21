@@ -81,9 +81,9 @@ class ScanAtypical:
 		self.atypical_report = os.path.join(self.sequence_path, 'AtypicalReport.txt')
 		report_file = open(self.atypical_report, 'w')
 		report_file.write('{}{}\n{}{}\n{}{}\n{}{}'.format('Primary Allele: ', primary_object.get_reflabel(),
-														  'Primary Original: ', primary_object.get_originalreference(),
-														  'Secondary Allele: ', secondary_object.get_reflabel(),
-														  'Secondary Original: ', secondary_object.get_originalreference()))
+			'Primary Original: ', primary_object.get_originalreference(),
+			'Secondary Allele: ', secondary_object.get_reflabel(),
+			'Secondary Original: ', secondary_object.get_originalreference()))
 		report_file.close()
 
 	def process_assembly(self):
