@@ -41,7 +41,7 @@ class Colour:
 
 
 class ScaleHDException:
-	def __init__(self, e):
+	def __init__(self):
 		pass
 
 
@@ -471,21 +471,12 @@ def sequence_pairings(data_path, instance_rundir, workflow_type):
 			##
 			## Make Stage outputs for use in everywhere else in pipeline
 			sample_root = '_'.join(forward_data_name.split('_')[:-1])
+			instance_path = os.path.join(instance_rundir, 'SequenceMaps')
 			seq_qc_path = os.path.join(instance_rundir, sample_root, 'SeqQC')
 			align_path = os.path.join(instance_rundir, sample_root, 'Align')
 			predict_path = os.path.join(instance_rundir, sample_root, 'Predict')
 			bayes_path = os.path.join(instance_rundir, sample_root, 'Bayes')
-			file_pair[sample_root] = [forward_data, reverse_data, seq_qc_path, align_path, predict_path, bayes_path]
-			sequence_pairs.append(file_pair)
-
-		if workflow_type == 'assembly':
-
-			##
-			## Assembly only requires a prediction folder so we do a slightly different thing here
-			sample_root = '_'.join(forward_data_name.split('_')[:-1])
-			predict_path = os.path.join(instance_rundir, sample_root, 'Predict')
-			bayes_path = os.path.join(instance_rundir, sample_root, 'Bayes')
-			file_pair[sample_root] = [forward_data, reverse_data, predict_path, bayes_path]
+			file_pair[sample_root] = [forward_data, reverse_data, instance_path, seq_qc_path, align_path, predict_path, bayes_path]
 			sequence_pairs.append(file_pair)
 
 	return sequence_pairs
@@ -501,7 +492,7 @@ def filesystem_exists_check(path, raise_exception=True):
 	if os.path.lexists(path):
 		return True
 	if raise_exception:
-		log.error('{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Specified -b/-c path could not be found.'))
+		log.error('{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Specified input path could not be found.'))
 	return False
 
 def check_input_files(input_format, input_file):
@@ -546,6 +537,8 @@ def initialise_libraries(instance_params):
 		try:which('cutadapt')
 		except ScaleHDException: trigger=True
 	if alignment == 'True':
+		try:which('seqtk')
+		except ScaleHDException: trigger=True
 		try:which('bwa')
 		except ScaleHDException: trigger=True
 		try:which('samtools')
@@ -586,7 +579,7 @@ def sanitise_outputs(jobname, output_argument):
 				log.info('{}{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Clearing pre-existing Jobname Prefix: ', jobname))
 				run_dir = os.path.join(output_root, jobname)
 				if os.path.exists(run_dir):
-					shutil.rmtree(run_dir)
+					shutil.rmtree(run_dir, ignore_errors=True)
 				mkdir_p(run_dir)
 			else:
 				raise Exception('User chose not to delete pre-existing Job folder. Cannot write output.')
@@ -756,7 +749,7 @@ def generate_reference(input_xml, index_path):
 
 	label = input_xml.split('/')[-1].split('.')[0]
 	target_output = os.path.join(index_path, label+'.fa')
-	gen_process = subprocess.Popen(['generatr', '-i', input_xml, '-o', target_output], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	gen_process = subprocess.Popen(['generatr', '-i', input_xml, '-o', target_output])#, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	gen_process.wait()
 
 	return target_output

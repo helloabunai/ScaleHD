@@ -6,6 +6,7 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 ## Generals
 import os
 import sys
+import errno
 import subprocess
 import shutil
 import logging as log
@@ -21,6 +22,7 @@ def purge_alignment_map(alignment_outdir, alignment_outfile):
 	view_subprocess = subprocess.Popen(['samtools', 'view', '-bq', '1', '-@', str(THREADS), alignment_outfile], stdout=purged_file)
 	view_subprocess.wait()
 	purged_file.close()
+	os.remove(alignment_outfile)
 	return purged_assembly
 
 def extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfile):
@@ -60,8 +62,7 @@ def extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfil
 
 	##
 	## We return this single csv for when the function is called from shd/prediction
-	## That call loops through a -i/-b sam input file individually, doesn't need a list
-	## -c input utilises the distribution_files list and the below getter function
+	os.remove(alignment_outfile)
 	return csv_path, sorted_assembly
 
 class SeqAlign:
@@ -74,26 +75,51 @@ class SeqAlign:
 		self.individual_allele = individual_allele
 		self.sample_root = sequencepair_object.get_label()
 		self.target_output = sequencepair_object.get_alignpath()
+		self.alignment_suffix = ''
 		if individual_allele is not None:
 			self.reference_indexes = [individual_allele.get_fwidx(), individual_allele.get_rvidx()]
 		else:
 			self.reference_indexes = [sequencepair_object.get_fwidx(), sequencepair_object.get_rvidx()]
 		self.instance_params = instance_params
 		self.purge_flag = sequencepair_object.get_purgeflag()
+		self.subsample_flag = sequencepair_object.get_subsampleflag()
 		self.align_report = []
 		self.alignment_workflow()
+
+	def subsample_input(self, target_file, suffix):
+
+		if self.individual_allele is None:
+			target_sample = '{}_SUB_{}.fastq'.format(self.sequencepair_object.get_label(), suffix)
+			target_output = os.path.join(self.sequencepair_object.get_alignpath(),target_sample)
+			target_outfi = open(target_output, 'w')
+			seqtk_process = subprocess.Popen(['seqtk', 'sample', '-s100', target_file, str(self.subsample_flag)], stdout=target_outfi)
+			seqtk_process.wait(); target_outfi.close()
+			os.remove(target_file)
+			return target_output
+		else:
+			return target_file
 
 	def alignment_workflow(self):
 
 		##
-		## Get forward reference, resultant indexes, and reads
+		## Get forward/reverse references/indexes
 		forward_index = self.reference_indexes[0]
-		forward_reads = self.sequencepair_object.get_fwreads()
+		reverse_index = self.reference_indexes[1]
+		forward_reads = ''
+		reverse_reads = ''
 
 		##
-		## Get reverse reference, resultant indexes, and reads
-		reverse_index = self.reference_indexes[1]
-		reverse_reads = self.sequencepair_object.get_rvreads()
+		## Subsample input files if requested by the user
+		if self.subsample_flag:
+			forward_reads = self.subsample_input(self.sequencepair_object.get_fwreads(), 'R1')
+			reverse_reads = self.subsample_input(self.sequencepair_object.get_rvreads(), 'R2')
+			self.sequencepair_object.set_fwreads(forward_reads)
+			self.sequencepair_object.set_rvreads(reverse_reads)
+		if not self.subsample_flag:
+			forward_reads = self.sequencepair_object.get_fwreads()
+			reverse_reads = self.sequencepair_object.get_rvreads()
+			self.sequencepair_object.set_fwreads(forward_reads)
+			self.sequencepair_object.set_rvreads(reverse_reads)
 
 		##
 		## Align the two FastQ files in the pair
@@ -102,6 +128,33 @@ class SeqAlign:
 		forward_distribution, forward_report, forward_assembly = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1',typical_flag)
 		reverse_distribution, reverse_report, reverse_assembly = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2',typical_flag)
 		self.align_report.append(forward_report); self.align_report.append(reverse_report)
+
+		##
+		## If the user requested to group alignment output.. do so..
+		if self.sequencepair_object.get_groupflag():
+			try:
+				os.makedirs(self.sequencepair_object.get_instancepath())
+			except OSError as exc:
+					if exc.errno == errno.EEXIST and os.path.isdir(self.sequencepair_object.get_instancepath()):pass
+					else: raise
+
+			forward_samfi = self.alignment_suffix+'_R1.bam'
+			forward_idxfi = self.alignment_suffix+'_R1.bam.bai'
+			reverse_samfi = self.alignment_suffix+'_R2.bam'
+			reverse_idxfi = self.alignment_suffix+'_R2.bam.bai'
+
+			fw_assem = os.path.join(self.sequencepair_object.get_instancepath(), forward_samfi)
+			target_fwidxfi = os.path.join(self.sequencepair_object.get_instancepath(), forward_idxfi)
+			rv_assem = os.path.join(self.sequencepair_object.get_instancepath(), reverse_samfi)
+			target_rvidxfi = os.path.join(self.sequencepair_object.get_instancepath(), reverse_idxfi)
+
+			os.rename(forward_assembly, fw_assem)
+			os.rename(forward_assembly+'.bai', target_fwidxfi)
+			os.rename(reverse_assembly, rv_assem)
+			os.rename(reverse_assembly+'.bai', target_rvidxfi)
+
+			forward_assembly = fw_assem
+			reverse_assembly = rv_assem
 
 		##
 		## Update object parameters with appropriate distribution/assembly
@@ -135,7 +188,7 @@ class SeqAlign:
 
 		##
 		##User feedback on alignment progres.. maybe improve later
-		##if you're reading this and want better feedback, you probably know 'top' exists
+		##if you're reading this and want better feedback, you probably know 'htop' exists
 		log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,feedback_string))
 		sample_string = '{}_{}_{}'.format(self.sample_root, io_index, typical_flag)
 		alignment_outdir = os.path.join(self.target_output, sample_string)
@@ -144,6 +197,7 @@ class SeqAlign:
 			os.makedirs(alignment_outdir)
 		if not os.path.exists(alignment_outdir):
 			os.makedirs(alignment_outdir)
+		self.alignment_suffix = alignment_outdir.split('/')[-1]
 		aln_outpath = '{}/{}'.format(alignment_outdir, 'assembly.sam')
 		aln_outfi = open(aln_outpath, 'w')
 

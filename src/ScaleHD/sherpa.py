@@ -66,6 +66,9 @@ class ScaleHD:
 		self.parser.add_argument('-c', '--config', help='Pipeline config. Specify a directory to your ArgumentConfig.xml file.', nargs=1, required=True)
 		self.parser.add_argument('-t', '--threads', help='Thread utilisation. Typically only alters third party alignment performance. Default: system max.', type=int, choices=xrange(1, THREADS+1), default=THREADS)
 		self.parser.add_argument('-p', '--purgesam', help='Remove non-unique reads in sam files the application will work with.', action='store_true')
+		self.parser.add_argument('-g', '--groupsam', help='Outputs all sorted SAM files into one instance-wide output folder, rather than sample subfolders.', action='store_true')
+		self.parser.add_argument('-s', '--subsample', help='Subsample any given input FastQ sequence file before processing for alignment.', type=float, choices=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9])
+		self.parser.add_argument('-b', '--boost', help='Increase DSP scanning speed by sacrificing sample-wide precision.', action='store_true')
 		self.parser.add_argument('-j', '--jobname', help='Customised folder output name. If not specified, defaults to normal output naming schema.', type=str)
 		self.parser.add_argument('-o', '--output', help='Output path. Specify a directory you wish output to be directed towards.', metavar='output', nargs=1, required=True)
 		self.args = self.parser.parse_args()
@@ -90,6 +93,9 @@ class ScaleHD:
 			log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, e))
 			sys.exit(2)
 		self.purge_flag = self.args.purgesam
+		self.subsample_flag = self.args.subsample
+		self.boost_flag = self.args.boost
+		self.group_flag = self.args.groupsam
 		self.instance_summary = {}; self.instance_graphs = ''
 
 		##
@@ -142,7 +148,10 @@ class ScaleHD:
 		##
 		## Instance results (genotype table)
 		self.instance_results = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		header = '{},{},{},{},{},{},{},{},{},{},{}\n'.format('SampleName', 'Primary GTYPE', 'Status', 'Ref Label', 'Ref Original', 'Confidence', 'Secondary GTYPE', 'Status', 'Ref Label', 'Ref Original', 'Confidence')
+		header = '{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
+			'SampleName', '', 'Primary GTYPE', 'Status', 'BSlippage', 'Somatic Mosaicism', 'Confidence',
+			'', 'Secondary GTYPE', 'Status', 'BSlippage', 'Somatic Mosaicism', 'Confidence'
+		)
 		with open(self.instance_results, 'w') as outfi: outfi.write(header); outfi.close()
 
 		##
@@ -211,11 +220,15 @@ class ScaleHD:
 													 str(i + 1), str(len(data_pairs)), seqpair_lbl))
 				current_seqpair = SequenceSample()
 				current_seqpair.set_label(seqpair_lbl)
-				current_seqpair.set_qcpath(seqpair_dat[2])
-				current_seqpair.set_alignpath(seqpair_dat[3])
-				current_seqpair.set_predictpath(seqpair_dat[4])
-				current_seqpair.set_bayespath(seqpair_dat[5])
+				current_seqpair.set_instancepath(seqpair_dat[2])
+				current_seqpair.set_qcpath(seqpair_dat[3])
+				current_seqpair.set_alignpath(seqpair_dat[4])
+				current_seqpair.set_predictpath(seqpair_dat[5])
+				current_seqpair.set_bayespath(seqpair_dat[6])
 				current_seqpair.set_purgeflag(self.purge_flag)
+				current_seqpair.set_boostflag(self.boost_flag)
+				current_seqpair.set_groupflag(self.group_flag)
+				current_seqpair.set_subsampleflag(self.subsample_flag)
 				current_seqpair.set_fwidx(self.reference_indexes[0])
 				current_seqpair.set_rvidx(self.reference_indexes[1])
 				current_seqpair.set_fwreads(seqpair_dat[0])
@@ -249,7 +262,7 @@ class ScaleHD:
 					self.atypical_scanning(current_seqpair)
 				except Exception, e:
 					self.append_report(current_seqpair, "FAIL")
-					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Atypical scanning failure on ',seqpair_lbl,str(e)))
+					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Atypical scanning failure on ', seqpair_lbl, str(e)))
 					continue
 
 				##########################################
@@ -280,6 +293,10 @@ class ScaleHD:
 						allele.set_fwassembly(current_seqpair.get_fwassembly())
 						allele.set_rvassembly(current_seqpair.get_rvassembly())
 
+				## tidy up seq files
+				for seqfi in [current_seqpair.get_fwreads(), current_seqpair.get_rvreads()]:
+					os.remove(seqfi)
+
 				###########################################
 				## Stage five!! Genotype distributions.. ##
 				###########################################
@@ -303,8 +320,12 @@ class ScaleHD:
 				#############################
 				## Finished! File output.. ##
 				#############################
-				self.collate_graphs(current_seqpair)
-				self.append_report(current_seqpair, "PASS")
+				try:
+					self.collate_graphs(current_seqpair)
+					self.append_report(current_seqpair, "PASS")
+				except Exception, e:
+					self.append_report(current_seqpair, "FAIL")
+					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Report/Graphing failure on ', seqpair_lbl, str(e)))
 				gc.collect()
 				log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Sequence pair workflow complete!\n'))
 
@@ -397,31 +418,28 @@ class ScaleHD:
 
 	def append_report(self, sequencepair_object, context):
 
-		sequence_label = sequencepair_object.get_label()
-		primary_allele = sequencepair_object.get_primaryallele()
-		primary_gtype = primary_allele.get_allelegenotype()
-		primary_status = primary_allele.get_allelestatus()
-		primary_label = primary_allele.get_reflabel()
-		primary_original = primary_allele.get_originalreference()
-		primary_confidence = ''
-		secondary_allele = sequencepair_object.get_secondaryallele()
-		secondary_gtype = secondary_allele.get_allelegenotype()
-		secondary_status = secondary_allele.get_allelestatus()
-		secondary_label = secondary_allele.get_reflabel()
-		secondary_original = secondary_allele.get_originalreference()
-		secondary_confidence = ''
+		report_string = ''
 
 		if context == "FAIL":
-			primary_confidence = 'FAILURE'
-			secondary_confidence = 'FAILURE'
+			report_string = '{},FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,\n'.format(sequencepair_object.get_label())
 		if context == 'PASS':
+			sequence_label = sequencepair_object.get_label()
+			primary_allele = sequencepair_object.get_primaryallele()
+			primary_gtype = primary_allele.get_allelegenotype()
+			primary_status = primary_allele.get_allelestatus()
+			primary_bslip = primary_allele.get_backwardsslippage()
+			primary_sommos = primary_allele.get_somaticmosaicism()
+			secondary_allele = sequencepair_object.get_secondaryallele()
+			secondary_gtype = secondary_allele.get_allelegenotype()
+			secondary_status = secondary_allele.get_allelestatus()
+			secondary_bslip = secondary_allele.get_backwardsslippage()
+			secondary_sommos = secondary_allele.get_somaticmosaicism()
 			primary_confidence = primary_allele.get_alleleconfidence()
 			secondary_confidence = secondary_allele.get_alleleconfidence()
 
-		report_string = '{},{},{},{},{},{},{},{},{},{},{},\n'.format(sequence_label, primary_gtype, primary_status,
-																	 primary_label, primary_original, primary_confidence,
-																	 secondary_gtype, secondary_status, secondary_label,
-																	 secondary_original, secondary_confidence)
+			report_string = '{},{},{},{},{},{},{},{},{},{},{},{},{},\n'.format(sequence_label, '', primary_gtype, primary_status,
+							primary_bslip, primary_sommos, primary_confidence, '', secondary_gtype, secondary_status,
+							secondary_bslip,secondary_sommos, secondary_confidence)
 		with open(self.instance_results, 'a') as outfi:
 			outfi.write(report_string)
 			outfi.close()

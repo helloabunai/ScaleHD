@@ -16,7 +16,7 @@ import logging as log
 ##
 ## Package backend
 from ..__backend import Colour as clr
-from . import GenotypePrediction as gtp
+from . import AlleleGenotyping as gtp
 
 ##
 ## R <-> Python interface

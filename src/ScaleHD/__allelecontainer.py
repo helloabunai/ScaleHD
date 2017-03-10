@@ -4,11 +4,16 @@ import errno
 class SequenceSample:
 	def __init__(self):
 		self.sample_label = ''
+		self.instance_path = ''
 		self.sample_qcpath = ''
 		self.sample_alignpath = ''
 		self.sample_predictpath = ''
 		self.sample_bayespath = ''
 		self.purge_flag = False
+		self.subsample_flag = False
+		self.boost_flag = False
+		self.group_flag = False
+		self.total_seqreads = 0
 
 		self.forward_index = ''
 		self.reverse_index = ''
@@ -36,11 +41,16 @@ class SequenceSample:
 	##
 	## Setters
 	def set_label(self, label): self.sample_label = label
+	def set_instancepath(self, instance_path): self.instance_path = instance_path
 	def set_qcpath(self, qcpath): self.sample_qcpath = qcpath
 	def set_alignpath(self, alignpath):	self.sample_alignpath = alignpath
 	def set_predictpath(self, predictpath):	self.sample_predictpath = predictpath
 	def set_bayespath(self, bayespath):	self.sample_bayespath = bayespath
 	def set_purgeflag(self, flag): self.purge_flag = flag
+	def set_subsampleflag(self, flag): self.subsample_flag = flag
+	def set_boostflag(self, flag): self.boost_flag = flag
+	def set_groupflag(self, flag): self.group_flag = flag
+	def set_totalseqreads(self, count): self.total_seqreads = count
 
 	def set_fwidx(self, idx): self.forward_index = idx
 	def set_rvidx(self, idx): self.reverse_index = idx
@@ -68,11 +78,16 @@ class SequenceSample:
 	##
 	## Getters
 	def get_label(self): return self.sample_label
+	def get_instancepath(self): return self.instance_path
 	def get_qcpath(self): return self.sample_qcpath
 	def get_alignpath(self): return self.sample_alignpath
 	def get_predictpath(self): return self.sample_predictpath
 	def get_bayespath(self): return self.sample_bayespath
 	def get_purgeflag(self): return self.purge_flag
+	def get_subsampleflag(self): return self.subsample_flag
+	def get_boostflag(self): return self.boost_flag
+	def get_groupflag(self): return self.group_flag
+	def get_totalseqreads(self): return self.total_seqreads
 
 	def get_fwidx(self): return self.forward_index
 	def get_rvidx(self): return self.reverse_index
@@ -157,6 +172,9 @@ class IndividualAllele:
 		self.interpolation_warning = False
 		self.nminus_warninglevel = 0
 		self.nplus_warninglevel = 0
+		self.somaticmosaicism = 0.0
+		self.backwards_slippage = 0.0
+		self.unexpected_peaks = False
 
 	##
 	## Setters
@@ -207,6 +225,9 @@ class IndividualAllele:
 	def raise_interpolation_warning(self, bool): self.interpolation_warning = bool
 	def set_nminuswarninglevel(self, amount): self.nminus_warninglevel = amount
 	def set_npluswarninglevel(self, amount): self.nplus_warninglevel = amount
+	def set_somaticmosaicism(self, amount): self.somaticmosaicism = amount
+	def set_backwardsslippage(self, amount): self.backwards_slippage = amount
+	def set_unexpectedpeaks(self, bool): self.unexpected_peaks = bool
 
 	##
 	## Getters
@@ -257,3 +278,6 @@ class IndividualAllele:
 	def get_interpolation_warning(self): return self.interpolation_warning
 	def get_nminuswarninglevel(self): return self.nminus_warninglevel
 	def get_npluswarninglevel(self): return self.nplus_warninglevel
+	def get_somaticmosaicism(self): return self.somaticmosaicism
+	def get_backwardsslippage(self): return self.backwards_slippage
+	def get_unexpectedpeaks(self): return self.unexpected_peaks

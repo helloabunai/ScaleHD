@@ -28,6 +28,7 @@ class ScanAtypical:
 
 		##
 		## Variables for this class/assembly data
+		self.sequencepair_object = sequencepair_object
 		self.sequence_path = sequencepair_object.get_alignpath()
 		self.sorted_assembly = sequencepair_object.get_fwassembly()
 		self.instance_params = instance_params
@@ -37,6 +38,7 @@ class ScanAtypical:
 		self.present_references = None
 		self.assembly_targets = None
 		self.atypical_count = 0
+		self.awk_output = 0
 		self.atypical_info = {}
 
 		##
@@ -57,22 +59,22 @@ class ScanAtypical:
 		for allele_pair in [(primary_object, primary_data, 'PRI'), (secondary_object, secondary_data, 'SEC')]:
 			obj = allele_pair[0]; dat = allele_pair[1]
 			obj.set_header(allele_pair[2])
-			obj.set_allelestatus(dat['Status'])
-			obj.set_referencelabel(dat['Reference'])
-			obj.set_originalreference(dat['OriginalReference'])
-			obj.set_totalreads(dat['TotalReads'])
-			obj.set_typicalreads(dat['TypicalCount'])
-			obj.set_typicalpcnt(dat['TypicalPcnt'])
-			obj.set_atypicalreads(dat['AtypicalCount'])
-			obj.set_atypicalpcnt(dat['AtypicalPcnt'])
-			obj.set_fiveprime(dat['5PFlank'])
-			obj.set_cagval(dat['EstimatedCAG'])
-			obj.set_intervening(dat['InterveningSequence'])
-			obj.set_caacagval(dat['EstimatedCAACAG'])
-			obj.set_ccgccaval(dat['EstimatedCCGCCA'])
-			obj.set_ccgval(dat['EstimatedCCG'])
-			obj.set_cctval(dat['EstimatedCCT'])
-			obj.set_threeprime(dat['3PFlank'])
+			obj.set_allelestatus(dat.get('Status'))
+			obj.set_referencelabel(dat.get('Reference'))
+			obj.set_originalreference(dat.get('OriginalReference'))
+			obj.set_totalreads(dat.get('TotalReads'))
+			obj.set_typicalreads(dat.get('TypicalCount'))
+			obj.set_typicalpcnt(dat.get('TypicalPcnt'))
+			obj.set_atypicalreads(dat.get('AtypicalCount'))
+			obj.set_atypicalpcnt(dat.get('AtypicalPcnt'))
+			obj.set_fiveprime(dat.get('5PFlank'))
+			obj.set_cagval(dat.get('EstimatedCAG'))
+			obj.set_intervening(dat.get('InterveningSequence'))
+			obj.set_caacagval(dat.get('EstimatedCAACAG'))
+			obj.set_ccgccaval(dat.get('EstimatedCCGCCA'))
+			obj.set_ccgval(dat.get('EstimatedCCG'))
+			obj.set_cctval(dat.get('EstimatedCCT'))
+			obj.set_threeprime(dat.get('3PFlank'))
 		sequencepair_object.set_primary_allele(primary_object)
 		sequencepair_object.set_secondary_allele(secondary_object)
 
@@ -88,8 +90,10 @@ class ScanAtypical:
 
 	def process_assembly(self):
 		"""
-		Function to take the complete aligned assembly and subsample to 20% of the reads (for speed purposes).
-		Will implement user specified subsample threshold eventually. Once subsampled, pass to processing.
+		Function which processes the input SAM for atypical scanning.
+		Determine the number of total reads present (for subsampling).
+		If the user specified to use --boost, or there are more than 20k reads present, we subsample.
+		Read file into PySAM object.. process further
 		:return: None
 		"""
 
@@ -103,16 +107,24 @@ class ScanAtypical:
 		if awk_output > 20000: subsample_float = 0.05
 		elif 20000 > awk_output > 10000: subsample_float = 0.1
 		else: subsample_float = 0.2
+		self.sequencepair_object.set_totalseqreads(awk_output)
 
 		##
 		## Subsample reads
 		## Index the subsampled assembly
-		self.subsample_assembly = os.path.join(self.sequence_path,'subsample.sam')
-		self.subsample_index = os.path.join(self.sequence_path,'subsample.sam.bai')
-		assem_obj = open(self.subsample_assembly,'w')
-		subsample_process = subprocess.Popen(['samtools','view','-s',str(subsample_float),'-b', self.sorted_assembly], stdout=assem_obj)
-		subsample_process.wait(); assem_obj.close()
-		index_process = subprocess.Popen(['samtools','index',self.subsample_assembly]); index_process.wait()
+		if self.sequencepair_object.get_boostflag() or awk_output > 20000:
+			self.sequencepair_object.set_subsampleflag('0.05**')
+			self.subsample_assembly = os.path.join(self.sequence_path,'subsample.sam')
+			self.subsample_index = os.path.join(self.sequence_path,'subsample.sam.bai')
+			assem_obj = open(self.subsample_assembly,'w')
+			subsample_process = subprocess.Popen(['samtools','view','-s',str(subsample_float),'-b', self.sorted_assembly], stdout=assem_obj)
+			subsample_process.wait(); assem_obj.close()
+			index_process = subprocess.Popen(['samtools','index',self.subsample_assembly]); index_process.wait()
+		##
+		## If the user has specified a global subsampling flag, we do not subsample further (unless insane read count)
+		if not self.sequencepair_object.get_boostflag():
+			if awk_output > 20000: pass
+			else: self.subsample_assembly = self.sorted_assembly
 
 		##
 		## Load into object, determine references to investigate
@@ -130,6 +142,13 @@ class ScanAtypical:
 
 	@staticmethod
 	def typical_rotation(input_string):
+
+		"""
+		Function to detect if an intervening sequence (typical structure) is located within all possible
+		rotations of a given/derived intervening sequence. Easiest method is to double to target, and search.
+		:param input_string:
+		:return:
+		"""
 
 		##
 		## Lengths of target strings
@@ -152,6 +171,13 @@ class ScanAtypical:
 		else: return 0
 
 	def scan_reference_reads(self):
+
+		"""
+		Function which determines the literal repeat regions, ignoring misalignment issues.
+		We loop over every 'investigation' from this assembly <- i.e. the top 3 reference (in terms of read count)
+		Each read within each reference is then scanned, to determine the structure of said read.
+		:return:
+		"""
 
 		##
 		## Iterate over top 3 aligned references in this assembly
@@ -234,7 +260,6 @@ class ScanAtypical:
 					reference_atypicals.append(intervene_string)
 				else:
 					typical_count += 1
-
 			##
 			## Calculate the presence of each 'state' of reference
 			ref_typical = format(((typical_count / investigation[1]) * 100), '.2f')
@@ -298,8 +323,9 @@ class ScanAtypical:
 			## Append results to reference label
 			self.atypical_info[investigation[0]] = reference_dictionary
 
-		os.remove(self.subsample_assembly)
-		os.remove(self.subsample_index)
+		if self.sequencepair_object.get_boostflag() or self.sequencepair_object.get_subsampleflag() == '0.05**':
+			os.remove(self.subsample_assembly)
+			os.remove(self.subsample_index)
 
 	def get_repeat_tract(self, triplet_input, mask):
 
@@ -399,55 +425,62 @@ class ScanAtypical:
 
 		##
 		## Check % dropoff in read count between #2 and #3
-		beta_diff = float(abs(sorted_info[1][1]['TotalReads'] - sorted_info[2][1]['TotalReads']))
-		beta_drop = float(beta_diff / sorted_info[1][1]['TotalReads'])
-
-		##
-		## TODO fix this garbage dumpster fire
-		## TODO oh my god it's so ugly
+		alpha_diff = float(abs(sorted_info[0][1]['TotalReads'] - sorted_info[1][1]['TotalReads']))
+		beta_diff = float(abs(sorted_info[0][1]['TotalReads'] - sorted_info[2][1]['TotalReads']))
+		sub_diff = float(abs(sorted_info[1][1]['TotalReads'] - sorted_info[2][1]['TotalReads']))
+		alpha_drop = float(alpha_diff / sorted_info[0][1]['TotalReads'])
+		beta_drop = float(beta_diff / sorted_info[0][1]['TotalReads'])
+		sub_drop = float(sub_diff / sorted_info[1][1]['TotalReads'])
 
 		## Top1 always used
-		## Check Top2 vs Top3, if drop is > 20%, ok
-
-		## If not >= 20%, investigate further:
-		##   If T2_CCG == T3_CCG, potential slippage event
-		##     if T2_CAG-T3_CAG > 1, no slippage, use Top1 and Top2
-		##     if T2_CAG-T3_CAG == 1, maybe slippage
-		##       if T2-T3 read drop is <= 0.1, use Top1 and Top3, slippage event
-		##       otherwise, use Top1 and Top2, no slippage
-		##   If T2_CCG and T3_CCG differ, no slippage
-		##     Check T1_CAG and T3_CAG for n-1, check diff between 2 and 3 > 10%
 		primary_allele = sorted_info[0][1]; primary_allele['Reference'] = sorted_info[0][0]
-		if not beta_drop >= 0.20:
+		secondary_allele = None
+
+		##
+		## CCG matches between #2/#3, potential peak skew
+		if sorted_info[1][1]['EstimatedCCG'] == sorted_info[2][1]['EstimatedCCG']:
 			##
-			## CCG match, potential slippage
-			if sorted_info[1][1]['EstimatedCCG'] == sorted_info[2][1]['EstimatedCCG']:
-				if abs(sorted_info[1][1]['EstimatedCAG'] - sorted_info[2][1]['EstimatedCAG']) > 1:
-					secondary_allele = sorted_info[1][1]
-					secondary_allele['Reference'] = sorted_info[1][0]
-				elif abs(sorted_info[1][1]['EstimatedCAG'] - sorted_info[2][1]['EstimatedCAG']) == 1:
-					if beta_drop <= 0.1:
-						secondary_allele = sorted_info[2][1]
-						secondary_allele['Reference'] = sorted_info[2][0]
+			## check #2 and #3 vs CAG(#1)
+			for val in [sorted_info[1], sorted_info[2]]:
+				top1_cag = primary_allele['EstimatedCAG']; curr_cag = val[1].get('EstimatedCAG')
+				top1_reads = primary_allele['TotalReads']; curr_reads = val[1].get('TotalReads')
+				read_drop = abs(top1_reads-curr_reads)/top1_reads
+
+				if val[1].get('EstimatedCCG') != primary_allele['EstimatedCCG']:
+					if read_drop >= 0.40:
+						if sub_drop <= 0.25:
+							secondary_allele = sorted_info[2][1]
+							secondary_allele['Reference'] = sorted_info[2][0]
+							break
+						else:
+							secondary_allele = sorted_info[1][1]
+							secondary_allele['Reference'] = sorted_info[1][0]
+							break
+					else:
+						if sub_drop <= 0.25:
+							secondary_allele = sorted_info[1][1]
+							secondary_allele['Reference'] = sorted_info[1][0]
+							break
+
+				##
+				## Secondary allele unassigned, perhaps homzoygous haplotype
+				if not secondary_allele:
+					top2_top3_dist = abs(sorted_info[1][1]['EstimatedCAG']-sorted_info[2][1]['EstimatedCAG'])
+					if read_drop >= 0.65 and top2_top3_dist == 1:
+						secondary_allele = primary_allele
+						break
 					else:
 						secondary_allele = sorted_info[1][1]
 						secondary_allele['Reference'] = sorted_info[1][0]
-				else:
-					secondary_allele = sorted_info[1][1]
-					secondary_allele['Reference'] = sorted_info[1][0]
-			##
-			## CCG don't match, no slippage
-			else:
-				if abs(sorted_info[0][1]['EstimatedCAG'] - sorted_info[2][1]['EstimatedCAG']) == 1 and beta_drop >= 0.10:
-					secondary_allele = sorted_info[1][1]
-					secondary_allele['Reference'] = sorted_info[1][0]
-				else:
-					secondary_allele = sorted_info[2][1]
-					secondary_allele['Reference'] = sorted_info[2][0]
+						break
 		##
-		## Otherwise the drop between #2 and #3 is so big that #3 isn't possible
+		## CCG mismatch between #2/#3, no potential peak skew
 		else:
-			secondary_allele = sorted_info[1][1]; secondary_allele['Reference'] = sorted_info[1][0]
+			if alpha_drop >= 0.65 and beta_drop >= 0.80:
+				secondary_allele = primary_allele
+			elif beta_drop >= 0.20:
+				secondary_allele = sorted_info[1][1]
+				secondary_allele['Reference'] = sorted_info[1][0]
 
 		##
 		## For each of the alleles we've determined..

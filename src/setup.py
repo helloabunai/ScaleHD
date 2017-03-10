@@ -99,7 +99,8 @@ setup(
     package_data={'ScaleHD': ['train/long_descr.rst',
                               'train/polyglutamine.csv',
                               'train/likelihood_matrix.csv',
-                              'train/raw_matrix.csv']},
+                              'train/raw_matrix.csv',
+							  'config/config.dtd']},
 	include_package_data=True,
 
 	# Executable scripts require an entry point to allow cython to generate
