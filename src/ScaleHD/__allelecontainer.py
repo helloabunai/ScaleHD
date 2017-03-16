@@ -164,7 +164,7 @@ class IndividualAllele:
 		self.ccg_valid = False
 		self.cag_valid = False
 		self.interp_distance = 0.0
-		self.signaltonoise = 0.0
+		self.vicinity_reads = 0
 		self.immediate_dropoff = []
 		self.allele_report = ''
 		self.allele_graphs = []
@@ -217,7 +217,7 @@ class IndividualAllele:
 	def set_ccgvalid(self, status): self.ccg_valid = status
 	def set_cagvalid(self, status): self.cag_valid = status
 	def set_interpdistance(self,distance): self.interp_distance = distance
-	def set_signaltonoise(self, value): self.signaltonoise = value
+	def set_vicinityreads(self, value): self.vicinity_reads = value
 	def set_immediate_dropoff(self, value_list): self.immediate_dropoff = value_list
 	def set_allelereport(self, path): self.allele_report = path
 	def set_allelegraphs(self, graph): self.allele_graphs.append(graph)
@@ -270,7 +270,7 @@ class IndividualAllele:
 	def get_ccgvalid(self): return self.ccg_valid
 	def get_cagvalid(self): return self.cag_valid
 	def get_interpdistance(self): return self.interp_distance
-	def get_signaltonoise(self): return self.signaltonoise
+	def get_vicinityreads(self): return self.vicinity_reads
 	def get_immediate_dropoff(self): return self.immediate_dropoff
 	def get_allelereport(self): return self.allele_report
 	def get_allelegraphs(self): return self.allele_graphs
