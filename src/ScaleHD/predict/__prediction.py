@@ -437,8 +437,6 @@ class AlleleGenotyping:
 			else:
 				pass_gtp = False
 
-		##
-		##TODO WRITE A REPORT FAILURE LOG
 		return pass_gtp
 
 	def determine_cag(self):
