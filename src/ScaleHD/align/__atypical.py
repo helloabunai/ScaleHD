@@ -8,7 +8,9 @@ import pysam
 import difflib
 import subprocess
 import numpy as np
+import logging as log
 from collections import Counter
+from ..__backend import Colour as clr
 from ..__allelecontainer import IndividualAllele
 
 class ScanAtypical:
@@ -40,6 +42,7 @@ class ScanAtypical:
 		self.atypical_count = 0
 		self.awk_output = 0
 		self.atypical_info = {}
+		self.alignment_warning = False
 
 		##
 		## Fill objects with data
@@ -55,6 +58,7 @@ class ScanAtypical:
 		## Turn results into objects
 		primary_object = IndividualAllele(); secondary_object = IndividualAllele()
 		primary_data, secondary_data, atypical_count = self.organise_atypicals()
+
 		sequencepair_object.set_atypical_count(atypical_count)
 		for allele_pair in [(primary_object, primary_data, 'PRI'), (secondary_object, secondary_data, 'SEC')]:
 			obj = allele_pair[0]; dat = allele_pair[1]
@@ -140,6 +144,17 @@ class ScanAtypical:
 		## Assign our target references (Top 3 sorted references, sorted by read count)
 		self.assembly_targets = sorted(assembly_refdat, key=lambda x:x[1], reverse=True)[0:3]
 
+		##
+		## Check for a mal-aligned sample
+		fail_score = 0
+		for target in self.assembly_targets:
+			if target[1] < 20:
+				fail_score += 1
+		if fail_score != 0:
+			log.warning('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Alignment contains too few reads. Cannot guarantee precision.'))
+			self.alignment_warning = True
+			self.sequencepair_object.set_alignmentwarning(self.alignment_warning)
+
 	@staticmethod
 	def typical_rotation(input_string):
 
@@ -178,6 +193,7 @@ class ScanAtypical:
 		Each read within each reference is then scanned, to determine the structure of said read.
 		:return:
 		"""
+
 
 		##
 		## Iterate over top 3 aligned references in this assembly
@@ -260,6 +276,7 @@ class ScanAtypical:
 					reference_atypicals.append(intervene_string)
 				else:
 					typical_count += 1
+
 			##
 			## Calculate the presence of each 'state' of reference
 			ref_typical = format(((typical_count / investigation[1]) * 100), '.2f')
@@ -442,7 +459,6 @@ class ScanAtypical:
 			##
 			## check #2 and #3 vs CAG(#1)
 			for val in [sorted_info[1], sorted_info[2]]:
-				top1_cag = primary_allele['EstimatedCAG']; curr_cag = val[1].get('EstimatedCAG')
 				top1_reads = primary_allele['TotalReads']; curr_reads = val[1].get('TotalReads')
 				read_drop = abs(top1_reads-curr_reads)/top1_reads
 
@@ -465,10 +481,24 @@ class ScanAtypical:
 				##
 				## Secondary allele unassigned, perhaps homzoygous haplotype
 				if not secondary_allele:
+					top1_top3_dist = abs(sorted_info[0][1]['EstimatedCAG']-sorted_info[2][1]['EstimatedCAG'])
 					top2_top3_dist = abs(sorted_info[1][1]['EstimatedCAG']-sorted_info[2][1]['EstimatedCAG'])
 					if read_drop >= 0.65 and top2_top3_dist == 1:
 						secondary_allele = primary_allele
 						break
+					elif 0 < read_drop < 0.64:
+						secondary_allele = sorted_info[1][1]
+						secondary_allele['Reference'] = sorted_info[1][0]
+						break
+					elif top2_top3_dist >= 2:
+						if not top1_top3_dist == 1:
+							secondary_allele = sorted_info[2][1]
+							secondary_allele['Reference'] = sorted_info[2][0]
+							break
+						else:
+							secondary_allele = sorted_info[1][1]
+							secondary_allele['Reference'] = sorted_info[1][0]
+							break
 					else:
 						secondary_allele = sorted_info[1][1]
 						secondary_allele['Reference'] = sorted_info[1][0]
@@ -476,7 +506,12 @@ class ScanAtypical:
 		##
 		## CCG mismatch between #2/#3, no potential peak skew
 		else:
-			if alpha_drop >= 0.65 and beta_drop >= 0.80:
+			if sorted_info[0][1]['EstimatedCCG'] == sorted_info[1][1]['EstimatedCCG']:
+				if np.isclose([sorted_info[0][1]['EstimatedCAG']], [sorted_info[1][1]['EstimatedCAG']],atol=1):
+					if sorted_info[0][1]['EstimatedCCG'] != sorted_info[2][1]['EstimatedCCG']:
+						secondary_allele = sorted_info[2][1]
+						secondary_allele['Reference'] = sorted_info[2][0]
+			elif alpha_drop >= 0.65 and beta_drop >= 0.80:
 				secondary_allele = primary_allele
 			elif beta_drop >= 0.20:
 				secondary_allele = sorted_info[1][1]

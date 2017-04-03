@@ -36,6 +36,9 @@ class SequenceSample:
 		self.recall_count = 0
 		self.homozygous_haplotype = False
 		self.neighbouringpeaks = False
+		self.diminishedpeaks = False
+		self.ccguncertainty = False
+		self.alignmentwarning = False
 		self.ccgzygstate = ''
 
 	##
@@ -73,6 +76,9 @@ class SequenceSample:
 	def set_recallcount(self, count): self.recall_count = count
 	def set_homozygoushaplotype(self, state): self.homozygous_haplotype = state
 	def set_neighbouringpeaks(self, state): self.neighbouringpeaks = state
+	def set_diminishedpeaks(self, state): self.diminishedpeaks = state
+	def set_ccguncertainty(self, state): self.ccguncertainty = state
+	def set_alignmentwarning(self, state): self.alignmentwarning = state
 	def set_ccgzygstate(self, state): self.ccgzygstate = state
 
 	##
@@ -110,6 +116,9 @@ class SequenceSample:
 	def get_recallcount(self): return self.recall_count
 	def get_homozygoushaplotype(self): return self.homozygous_haplotype
 	def get_neighbouringpeaks(self): return self.neighbouringpeaks
+	def get_diminishedpeaks(self): return self.diminishedpeaks
+	def get_ccguncertainty(self): return self.ccguncertainty
+	def get_alignmentwarning(self): return self.alignmentwarning
 	def get_ccgzygstate(self): return self.ccgzygstate
 
 	##
@@ -175,6 +184,9 @@ class IndividualAllele:
 		self.somaticmosaicism = 0.0
 		self.backwards_slippage = 0.0
 		self.unexpected_peaks = False
+		self.fod_overwrite = False
+		self.slippage_overwrite = False
+
 
 	##
 	## Setters
@@ -228,6 +240,8 @@ class IndividualAllele:
 	def set_somaticmosaicism(self, amount): self.somaticmosaicism = amount
 	def set_backwardsslippage(self, amount): self.backwards_slippage = amount
 	def set_unexpectedpeaks(self, bool): self.unexpected_peaks = bool
+	def set_fodoverwrite(self, bool): self.fod_overwrite = bool
+	def set_slippageoverwrite(self, state): self.slippage_overwrite = state
 
 	##
 	## Getters
@@ -281,3 +295,5 @@ class IndividualAllele:
 	def get_somaticmosaicism(self): return self.somaticmosaicism
 	def get_backwardsslippage(self): return self.backwards_slippage
 	def get_unexpectedpeaks(self): return self.unexpected_peaks
+	def get_fodoverwrite(self): return self.fod_overwrite
+	def get_slippageoverwrite(self): return self.slippage_overwrite
