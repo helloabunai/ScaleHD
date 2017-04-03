@@ -9,6 +9,7 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 import os
 import csv
 import PyPDF2
+import random
 import warnings
 import peakutils
 import matplotlib
@@ -361,10 +362,10 @@ class AlleleGenotyping:
 			## Clean up distribution for erroneous peaks
 			for i in range(0, len(self.reverse_aggregate)):
 				if i > allele_object.get_ccg()-1:
-					removal = (i/100) * 90
+					removal = (i/100) * random.choice([70,75,80,85,90])
 					self.reverse_aggregate[i] = i-removal
 				if i < allele_object.get_ccg()-1:
-					removal = (i/100) * 90
+					removal = (i/100) * random.choice([70,75,80,85,90])
 					self.reverse_aggregate[i] = i-removal
 			allele_object.set_rvarray(self.reverse_aggregate)
 
