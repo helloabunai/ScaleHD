@@ -9,7 +9,6 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 import os
 import csv
 import PyPDF2
-import random
 import warnings
 import peakutils
 import matplotlib
@@ -54,9 +53,9 @@ class AlleleGenotyping:
 		if not self.allele_validation(): raise Exception('Allele(s) failed validation. Cannot genotype..')
 		if not self.determine_ccg(): raise Exception('CCG Genotyping failure. Cannot genotype..')
 		if not self.determine_cag(): raise Exception('CAG Genotyping failure. Cannot genotype..')
-		if not self.genotype_validation(): raise Exception('Genotype failed validation. Check output log..')
+		if not self.genotype_validation(): raise Exception('Genotype failed validation. Cannot genotype..')
 		if not self.inspect_peaks():
-			log.warn('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'One (or more) alleles failed peak validation. Genotype precision not guaranteed.'))
+			log.warn('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, '1+ allele(s) failed peak validation. Precision not guaranteed.'))
 			self.warning_triggered = True
 		self.render_graphs()
 		self.calculate_score()
@@ -243,7 +242,7 @@ class AlleleGenotyping:
 
 			recall_count = self.sequencepair_object.get_recallcount()
 			self.sequencepair_object.set_recallcount(recall_count+1)
-			if recall_count > 7: raise Exception('7+ recalls. Unable to determine genotype.\n')
+			if recall_count > 7: raise Exception('7+ recalls. Unable to determine genotype.')
 			threshold = 0.0
 			if triplet_stage == 'CCG': threshold = allele_object.get_ccgthreshold()
 			if triplet_stage == 'CAG': threshold = allele_object.get_cagthreshold()
@@ -360,13 +359,21 @@ class AlleleGenotyping:
 
 			##
 			## Clean up distribution for erroneous peaks
-			for i in range(0, len(self.reverse_aggregate)):
-				if i > allele_object.get_ccg()-1:
-					removal = (i/100) * random.choice([70,75,80,85,90])
-					self.reverse_aggregate[i] = i-removal
-				if i < allele_object.get_ccg()-1:
-					removal = (i/100) * random.choice([70,75,80,85,90])
-					self.reverse_aggregate[i] = i-removal
+			## In the case of atypical alleles, unexpected peaks may exist in aggregates
+			atol = 0
+			if self.zygosity_state == 'HOMO' or self.zygosity_state == 'HOMO*':
+				for i in range(0, len(self.reverse_aggregate)):
+					if np.isclose([i], [allele_object.get_ccg() - 1], atol=2):
+						if np.isclose([self.reverse_aggregate[i]], [self.reverse_aggregate[allele_object.get_ccg() - 1]],
+									  atol=((self.reverse_aggregate[allele_object.get_ccg() - 1])/100) * 45):
+							removal = (self.reverse_aggregate[i]/100) * 57.5
+							if i != allele_object.get_ccg()-1:
+								self.reverse_aggregate[i] -= removal
+			else:
+				for i in range(0, len(self.reverse_aggregate)):
+					if i != allele_object.get_ccg()-1:
+						removal = (self.reverse_aggregate[i]/100) * 90
+						self.reverse_aggregate[i] -= removal
 			allele_object.set_rvarray(self.reverse_aggregate)
 
 			#################################
@@ -388,6 +395,12 @@ class AlleleGenotyping:
 				self.expected_zygstate = 'HOMO'
 		except IndexError:
 			raise Exception('CCG Prediction Failure.')
+
+		##
+		## Check for atypical realignment (resulting in HET to HOM refactor)
+		if self.sequencepair_object.get_atypical_ccgrewrite():
+			if self.sequencepair_object.get_atypical_zygrewrite():
+				self.zygosity_state = 'HOMO*'
 
 		##
 		## Check both alleles passed validation
@@ -428,14 +441,15 @@ class AlleleGenotyping:
 			local_zygstate = 'HETERO'
 
 		self.sequencepair_object.set_ccgzygstate(self.expected_zygstate)
-		if not local_zygstate == self.expected_zygstate:
-			if abs(ccg_sum[0][0]-ccg_sum[1][0]) == 1:
-				if not np.isclose([ccg_sum[0][1]],[ccg_sum[1][1]],atol=(0.70*max(ccg_sum)[1])):
-					pass_gtp = True
-					self.ccg_sum = ccg_sum
-					pass
-			else:
-				pass_gtp = False
+		if not self.zygosity_state == 'HOMO*':
+			if not local_zygstate == self.expected_zygstate:
+				if abs(ccg_sum[0][0]-ccg_sum[1][0]) == 1:
+					if not np.isclose([ccg_sum[0][1]],[ccg_sum[1][1]],atol=(0.70*max(ccg_sum)[1])):
+						pass_gtp = True
+						self.ccg_sum = ccg_sum
+						pass
+				else:
+					pass_gtp = False
 
 		return pass_gtp
 
@@ -459,11 +473,13 @@ class AlleleGenotyping:
 				if pri_ccg == sec_ccg:
 					self.zygosity_state = 'HOMO'
 					self.sequencepair_object.set_ccgzygstate(self.zygosity_state)
+			if self.zygosity_state == 'HOMO*':
+				pass
 
 		##########################
 		## Heterozygous for CCG ##
 		##########################
-		if self.zygosity_state == 'HETERO':
+		if self.zygosity_state == 'HETERO' or self.zygosity_state == 'HOMO*':
 			for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
@@ -642,7 +658,7 @@ class AlleleGenotyping:
 
 		##
 		## Double check zygosity..
-		if not (primary_fod_ccg == secondary_fod_ccg) and ccg_zygstate == 'HOMO':
+		if not (primary_fod_ccg == secondary_fod_ccg) and (ccg_zygstate == 'HOMO' or ccg_zygstate == 'HOMO*'):
 			raise Exception('CCG validity check failure')
 		if (primary_fod_ccg == secondary_fod_ccg) and ccg_zygstate == 'HETERO':
 			raise Exception('CCG validity check failure')
@@ -705,6 +721,7 @@ class AlleleGenotyping:
 			nmt = allele.get_cag() - 3; nmo = allele.get_cag() - 1
 			slip_ratio = (sum(target[nmt:nmo])) / target[allele.get_cag() - 1]
 			allele.set_backwardsslippage(slip_ratio)
+
 			rv_ratio = (target[allele.get_fodcag()-2]/target[allele.get_fodcag()-1])
 			fw_ratio = (target[allele.get_fodcag()]/target[allele.get_fodcag()-1])
 			if np.isclose([fw_ratio], [0.85], atol=0.075):
@@ -806,7 +823,7 @@ class AlleleGenotyping:
 		## CCG heterozygous example					 ##
 		## i.e. CCG two peaks, one CAG dist per peak ##
 		###############################################
-		if self.zygosity_state == 'HETERO':
+		if self.zygosity_state == 'HETERO' or self.zygosity_state == 'HOMO*':
 
 			##
 			## Render CCG graph, append path to allele path list
@@ -825,8 +842,12 @@ class AlleleGenotyping:
 				## Data for this allele (peak detection graph)
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
-				peak_filename = 'CCG{}-CAGDetection.pdf'.format(allele.get_fodccg())
-				peak_prefix = '(CCG{}) '.format(allele.get_fodccg())
+				if allele.get_rewrittenccg():
+					peak_filename = 'CCG{}-CAGDetection_atypical.pdf'.format(allele.get_fodccg())
+					peak_prefix = '(CCG{}**) '.format(allele.get_fodccg())
+				else:
+					peak_filename = 'CCG{}-CAGDetection.pdf'.format(allele.get_fodccg())
+					peak_prefix = '(CCG{}) '.format(allele.get_fodccg())
 				peak_graph_path = os.path.join(predpath, peak_filename)
 				## Render the graph, append to list, close plot
 				graph_subfunction([0, 199, 200], target_distro, ['CAG Value', 'Read Count'],
@@ -837,8 +858,12 @@ class AlleleGenotyping:
 				##
 				## Inspect the peak (subslice)
 				slice_range = range(allele.get_fodcag()-4, allele.get_fodcag()+7)
-				slice_filename = 'CCG{}-Peak.pdf'.format(allele.get_fodccg())
-				slice_prefix = '(CCG{}) '.format(allele.get_ccg())
+				if allele.get_rewrittenccg():
+					slice_filename = 'CCG{}-Peak_atypical.pdf'.format(allele.get_fodccg())
+					slice_prefix = '(CCG{}**) '.format(allele.get_ccg())
+				else:
+					slice_filename = 'CCG{}-Peak.pdf'.format(allele.get_fodccg())
+					slice_prefix = '(CCG{}) ' .format(allele.get_ccg())
 				sub = target_distro[np.int64(allele.get_fodcag()-6):np.int64(allele.get_fodcag()+5)]
 				## Render the graph, append to list, close plot
 				graph_subfunction([0,10,11], sub, ['CAG Value', 'Read Count'], ([1,11,1], [1,11], slice_range),
@@ -895,12 +920,14 @@ class AlleleGenotyping:
 		sample_pdf_path = os.path.join(predpath, 'SampleSummary.pdf')
 		c = canvas.Canvas(sample_pdf_path, pagesize=(500,250))
 		header_string = '{}{}'.format('Sample header: ', self.sequencepair_object.get_label())
-		primary_string = '{}(CAG{}, CCG{}) ({})'.format('Primary: ', self.sequencepair_object.get_primaryallele().get_fodcag(),
+		primary_string = '{}(CAG{}, CCG{}) ({}; {})'.format('Primary: ', self.sequencepair_object.get_primaryallele().get_fodcag(),
 												 self.sequencepair_object.get_primaryallele().get_fodccg(),
-												 self.sequencepair_object.get_primaryallele().get_allelestatus())
-		secondary_string = '{}(CAG{}, CCG{}) ({})'.format('Secondary: ', self.sequencepair_object.get_secondaryallele().get_fodcag(),
+												 self.sequencepair_object.get_primaryallele().get_allelestatus(),
+												 self.sequencepair_object.get_primaryallele().get_reflabel())
+		secondary_string = '{}(CAG{}, CCG{}) ({}; {})'.format('Secondary: ', self.sequencepair_object.get_secondaryallele().get_fodcag(),
 												   self.sequencepair_object.get_secondaryallele().get_fodccg(),
-												   self.sequencepair_object.get_secondaryallele().get_allelestatus())
+												   self.sequencepair_object.get_secondaryallele().get_allelestatus(),
+												   self.sequencepair_object.get_secondaryallele().get_reflabel())
 
 		##########################################################
 		## Create canvas for sample 'intro card'				##
@@ -1060,7 +1087,7 @@ class AlleleGenotyping:
 				if peak_position_error == 0: allele_confidence += 10; penlog += 'L+10\n'
 				elif peak_position_error == 1: allele_confidence -= 5; penlog += 'L-5\n'
 				elif 2 >= peak_position_error > 1: allele_confidence -= 10; penlog += 'L-10\n'
-				elif peak_position_error >= 5: allele_confidence -= 50; penlog += 'L-50\n'
+				elif peak_position_error >= 5: allele_confidence -= 25; penlog += 'L-25\n'
 				else: allele_confidence -= 15; penlog += 'L-15\n'
 
 			##
@@ -1092,8 +1119,8 @@ class AlleleGenotyping:
 			##
 			## Warning penalty.. if triggered, no confidence
 			if self.warning_triggered: allele_confidence -= 20; penlog += 'N-20\n'
-			if self.sequencepair_object.get_ccguncertainty(): allele_confidence -= 15; penlog += 'N-15\n'
-			if self.sequencepair_object.get_alignmentwarning(): allele_confidence -= 25; penlog += 'N-25\n'
+			if self.sequencepair_object.get_ccguncertainty(): allele_confidence -= 10; penlog += 'N-10\n'
+			if self.sequencepair_object.get_alignmentwarning(): allele_confidence -= 15; penlog += 'N-15\n'
 
 			##
 			## Determine score (max out at 100), return genotype

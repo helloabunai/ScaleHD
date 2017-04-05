@@ -79,6 +79,7 @@ class ScanAtypical:
 			obj.set_ccgval(dat.get('EstimatedCCG'))
 			obj.set_cctval(dat.get('EstimatedCCT'))
 			obj.set_threeprime(dat.get('3PFlank'))
+			obj.set_rewrittenccg(dat.get('RewrittenCCG'))
 		sequencepair_object.set_primary_allele(primary_object)
 		sequencepair_object.set_secondary_allele(secondary_object)
 
@@ -524,7 +525,6 @@ class ScanAtypical:
 						secondary_allele = sorted_info[1][1]
 						secondary_allele['Reference'] = sorted_info[1][0]
 
-
 		##
 		## For each of the alleles we've determined..
 		## Get intervening lengths, create accurate genotype string
@@ -536,6 +536,21 @@ class ScanAtypical:
 			allele['EstimatedCAACAG'] = caacag_count
 			allele['EstimatedCCGCCA'] = ccgcca_count
 			if allele['Status'] == 'Atypical': atypical_count += 1
+
+		##
+		## Check for atypical allele rewriting CCG Het to CCG Hom
+		temp_zyg = []
+		for allele in [primary_allele, secondary_allele]:
+			orig_ccg = allele['OriginalReference'].split('_')[3]
+			curr_ccg = allele['EstimatedCCG']
+			temp_zyg.append(orig_ccg)
+			if allele['Status'] == 'Atypical':
+				if orig_ccg != curr_ccg:
+					self.sequencepair_object.set_atypical_ccgrewrite(True)
+					allele['RewrittenCCG'] = orig_ccg
+		if not temp_zyg[0] == temp_zyg[1]:
+			if self.sequencepair_object.get_atypical_ccgrewrite():
+				self.sequencepair_object.set_atypical_zygrewrite(True)
 
 		return primary_allele, secondary_allele, atypical_count
 

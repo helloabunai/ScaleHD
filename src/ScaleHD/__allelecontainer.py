@@ -39,6 +39,8 @@ class SequenceSample:
 		self.diminishedpeaks = False
 		self.ccguncertainty = False
 		self.alignmentwarning = False
+		self.atypical_ccgrewrite = False
+		self.atypical_zygrewrite = False
 		self.ccgzygstate = ''
 
 	##
@@ -80,6 +82,8 @@ class SequenceSample:
 	def set_ccguncertainty(self, state): self.ccguncertainty = state
 	def set_alignmentwarning(self, state): self.alignmentwarning = state
 	def set_ccgzygstate(self, state): self.ccgzygstate = state
+	def set_atypical_ccgrewrite(self, state): self.atypical_ccgrewrite = state
+	def set_atypical_zygrewrite(self, state): self.atypical_zygrewrite = state
 
 	##
 	## Getters
@@ -120,6 +124,8 @@ class SequenceSample:
 	def get_ccguncertainty(self): return self.ccguncertainty
 	def get_alignmentwarning(self): return self.alignmentwarning
 	def get_ccgzygstate(self): return self.ccgzygstate
+	def get_atypical_ccgrewrite(self): return self.atypical_ccgrewrite
+	def get_atypical_zygrewrite(self): return self.atypical_zygrewrite
 
 	##
 	## Functions
@@ -144,6 +150,7 @@ class IndividualAllele:
 		self.ccgcca_value = 0
 		self.intervening_sequence = ''
 		self.ccg_value = 0
+		self.rewritten_ccg = 0
 		self.cct_value = 0
 		self.three_prime = ''
 
@@ -200,6 +207,7 @@ class IndividualAllele:
 	def set_ccgccaval(self, intv2): self.ccgcca_value = intv2
 	def set_intervening(self, intv): self.intervening_sequence = intv
 	def set_ccgval(self, ccg): self.ccg_value = ccg
+	def set_rewrittenccg(self, ccg): self.rewritten_ccg = ccg
 	def set_cctval(self, cct): self.cct_value = cct
 	def set_threeprime(self, tp): self.three_prime = tp
 
@@ -255,6 +263,7 @@ class IndividualAllele:
 	def get_ccgcca(self): return self.ccgcca_value
 	def get_intervening(self): return self.intervening_sequence
 	def get_ccg(self): return self.ccg_value
+	def get_rewrittenccg(self): return self.rewritten_ccg
 	def get_cct(self): return self.cct_value
 	def get_threeprime(self): return self.three_prime
 
