@@ -300,12 +300,12 @@ class ScaleHD:
 				###########################################
 				## Stage five!! Genotype distributions.. ##
 				###########################################
-				#try:
-				self.allele_genotyping(current_seqpair, invalid_data)
-				#except Exception, e:
-				#	self.append_report(current_seqpair, "FAIL")
-				#	log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Genotyping failure on ',seqpair_lbl, str(e)))
-				#	continue
+				try:
+					self.allele_genotyping(current_seqpair, invalid_data)
+				except Exception, e:
+					self.append_report(current_seqpair, "FAIL")
+					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Genotyping failure on ',seqpair_lbl, str(e)))
+					continue
 
 				#######################################
 				## Stage six!! Bayesian Genotyping.. ##
@@ -421,7 +421,7 @@ class ScaleHD:
 		report_string = ''
 
 		if context == "FAIL":
-			report_string = '{},FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,\n'.format(sequencepair_object.get_label())
+			report_string = '{},,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,\n'.format(sequencepair_object.get_label())
 		if context == 'PASS':
 			sequence_label = sequencepair_object.get_label()
 			primary_allele = sequencepair_object.get_primaryallele()

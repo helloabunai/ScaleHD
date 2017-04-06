@@ -990,144 +990,142 @@ class AlleleGenotyping:
 		##
 		## For both alleles
 		for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
+			allele_log_fi = os.path.join(self.sequencepair_object.get_predictpath(), '{}{}'.format(allele.get_header(), '_PenaltiesLog.txt'))
+			with open(allele_log_fi, 'a') as penfi:
+				penfi.write('{}, {}\n'.format('Flag/Warning','Score Penalty'))
 
-			penlog = ''
-			allele_log_fi = os.path.join(self.sequencepair_object.get_predictpath(),
-										 '{}{}'.format(allele.get_header(), '_PenaltiesLog.txt'))
+				##
+				## Start score high, deduct for questionable calls..
+				allele_confidence = 100
 
-			##
-			## Start score high, deduct for questionable calls..
-			allele_confidence = 100
+				##
+				## Sample based genotyping flags
+				if self.sequencepair_object.get_recallcount() == 7: allele_confidence -= 25; penfi.write('{}, {}\n'.format('Recall Count','-25'))
+				if 7 > self.sequencepair_object.get_recallcount() > 4: allele_confidence -= 15; penfi.write('{}, {}\n'.format('Recall Count','-15'))
+				if 4 > self.sequencepair_object.get_recallcount() > 0: allele_confidence -= 5; penfi.write('{}, {}\n'.format('Recall Count', '-5'))
+				else: allele_confidence += 10; penfi.write('{}, {}\n'.format('Recall Count', '+10'))
 
-			##
-			## Sample based genotyping flags
-			if self.sequencepair_object.get_recallcount() == 7: allele_confidence -= 25; penlog += 'A-25\n'
-			if 7 > self.sequencepair_object.get_recallcount() > 4: allele_confidence -= 15; penlog += 'A-15\n'
-			if 4 > self.sequencepair_object.get_recallcount() > 0: allele_confidence -= 5; penlog += 'A-5\n'
-			else: allele_confidence += 10; penlog += 'A+10\n'
+				if self.sequencepair_object.get_homozygoushaplotype(): allele_confidence -= 15; penfi.write('{}, {}\n'.format('Homozygous Haplotype','-15'))
+				elif self.sequencepair_object.get_neighbouringpeaks(): allele_confidence -= 25; penfi.write('{}, {}\n'.format('Neighbouring Peaks', '-25'))
+				else: allele_confidence += 15; penfi.write('{}, {}\n'.format('Normal Data','+15'))
 
-			if self.sequencepair_object.get_homozygoushaplotype(): allele_confidence -= 15; penlog += 'B-15\n'
-			elif self.sequencepair_object.get_neighbouringpeaks(): allele_confidence -= 25; penlog += 'B-25\n'
-			else: allele_confidence += 20; penlog += 'B+20\n'
+				if self.sequencepair_object.get_diminishedpeaks():
+					allele_confidence -= 20; penfi.write('{}, {}\n'.format('Diminished Peaks','-20'))
+				if allele.get_fodoverwrite():
+					allele_confidence -= 20; penfi.write('{}, {}\n'.format('Differential Overwrite','-20'))
 
-			##
-			## Allele based genotyping flags
-			## Allele typical/atypical structure
-			if allele.get_allelestatus() == 'Atypical':
-				allele_confidence -= 10; penlog += 'C-10\n'
-				if np.isclose([float(allele.get_atypicalpcnt())],[50.00],atol=5.00):
-					allele_confidence -= 20; penlog += 'C-20\n'
-				if np.isclose([float(allele.get_atypicalpcnt())],[80.00],atol=20.00):
-					allele_confidence += 15; penlog += 'C+15\n'
-			if allele.get_allelestatus() == 'Typical':
-				allele_confidence += 10; penlog += 'D+10\n'
-				if np.isclose([float(allele.get_typicalpcnt())],[50.00],atol=5.00):
-					allele_confidence -= 20; penlog += 'D-20\n'
-				if np.isclose([float(allele.get_typicalpcnt())],[80.00],atol=15.00):
-					allele_confidence += 15; penlog += 'D+15\n'
+				##
+				## Allele based genotyping flags
+				## Allele typical/atypical structure
+				if allele.get_allelestatus() == 'Atypical':
+					allele_confidence -= 5; penfi.write('{}, {}\n'.format('Atypical Allele','-5'))
+					if np.isclose([float(allele.get_atypicalpcnt())],[50.00],atol=5.00):
+						allele_confidence -= 20; penfi.write('{}, {}\n'.format('Atypical reads (50%)','-20'))
+					if np.isclose([float(allele.get_atypicalpcnt())],[80.00],atol=20.00):
+						allele_confidence += 15; penfi.write('{}, {}\n'.format('Atypical reads (80%>)','+15'))
+				if allele.get_allelestatus() == 'Typical':
+					allele_confidence += 5; penfi.write('{}, {}\n'.format('Typical Allele', '+5'))
+					if np.isclose([float(allele.get_typicalpcnt())],[50.00],atol=5.00):
+						allele_confidence -= 20; penfi.write('{}, {}\n'.format('Typical reads (50%)','-20'))
+					if np.isclose([float(allele.get_typicalpcnt())],[80.00],atol=15.00):
+						allele_confidence += 15; penfi.write('{}, {}\n'.format('Typical reads (80%>)','+15'))
 
-			##
-			## Total reads in sample..
-			if allele.get_totalreads() > 10000:	allele_confidence += 10; penlog += 'E+10\n'
-			elif allele.get_totalreads() < 1000: allele_confidence -= 15; penlog += 'E-15\n'
-			else: allele_confidence += 5; penlog += 'E+5\n'
+				##
+				## Total reads in sample..
+				if allele.get_totalreads() > 10000:	allele_confidence += 10; penfi.write('{}, {}\n'.format('High total read count', '+10'))
+				elif allele.get_totalreads() < 1000: allele_confidence -= 15; penfi.write('{}, {}\n'.format('Low total read count', '-15'))
+				else: allele_confidence += 5; penfi.write('{}, {}\n'.format('Normal total read count','+5'))
 
-			##
-			## Peak Interpolation
-			if allele.get_interpolation_warning():
-				allele_confidence -= 5; penlog += 'F-5\n'
-				if 2.00 > allele.get_interpdistance() > 0.00:
-					allele_confidence -= 10; penlog += 'F-10\n'
+				##
+				## Peak Interpolation
+				if allele.get_interpolation_warning():
+					allele_confidence -= 5; penfi.write('{}, {}\n'.format('Peak Interpolation warning','-5'))
+					if 2.00 > allele.get_interpdistance() > 0.00:
+						allele_confidence -= 10; penfi.write('{}, {}\n'.format('Peak Interpolation distance','-10'))
 
-			##
-			## Variance of distribution utilised
-			if allele.get_vicinityreads()*100 > 85.00: allele_confidence += 5; penlog += 'G+5\n'
-			elif 84.99 > allele.get_vicinityreads()*100 > 65.00: allele_confidence -= 10; penlog += 'G-10\n'
-			elif 64.99 > allele.get_vicinityreads()*100 > 45.00: allele_confidence -= 15; penlog += 'G-15\n'
-			elif 44.99 > allele.get_vicinityreads()*100 > 00.00: allele_confidence -= 20; penlog += 'G-20\n'
+				##
+				## Variance of distribution utilised
+				if allele.get_vicinityreads()*100 > 85.00: allele_confidence += 5; penfi.write('{}, {}\n'.format('Reads near peak','+5'))
+				elif 84.99 > allele.get_vicinityreads()*100 > 65.00: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Reads near peak','-10'))
+				elif 64.99 > allele.get_vicinityreads()*100 > 45.00: allele_confidence -= 15; penfi.write('{}, {}\n'.format('Reads near peak','-15'))
+				elif 44.99 > allele.get_vicinityreads()*100 > 00.00: allele_confidence -= 20; penfi.write('{}, {}\n'.format('Reads near peak','-20'))
 
-			##
-			## Backwards slippage ratio ([N-2:N-1]/N]
-			if 0.00 < allele.get_backwardsslippage() < 0.10: allele_confidence += 10; penlog += 'H+10\n'
-			elif 0.10 < allele.get_backwardsslippage() < 0.25: allele_confidence += 5; penlog += 'H+5\n'
-			elif allele.get_backwardsslippage() > 0.25: allele_confidence -= 1; penlog += 'H-1\n'
-			elif allele.get_backwardsslippage() > 0.45: allele_confidence -= 10; penlog += 'H-10\n'
-			elif allele.get_backwardsslippage() > 0.65: allele_confidence -= 15; penlog += 'H-15\n'
-			elif 0.65 < allele.get_backwardsslippage() < 1.00: allele_confidence -= 20; penlog += 'H-20\n'
-			if allele.get_slippageoverwrite(): allele_confidence -= 35; penlog += 'H-35\n'
+				##
+				## Backwards slippage ratio ([N-2:N-1]/N]
+				if 0.00 < allele.get_backwardsslippage() < 0.10: allele_confidence += 10; penfi.write('{}, {}\n'.format('Backwards slippage','+10'))
+				elif 0.10 < allele.get_backwardsslippage() < 0.25: allele_confidence += 5; penfi.write('{}, {}\n'.format('Backwards slippage','+5'))
+				elif allele.get_backwardsslippage() > 0.25: allele_confidence -= 1; penfi.write('{}, {}\n'.format('Backwards slippage','-1'))
+				elif allele.get_backwardsslippage() > 0.45: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Backwards slippage','-10'))
+				elif allele.get_backwardsslippage() > 0.65: allele_confidence -= 15; penfi.write('{}, {}\n'.format('Backwards slippage','-15'))
+				elif 0.65 < allele.get_backwardsslippage() < 1.00: allele_confidence -= 20; penfi.write('{}, {}\n'.format('Backwards slippage','-20'))
+				if allele.get_slippageoverwrite(): allele_confidence -= 25; penfi.write('{}, {}\n'.format('Slippage overwrite','-25'))
 
-			##
-			## Somatic mosiacisim ratio ([N+1:N+10]/N]
-			if 0.000 < allele.get_somaticmosaicism() < 0.010: allele_confidence += 10; penlog += 'I+10\n'
-			elif 0.010 < allele.get_somaticmosaicism() < 0.015: allele_confidence += 5; penlog += 'I+5\n'
-			elif allele.get_somaticmosaicism() > 0.015: allele_confidence -= 1; penlog += 'I-1\n'
-			elif allele.get_somaticmosaicism() > 0.025: allele_confidence -= 10; penlog += 'I-10\n'
-			elif allele.get_somaticmosaicism() > 0.035: allele_confidence -= 15; penlog += 'I-15\n'
-			elif 0.035 < allele.get_somaticmosaicism() < 0.100: allele_confidence -= 20; penlog += 'I-20\n'
-			elif allele.get_somaticmosaicism() > 0.100: allele_confidence -= 30; penlog += 'I-30\n'
+				##
+				## Somatic mosiacisim ratio ([N+1:N+10]/N]
+				if 0.000 < allele.get_somaticmosaicism() < 0.010: allele_confidence += 10; penfi.write('{}, {}\n'.format('Somatic mosaicism','+10'))
+				elif 0.010 < allele.get_somaticmosaicism() < 0.015: allele_confidence += 5; penfi.write('{}, {}\n'.format('Somatic mosaicism','+5'))
+				elif allele.get_somaticmosaicism() > 0.015: allele_confidence -= 1; penfi.write('{}, {}\n'.format('Somatic mosaicism','-1'))
+				elif allele.get_somaticmosaicism() > 0.025: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Somatic mosaicism','-10'))
+				elif allele.get_somaticmosaicism() > 0.035: allele_confidence -= 15; penfi.write('{}, {}\n'.format('Somatic mosaicism','-15'))
+				elif 0.035 < allele.get_somaticmosaicism() < 0.100: allele_confidence -= 20; penfi.write('{}, {}\n'.format('Somatic mosaicism','-20'))
+				elif allele.get_somaticmosaicism() > 0.100: allele_confidence -= 30; penfi.write('{}, {}\n'.format('Somatic mosaicism','-30'))
 
-			##
-			## Diminished peaks / FOD overwriting?
-			if self.sequencepair_object.get_diminishedpeaks():
-				allele_confidence -= 20; penlog += 'J-20\n'
-			if allele.get_fodoverwrite():
-				allele_confidence -= 20; penlog += 'J-20\n'
+				##
+				## Peak calling thresholds
+				for contig in [allele.get_ccgthreshold(), allele.get_cagthreshold()]:
+					if contig != 0.5:
+						if 0.5 > contig > 0.3: allele_confidence -= 5; penfi.write('{}, {}\n'.format('Peak calling threshold','-5'))
+						if 0.3 > contig > 0.0: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Peak calling threshold','-10'))
+					else: allele_confidence += 10; penfi.write('{}, {}\n'.format('Peak calling threshold','+10'))
 
-			##
-			## Peak calling thresholds
-			for contig in [allele.get_ccgthreshold(), allele.get_cagthreshold()]:
-				if contig != 0.5:
-					if 0.5 > contig > 0.3: allele_confidence -= 5; penlog += 'K-5\n'
-					if 0.3 > contig > 0.0: allele_confidence -= 10; penlog += 'K-10\n'
-				else: allele_confidence += 10; penlog += 'K+10\n'
+				##
+				## Peak dropoff warnings
+				for peak_position_error in [allele.get_nminuswarninglevel(), allele.get_npluswarninglevel()]:
+					if peak_position_error == 0: allele_confidence += 10; penfi.write('{}, {}\n'.format('Surrounding read ratio','+10'))
+					elif peak_position_error == 1: allele_confidence -= 5; penfi.write('{}, {}\n'.format('Surrounding read ratio', '-5'))
+					elif 2 >= peak_position_error > 1: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Surrounding read ratio','-10'))
+					elif peak_position_error >= 5: allele_confidence -= 25; penfi.write('{}, {}\n'.format('Surrounding read ratio','-25'))
+					else: allele_confidence -= 15; penfi.write('{}, {}\n'.format('Surrounding read ratio','-15'))
 
-			##
-			## Peak dropoff warnings
-			for peak_position_error in [allele.get_nminuswarninglevel(), allele.get_npluswarninglevel()]:
-				if peak_position_error == 0: allele_confidence += 10; penlog += 'L+10\n'
-				elif peak_position_error == 1: allele_confidence -= 5; penlog += 'L-5\n'
-				elif 2 >= peak_position_error > 1: allele_confidence -= 10; penlog += 'L-10\n'
-				elif peak_position_error >= 5: allele_confidence -= 25; penlog += 'L-25\n'
-				else: allele_confidence -= 15; penlog += 'L-15\n'
+				##
+				## Multiply score by a factor if reads were subsampled
+				if self.sequencepair_object.get_subsampleflag() and not self.sequencepair_object.get_subsampleflag() == '0.05**':
+					subsample_penalty = []; utilised_subsample_penalty = 0.0; context_penalty = 0.0
+					if 0 <= self.sequencepair_object.get_totalseqreads() <= 2000: subsample_penalty = [0.35,0.40,0.45]
+					if 2000 <= self.sequencepair_object.get_totalseqreads() <= 5000: subsample_penalty = [0.55,0.65,0.70]
+					if 5000 <= self.sequencepair_object.get_totalseqreads() <= 10000: subsample_penalty = [0.75,0.85,0.95]
+					if self.sequencepair_object.get_totalseqreads() > 10000: subsample_penalty = [1.0,1.0,1.0]
 
-			##
-			## Multiply score by a factor if reads were subsampled
-			if self.sequencepair_object.get_subsampleflag() and not self.sequencepair_object.get_subsampleflag() == '0.05**':
-				subsample_penalty = []; utilised_subsample_penalty = 0.0; context_penalty = 0.0
-				if 0 <= self.sequencepair_object.get_totalseqreads() <= 2000: subsample_penalty = [0.35,0.40,0.45]
-				if 2000 <= self.sequencepair_object.get_totalseqreads() <= 5000: subsample_penalty = [0.55,0.65,0.70]
-				if 5000 <= self.sequencepair_object.get_totalseqreads() <= 10000: subsample_penalty = [0.75,0.85,0.95]
-				if self.sequencepair_object.get_totalseqreads() > 10000: subsample_penalty = [1.0,1.0,1.0]
+					if 0.1 <= self.sequencepair_object.get_subsampleflag() <= 0.3: utilised_subsample_penalty = subsample_penalty[0]
+					if 0.4 <= self.sequencepair_object.get_subsampleflag() <= 0.6: utilised_subsample_penalty = subsample_penalty[1]
+					if 0.6 <= self.sequencepair_object.get_subsampleflag() <= 0.9: utilised_subsample_penalty = subsample_penalty[2]
 
-				if 0.1 <= self.sequencepair_object.get_subsampleflag() <= 0.3: utilised_subsample_penalty = subsample_penalty[0]
-				if 0.4 <= self.sequencepair_object.get_subsampleflag() <= 0.6: utilised_subsample_penalty = subsample_penalty[1]
-				if 0.6 <= self.sequencepair_object.get_subsampleflag() <= 0.9: utilised_subsample_penalty = subsample_penalty[2]
+					allele_read_ratio = allele.get_totalreads() / self.sequencepair_object.get_totalseqreads()
+					if np.isclose([allele_read_ratio],[0.05],atol=0.05): context_penalty = 30
+					if np.isclose([allele_read_ratio],[0.15],atol=0.05): context_penalty = 25
+					if np.isclose([allele_read_ratio],[0.25],atol=0.05): context_penalty = 20
+					if np.isclose([allele_read_ratio],[0.35],atol=0.05): context_penalty = 15
+					if np.isclose([allele_read_ratio],[0.45],atol=0.05): context_penalty = 10
+					if np.isclose([allele_read_ratio],[0.55],atol=0.05): context_penalty = 5
 
-				allele_read_ratio = allele.get_totalreads() / self.sequencepair_object.get_totalseqreads()
-				if np.isclose([allele_read_ratio],[0.05],atol=0.05): context_penalty = 30
-				if np.isclose([allele_read_ratio],[0.15],atol=0.05): context_penalty = 25
-				if np.isclose([allele_read_ratio],[0.25],atol=0.05): context_penalty = 20
-				if np.isclose([allele_read_ratio],[0.35],atol=0.05): context_penalty = 15
-				if np.isclose([allele_read_ratio],[0.45],atol=0.05): context_penalty = 10
-				if np.isclose([allele_read_ratio],[0.55],atol=0.05): context_penalty = 5
+					allele_confidence = allele_confidence * utilised_subsample_penalty
+					allele_confidence -= context_penalty
+					penfi.write('{}, *{}\n'.format('Subsample demultiplier', utilised_subsample_penalty))
+					penfi.write('{}, -{}\n'.format('Read Ratio Context', context_penalty))
 
-				allele_confidence = allele_confidence * utilised_subsample_penalty
-				allele_confidence -= context_penalty
-				penlog += 'M*{}\n'.format(utilised_subsample_penalty)
-				penlog += 'M-{}\n'.format(context_penalty)
+				##
+				## Warning penalty.. if triggered, no confidence
+				if self.warning_triggered: allele_confidence -= 20; penfi.write('{}, {}\n'.format('Warning triggered','-20'))
+				if self.sequencepair_object.get_ccguncertainty(): allele_confidence -= 10; penfi.write('{}, {}\n'.format('CCG Uncertainty','-10'))
+				if self.sequencepair_object.get_alignmentwarning(): allele_confidence -= 15; penfi.write('{}, {}\n'.format('Alignment warning','-15'))
 
-			##
-			## Warning penalty.. if triggered, no confidence
-			if self.warning_triggered: allele_confidence -= 20; penlog += 'N-20\n'
-			if self.sequencepair_object.get_ccguncertainty(): allele_confidence -= 10; penlog += 'N-10\n'
-			if self.sequencepair_object.get_alignmentwarning(): allele_confidence -= 15; penlog += 'N-15\n'
+				##
+				## Determine score (max out at 100), return genotype
+				capped_confidence = sorted([0, allele_confidence, 100])[1]
+				allele.set_alleleconfidence(capped_confidence)
+				penfi.write('{}, {}'.format('Final score', capped_confidence))
+				penfi.close()
 
-			##
-			## Determine score (max out at 100), return genotype
-			capped_confidence = sorted([0, allele_confidence, 100])[1]
-			allele.set_alleleconfidence(capped_confidence)
-			penlog += 'Final: {}'.format(capped_confidence)
-			with open(allele_log_fi, 'w') as logfi: logfi.write(penlog); logfi.close()
 			allele.set_allelegenotype('{}_{}_{}_{}_{}'.format(allele.get_fodcag(), allele.get_caacag(),
 															  allele.get_ccgcca(), allele.get_fodccg(), allele.get_cct()))
 

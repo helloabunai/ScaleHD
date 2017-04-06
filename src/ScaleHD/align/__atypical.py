@@ -540,17 +540,19 @@ class ScanAtypical:
 		##
 		## Check for atypical allele rewriting CCG Het to CCG Hom
 		temp_zyg = []
+		temp_curr = []
 		for allele in [primary_allele, secondary_allele]:
 			orig_ccg = allele['OriginalReference'].split('_')[3]
 			curr_ccg = allele['EstimatedCCG']
-			temp_zyg.append(orig_ccg)
+			temp_zyg.append(orig_ccg); temp_curr.append(curr_ccg)
 			if allele['Status'] == 'Atypical':
 				if orig_ccg != curr_ccg:
 					self.sequencepair_object.set_atypical_ccgrewrite(True)
 					allele['RewrittenCCG'] = orig_ccg
 		if not temp_zyg[0] == temp_zyg[1]:
-			if self.sequencepair_object.get_atypical_ccgrewrite():
-				self.sequencepair_object.set_atypical_zygrewrite(True)
+			if temp_curr[0] == temp_curr[1]:
+				if self.sequencepair_object.get_atypical_ccgrewrite():
+					self.sequencepair_object.set_atypical_zygrewrite(True)
 
 		return primary_allele, secondary_allele, atypical_count
 
