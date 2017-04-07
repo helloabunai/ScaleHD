@@ -38,10 +38,13 @@ class SequenceSample:
 		self.neighbouringpeaks = False
 		self.diminishedpeaks = False
 		self.ccguncertainty = False
+		self.svm_failure = False
 		self.alignmentwarning = False
 		self.atypical_ccgrewrite = False
 		self.atypical_zygrewrite = False
+		self.peakinspection_warning = False
 		self.ccgzygstate = ''
+		self.fatalreadallele = False
 
 	##
 	## Setters
@@ -80,10 +83,13 @@ class SequenceSample:
 	def set_neighbouringpeaks(self, state): self.neighbouringpeaks = state
 	def set_diminishedpeaks(self, state): self.diminishedpeaks = state
 	def set_ccguncertainty(self, state): self.ccguncertainty = state
+	def set_svm_failure(self, state): self.svm_failure = state
 	def set_alignmentwarning(self, state): self.alignmentwarning = state
 	def set_ccgzygstate(self, state): self.ccgzygstate = state
 	def set_atypical_ccgrewrite(self, state): self.atypical_ccgrewrite = state
 	def set_atypical_zygrewrite(self, state): self.atypical_zygrewrite = state
+	def set_peakinspection_warning(self, state): self.peakinspection_warning = state
+	def set_fatalreadallele(self, state): self.fatalreadallele = state
 
 	##
 	## Getters
@@ -124,8 +130,11 @@ class SequenceSample:
 	def get_ccguncertainty(self): return self.ccguncertainty
 	def get_alignmentwarning(self): return self.alignmentwarning
 	def get_ccgzygstate(self): return self.ccgzygstate
+	def get_svm_failure(self): return self.svm_failure
 	def get_atypical_ccgrewrite(self): return self.atypical_ccgrewrite
 	def get_atypical_zygrewrite(self): return self.atypical_zygrewrite
+	def get_peakinspection_warning(self): return self.peakinspection_warning
+	def get_fatalreadallele(self): return self.fatalreadallele
 
 	##
 	## Functions
@@ -193,6 +202,7 @@ class IndividualAllele:
 		self.unexpected_peaks = False
 		self.fod_overwrite = False
 		self.slippage_overwrite = False
+		self.fatalalignmentwarning = False
 
 
 	##
@@ -250,6 +260,7 @@ class IndividualAllele:
 	def set_unexpectedpeaks(self, bool): self.unexpected_peaks = bool
 	def set_fodoverwrite(self, bool): self.fod_overwrite = bool
 	def set_slippageoverwrite(self, state): self.slippage_overwrite = state
+	def set_fatalalignmentwarning(self, state): self.fatalalignmentwarning = state
 
 	##
 	## Getters
@@ -306,3 +317,4 @@ class IndividualAllele:
 	def get_unexpectedpeaks(self): return self.unexpected_peaks
 	def get_fodoverwrite(self): return self.fod_overwrite
 	def get_slippageoverwrite(self): return self.slippage_overwrite
+	def get_fatalalignmentwarning(self): return self.fatalalignmentwarning

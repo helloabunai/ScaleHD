@@ -57,6 +57,7 @@ class AlleleGenotyping:
 		if not self.inspect_peaks():
 			log.warn('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, '1+ allele(s) failed peak validation. Precision not guaranteed.'))
 			self.warning_triggered = True
+			self.sequencepair_object.set_peakinspection_warning(True)
 		self.render_graphs()
 		self.calculate_score()
 		self.set_report()
@@ -265,16 +266,18 @@ class AlleleGenotyping:
 		## Look for peaks in our distribution
 		peak_indexes = peakutils.indexes(distro, thres=utilised_threshold, min_dist=peak_dist)
 		fixed_indexes = np.array(peak_indexes + 1)
-
 		if not len(fixed_indexes) == error_boundary:
-			if triplet_stage == 'CAGHom' and est_dist == 1:
+			if triplet_stage == 'CAGHom' and (est_dist==1 or est_dist==0):
 				primary_reads = distro[self.sequencepair_object.get_primaryallele().get_cag() - 1]
 				secondary_reads = distro[self.sequencepair_object.get_secondaryallele().get_cag() - 1]
 				read_diff = abs(primary_reads - secondary_reads) / max(primary_reads, secondary_reads)
-				if read_diff < 0.25:
+				if 0.25 > read_diff > 0.00:
 					self.sequencepair_object.set_neighbouringpeaks(True)
 					fixed_indexes = np.asarray([self.sequencepair_object.get_primaryallele().get_cag()-1,
 												self.sequencepair_object.get_secondaryallele().get_cag()-1])
+				elif read_diff == 0:
+					self.sequencepair_object.set_homozygoushaplotype(True)
+					fixed_indexes = np.asarray([fixed_indexes[0], fixed_indexes[0]])
 				else:
 					self.sequencepair_object.set_homozygoushaplotype(True)
 					fixed_indexes = np.asarray([fixed_indexes[0], fixed_indexes[0]])
@@ -287,11 +290,16 @@ class AlleleGenotyping:
 	def allele_validation(self):
 
 		ccg_expectant = []
-
 		##
 		## For the two allele objects in this sample_pair
 		for allele_object in [self.sequencepair_object.get_primaryallele(),
 							  self.sequencepair_object.get_secondaryallele()]:
+
+			##
+			## Read count
+			if allele_object.get_totalreads() < 1000:
+				allele_object.set_fatalalignmentwarning(True)
+				self.sequencepair_object.set_fatalreadallele(True)
 
 			##
 			## Unlabelled distributions
@@ -335,6 +343,9 @@ class AlleleGenotyping:
 			## Allele read peak (dsp error)
 			major = max(self.reverse_aggregate)
 			minor = max(n for n in self.reverse_aggregate if n != major)
+			for item in [major, minor]:
+				if item == 0 or item is None:
+					raise ValueError('Insignificant read count. Cannot genotype.')
 			tertiary = max(n for n in self.reverse_aggregate if n!= major and n!= minor)
 			majidx = int(np.where(self.reverse_aggregate == major)[0][0])
 			minidx = int(np.where(self.reverse_aggregate == minor)[0][0])
@@ -349,18 +360,31 @@ class AlleleGenotyping:
 			if minor == self.reverse_aggregate[allele_object.get_ccg()-1]:
 				skip_flag = True
 				self.sequencepair_object.set_ccguncertainty(True)
-
 			if not skip_flag:
 				for fod_peak in [majidx+1, minidx+1]:
 					if allele_object.get_ccg() not in [majidx+1, minidx]:
-						if fod_peak not in [self.sequencepair_object.get_primaryallele().get_ccg(), self.sequencepair_object.get_secondaryallele().get_ccg()]:
+						if fod_peak not in [self.sequencepair_object.get_primaryallele().get_ccg(),
+											self.sequencepair_object.get_secondaryallele().get_ccg()]:
 							allele_object.set_fodoverwrite(True)
 							allele_object.set_ccgval(int(fod_peak))
 
 			##
+			## Check SVM didn't fail...
+			if 1 < abs(majidx-minidx) < 10:
+				peak_count = 0
+				for peak in [majidx, minidx]:
+					pmo = self.reverse_aggregate[peak-1]; ppo = self.reverse_aggregate[peak+1]
+					pmo_ratio = pmo/self.reverse_aggregate[peak]
+					ppo_ratio = ppo/self.reverse_aggregate[peak]
+					if pmo_ratio and ppo_ratio < 0.2:
+						peak_count += 1
+				if peak_count == 2:
+					self.zygosity_state = 'HETERO'
+					self.sequencepair_object.set_svm_failure(True)
+
+			##
 			## Clean up distribution for erroneous peaks
 			## In the case of atypical alleles, unexpected peaks may exist in aggregates
-			atol = 0
 			if self.zygosity_state == 'HOMO' or self.zygosity_state == 'HOMO*':
 				for i in range(0, len(self.reverse_aggregate)):
 					if np.isclose([i], [allele_object.get_ccg() - 1], atol=2):
@@ -372,7 +396,7 @@ class AlleleGenotyping:
 			else:
 				for i in range(0, len(self.reverse_aggregate)):
 					if i != allele_object.get_ccg()-1:
-						removal = (self.reverse_aggregate[i]/100) * 90
+						removal = (self.reverse_aggregate[i]/100) * 75
 						self.reverse_aggregate[i] -= removal
 			allele_object.set_rvarray(self.reverse_aggregate)
 
@@ -439,6 +463,13 @@ class AlleleGenotyping:
 			local_zygstate = 'HOMO'
 		if not ccg_values[0] == ccg_values[1]:
 			local_zygstate = 'HETERO'
+
+		##
+		## If the sample's total read count is so low that we cannot trust results
+		## We trust the local/expected zygosity over the SVM derived instance-wide variable
+		if self.sequencepair_object.get_alignmentwarning():
+			if sum(self.reverse_aggregate) < 100:
+				self.zygosity_state = self.expected_zygstate = local_zygstate
 
 		self.sequencepair_object.set_ccgzygstate(self.expected_zygstate)
 		if not self.zygosity_state == 'HOMO*':
@@ -529,7 +560,6 @@ class AlleleGenotyping:
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
 				allele.set_cagthreshold(0.50)
-
 				fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, distance_threshold, 'CAGHom', est_dist=estimated_distance)
 				while fod_failstate:
 					fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, distance_threshold, 'CAGHom', est_dist=estimated_distance, fod_recall=True)
@@ -640,6 +670,7 @@ class AlleleGenotyping:
 				self.sequencepair_object.set_homozygoushaplotype(True)
 				pass_vld = ensure_integrity()
 				return pass_vld
+
 			##
 			## Check for diminished peaks (incase DSP failure / read count is low)
 			split_target = primary_target[primary_allele.get_cag()+5:-1]
@@ -791,7 +822,7 @@ class AlleleGenotyping:
 	def render_graphs(self):
 
 		##
-		## Data for graph rendering (prevents frequent calls/messy code)
+		## Data for graph rendering (prevents frequent calls/messy code [[lol]])
 		pri_fodccg = self.sequencepair_object.get_primaryallele().get_fodccg()-1
 		sec_fodccg = self.sequencepair_object.get_secondaryallele().get_fodccg()-1
 		pri_fodcag = self.sequencepair_object.get_primaryallele().get_fodcag()-1
@@ -1115,9 +1146,17 @@ class AlleleGenotyping:
 
 				##
 				## Warning penalty.. if triggered, no confidence
-				if self.warning_triggered: allele_confidence -= 20; penfi.write('{}, {}\n'.format('Warning triggered','-20'))
+				if self.warning_triggered: allele_confidence -= 20; penfi.write('{}, {}\n'.format('Peak Inspection warning triggered','-20'))
 				if self.sequencepair_object.get_ccguncertainty(): allele_confidence -= 10; penfi.write('{}, {}\n'.format('CCG Uncertainty','-10'))
-				if self.sequencepair_object.get_alignmentwarning(): allele_confidence -= 15; penfi.write('{}, {}\n'.format('Alignment warning','-15'))
+				if self.sequencepair_object.get_alignmentwarning(): allele_confidence -= 15; penfi.write('{}, {}\n'.format('Low read count alignment warning','-15'))
+				if allele.get_fatalalignmentwarning(): allele_confidence -=85; penfi.write('{}, {}\n'.format('Fatal low read count alignment warning','-85'))
+
+				##
+				## If reflabel CAG and FOD CAG differ.. no confidence
+				label_split = allele.get_reflabel().split('_')[0]
+				if allele.get_allelestatus() == 'Atypical':
+					if allele.get_fodcag() != label_split:
+						allele_confidence = 0; penfi.write('{}, {}\n'.format('Atypical DSP:FOD inconsistency','-100'))
 
 				##
 				## Determine score (max out at 100), return genotype
@@ -1139,7 +1178,7 @@ class AlleleGenotyping:
 			report_path = os.path.join(self.sequencepair_object.get_predictpath(), allele_filestring)
 			allele.set_allelereport(report_path)
 			report_string = '{}{}\n\n{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n\n' \
-							'{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n\n' \
+							'{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n\n' \
 							'{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}'.format(
 							'Allele Report>> ', self.sequencepair_object.get_label(),
 							'Summary Information>>',
@@ -1163,6 +1202,7 @@ class AlleleGenotyping:
 							'Peak Interpolation Distance: ', allele.get_interpdistance(),
 							'Peak DSP Overwritten: ', allele.get_fodoverwrite(),
 							'Low read-count alignment: ', self.sequencepair_object.get_alignmentwarning(),
+							'Fatal low read-count: ', allele.get_fatalalignmentwarning(),
 							'Data Quality>>',
 							'Reads (%) surrounding peak: ', allele.get_vicinityreads(),
 							'Immediate Dropoffs: ', allele.get_immediate_dropoff(),

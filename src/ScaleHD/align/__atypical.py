@@ -462,7 +462,6 @@ class ScanAtypical:
 			for val in [sorted_info[1], sorted_info[2]]:
 				top1_reads = primary_allele['TotalReads']; curr_reads = val[1].get('TotalReads')
 				read_drop = abs(top1_reads-curr_reads)/top1_reads
-
 				if val[1].get('EstimatedCCG') != primary_allele['EstimatedCCG']:
 					if read_drop >= 0.40:
 						if sub_drop <= 0.25:
@@ -485,9 +484,9 @@ class ScanAtypical:
 					top1_top3_dist = abs(sorted_info[0][1]['EstimatedCAG']-sorted_info[2][1]['EstimatedCAG'])
 					top2_top3_dist = abs(sorted_info[1][1]['EstimatedCAG']-sorted_info[2][1]['EstimatedCAG'])
 					if read_drop >= 0.65 and top2_top3_dist == 1:
-						secondary_allele = primary_allele
+						secondary_allele = primary_allele.copy()
 						break
-					elif 0 < read_drop < 0.64:
+					elif 0.0 < read_drop < 0.64:
 						secondary_allele = sorted_info[1][1]
 						secondary_allele['Reference'] = sorted_info[1][0]
 						break
@@ -512,6 +511,9 @@ class ScanAtypical:
 					if sorted_info[0][1]['EstimatedCCG'] != sorted_info[2][1]['EstimatedCCG']:
 						secondary_allele = sorted_info[2][1]
 						secondary_allele['Reference'] = sorted_info[2][0]
+				else:
+					secondary_allele = sorted_info[1][1]
+					secondary_allele['Reference'] = sorted_info[1][0]
 			elif not sorted_info[0][1]['EstimatedCCG'] == sorted_info[1][1]['EstimatedCCG']:
 				if sorted_info[1][1]['EstimatedCAG'] > 30:
 					secondary_allele = sorted_info[1][1]
@@ -520,10 +522,10 @@ class ScanAtypical:
 					secondary_allele = sorted_info[2][1]
 					secondary_allele['Reference'] = sorted_info[2][0]
 				if alpha_drop >= 0.65 and beta_drop >= 0.80:
-						secondary_allele = primary_allele
+					secondary_allele = primary_allele
 				if beta_drop >= 0.20:
-						secondary_allele = sorted_info[1][1]
-						secondary_allele['Reference'] = sorted_info[1][0]
+					secondary_allele = sorted_info[1][1]
+					secondary_allele['Reference'] = sorted_info[1][0]
 
 		##
 		## For each of the alleles we've determined..

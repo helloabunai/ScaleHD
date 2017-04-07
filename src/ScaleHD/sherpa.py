@@ -148,9 +148,11 @@ class ScaleHD:
 		##
 		## Instance results (genotype table)
 		self.instance_results = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		header = '{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
+		header = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
 			'SampleName', '', 'Primary GTYPE', 'Status', 'BSlippage', 'Somatic Mosaicism', 'Confidence',
-			'', 'Secondary GTYPE', 'Status', 'BSlippage', 'Somatic Mosaicism', 'Confidence'
+			'', 'Secondary GTYPE', 'Status', 'BSlippage', 'Somatic Mosaicism', 'Confidence', '',
+			'Homozygous Haplotype', 'Neighbouring Peaks', 'Diminished Peaks', 'Alignment Warning', 'CCG Rewritten',
+			'CCG Zygosity Rewritten', 'Peak Inspection Warning', 'SVM Failure', 'Very low reads'
 		)
 		with open(self.instance_results, 'w') as outfi: outfi.write(header); outfi.close()
 
@@ -325,7 +327,7 @@ class ScaleHD:
 					self.append_report(current_seqpair, "PASS")
 				except Exception, e:
 					self.append_report(current_seqpair, "FAIL")
-					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Report/Graphing failure on ', seqpair_lbl, str(e)))
+					log.info('{}{}{}{}{}: {}'.format(clr.red, 'shd__ ', clr.end, 'Report/Graphing failure on ', seqpair_lbl, str(e)))
 				gc.collect()
 				log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Sequence pair workflow complete!\n'))
 
@@ -418,11 +420,56 @@ class ScaleHD:
 
 	def append_report(self, sequencepair_object, context):
 
-		report_string = ''
+		##TODO work here
+		# def call_object_scraper(input_list, rep_str):
+		# 	for obj_pair in input_list:
+		# 		seq_object = obj_pair[0]
+		# 		func_call = obj_pair[1]
+		#
+		# 		print seq_object
+		# 		print func_call
+		#
+		# 		func = getattr(seq_object, func_call)
+		# 		func_output = func()
+		# 		# try:
+		# 		# 	func_output = func()
+		# 		# 	pr
+		# 		# except Exception, e:
+		# 		# 	func_output = 'fail_exc: {}'.format(e)
+		#
+		# 		rep_str += '{},'.format(func_output)
+		#
+		# seq_info = [[sequencepair_object, "get_label"]]
+		# primary_info = [[primary_allele, 'get_allelegenotype'],
+		# 				[primary_allele, 'get_allelestatus'],
+		# 				[primary_allele, 'get_backwardsslippage'],
+		# 				[primary_allele, 'get_somaticmosaicism'],
+		# 				[primary_allele, 'get_alleleconfidence']]
+		# secondary_info = [[secondary_allele, 'get_allelegenotype'],
+		# 				  [secondary_allele, 'get_allelestatus'],
+		# 				  [secondary_allele, 'get_backwardsslippage'],
+		# 				  [secondary_allele, 'get_somaticmosaicism'],
+		# 				  [secondary_allele, 'get_alleleconfidence']]
+		# flag_info = [[sequencepair_object, 'get_homozygoushaplotype'],
+		# 			 [sequencepair_object, 'get_neighbouringpeaks'],
+		# 			 [sequencepair_object, 'get_diminishedpeaks'],
+		# 			 [sequencepair_object, 'get_alignmentwarning'],
+		# 			 [sequencepair_object, 'get_atypical_ccgrewrite'],
+		# 			 [sequencepair_object, 'get_atypical_zygrewrite'],
+		# 			 [sequencepair_object, 'get_peakinspection_warning'],
+		# 			 [sequencepair_object, 'get_svm_failure'],
+		# 			 [sequencepair_object, 'get_fatalreadallele']]
 
+		# call_object_scraper(seq_info, report_string); report_string += '{},'.format('')
+		# call_object_scraper(primary_info, report_string); report_string += '{},'.format('')
+		# call_object_scraper(secondary_info, report_string); report_string += '{},'.format('')
+		# call_object_scraper(flag_info, report_string)
+
+		report_string = ''
 		if context == "FAIL":
-			report_string = '{},,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,\n'.format(sequencepair_object.get_label())
+			report_string = '{},,FAILURE!,\n'.format(sequencepair_object.get_label())
 		if context == 'PASS':
+			## data
 			sequence_label = sequencepair_object.get_label()
 			primary_allele = sequencepair_object.get_primaryallele()
 			primary_gtype = primary_allele.get_allelegenotype()
@@ -436,10 +483,23 @@ class ScaleHD:
 			secondary_sommos = secondary_allele.get_somaticmosaicism()
 			primary_confidence = primary_allele.get_alleleconfidence()
 			secondary_confidence = secondary_allele.get_alleleconfidence()
+			## flags
+			homozygous = sequencepair_object.get_homozygoushaplotype()
+			neighbours = sequencepair_object.get_neighbouringpeaks()
+			diminished = sequencepair_object.get_diminishedpeaks()
+			alignmentwarn = sequencepair_object.get_alignmentwarning()
+			ccgrewrite = sequencepair_object.get_atypical_ccgrewrite()
+			zygrewrite = sequencepair_object.get_atypical_zygrewrite()
+			peakinspect = sequencepair_object.get_peakinspection_warning()
+			svmfail = sequencepair_object.get_svm_failure()
+			lowreads = sequencepair_object.get_fatalreadallele()
 
-			report_string = '{},{},{},{},{},{},{},{},{},{},{},{},{},\n'.format(sequence_label, '', primary_gtype, primary_status,
-							primary_bslip, primary_sommos, primary_confidence, '', secondary_gtype, secondary_status,
-							secondary_bslip,secondary_sommos, secondary_confidence)
+			report_string = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
+				sequence_label, '', primary_gtype, primary_status,primary_bslip, primary_sommos, primary_confidence, '',
+				secondary_gtype, secondary_status,secondary_bslip,secondary_sommos, secondary_confidence, '',
+				homozygous, neighbours, diminished, alignmentwarn, ccgrewrite, zygrewrite, peakinspect, svmfail,
+				lowreads)
+
 		with open(self.instance_results, 'a') as outfi:
 			outfi.write(report_string)
 			outfi.close()
