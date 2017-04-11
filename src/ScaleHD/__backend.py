@@ -508,8 +508,8 @@ def initialise_libraries(instance_params):
 	##
 	## Subfunction for recycling code
 	## Calls UNIX which for checking binaries present
-	def which(library):
-		library_subprocess = subprocess.Popen(['which', library], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	def type_func(library):
+		library_subprocess = subprocess.Popen(['type', library], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		library_directory = library_subprocess.communicate()
 		library_subprocess.wait()
 		if not library in library_directory[0]:
@@ -530,27 +530,27 @@ def initialise_libraries(instance_params):
 		genotyping = instance_params['genotype_prediction']
 
 	if quality_control == 'True':
-		try:which('java')
+		try:type_func('java')
 		except ScaleHDException: trigger=True
-		try:which('fastqc')
+		try:type_func('fastqc')
 		except ScaleHDException: trigger=True
-		try:which('cutadapt')
+		try:type_func('cutadapt')
 		except ScaleHDException: trigger=True
 	if alignment == 'True':
-		try:which('seqtk')
+		try:type_func('seqtk')
 		except ScaleHDException: trigger=True
-		try:which('bwa')
+		try:type_func('bwa')
 		except ScaleHDException: trigger=True
-		try:which('samtools')
+		try:type_func('samtools')
 		except ScaleHDException: trigger=True
-		try:which('generatr')
+		try:type_func('generatr')
 		except ScaleHDException: trigger=True
 	if genotyping == 'True':
-		try:which('samtools')
+		try:type_func('samtools')
 		except ScaleHDException: trigger=True
-		try:which('r')
+		try:type_func('r')
 		except ScaleHDException: trigger=True
-		try:which('generatr')
+		try:type_func('generatr')
 		except ScaleHDException: trigger=True
 
 	return trigger

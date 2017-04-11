@@ -109,27 +109,25 @@ class ScanAtypical:
 		count_process = subprocess.Popen(['samtools','idxstats', self.sorted_assembly], stdout=subprocess.PIPE)
 		awk_process = subprocess.Popen(awk, stdin=count_process.stdout, stdout=subprocess.PIPE)
 		count_process.wait(); awk_process.wait(); awk_output = int(awk_process.communicate()[0])
-		if awk_output > 20000: subsample_float = 0.05
-		elif 20000 > awk_output > 10000: subsample_float = 0.1
-		else: subsample_float = 0.2
+		if awk_output > 20000: subsample_float = 0.25
+		elif 20000 > awk_output > 10000: subsample_float = 0.2
+		else: subsample_float = 0.15
 		self.sequencepair_object.set_totalseqreads(awk_output)
 
 		##
 		## Subsample reads
 		## Index the subsampled assembly
-		if self.sequencepair_object.get_boostflag() or awk_output > 20000:
-			self.sequencepair_object.set_subsampleflag('0.05**')
+		if self.sequencepair_object.get_boostflag() or awk_output > 30000:
+			self.sequencepair_object.set_subsampleflag(subsample_float)
+			self.sequencepair_object.set_automatic_DSPsubsample(True)
 			self.subsample_assembly = os.path.join(self.sequence_path,'subsample.sam')
 			self.subsample_index = os.path.join(self.sequence_path,'subsample.sam.bai')
 			assem_obj = open(self.subsample_assembly,'w')
 			subsample_process = subprocess.Popen(['samtools','view','-s',str(subsample_float),'-b', self.sorted_assembly], stdout=assem_obj)
 			subsample_process.wait(); assem_obj.close()
 			index_process = subprocess.Popen(['samtools','index',self.subsample_assembly]); index_process.wait()
-		##
-		## If the user has specified a global subsampling flag, we do not subsample further (unless insane read count)
-		if not self.sequencepair_object.get_boostflag():
-			if awk_output > 20000: pass
-			else: self.subsample_assembly = self.sorted_assembly
+		else:
+			self.subsample_assembly = self.sorted_assembly
 
 		##
 		## Load into object, determine references to investigate
@@ -440,7 +438,6 @@ class ScanAtypical:
 		## Constructs
 		sorted_info = sorted(self.atypical_info.iteritems(), key=lambda (x, y): y['TotalReads'], reverse=True)
 		if len(sorted_info) != 3: raise IndexError('< 3 references in sorted top; alignment failure?')
-
 		##
 		## Check % dropoff in read count between #2 and #3
 		alpha_diff = float(abs(sorted_info[0][1]['TotalReads'] - sorted_info[1][1]['TotalReads']))
@@ -493,9 +490,15 @@ class ScanAtypical:
 							secondary_allele['Reference'] = sorted_info[1][0]
 							break
 						else:
-							secondary_allele = sorted_info[2][1]
-							secondary_allele['Reference'] = sorted_info[2][0]
-							break
+							differential = max(sub_diff, alpha_diff)/min(sub_diff, alpha_diff)
+							if differential >= 3:
+								secondary_allele = sorted_info[1][1]
+								secondary_allele['Reference'] = sorted_info[1][0]
+								break
+							else:
+								secondary_allele = sorted_info[2][1]
+								secondary_allele['Reference'] = sorted_info[2][0]
+								break
 					elif top2_top3_dist >= 2:
 						if not top1_top3_dist == 1:
 							secondary_allele = sorted_info[2][1]

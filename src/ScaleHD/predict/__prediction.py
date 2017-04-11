@@ -269,19 +269,8 @@ class AlleleGenotyping:
 		fixed_indexes = np.array(peak_indexes + 1)
 		if not len(fixed_indexes) == error_boundary:
 			if triplet_stage == 'CAGHom' and (est_dist==1 or est_dist==0):
-				primary_reads = distro[self.sequencepair_object.get_primaryallele().get_cag() - 1]
-				secondary_reads = distro[self.sequencepair_object.get_secondaryallele().get_cag() - 1]
-				read_diff = abs(primary_reads - secondary_reads) / max(primary_reads, secondary_reads)
-				if 0.25 > read_diff > 0.00:
-					self.sequencepair_object.set_neighbouringpeaks(True)
-					fixed_indexes = np.asarray([self.sequencepair_object.get_primaryallele().get_cag()-1,
-												self.sequencepair_object.get_secondaryallele().get_cag()-1])
-				elif read_diff == 0:
-					self.sequencepair_object.set_homozygoushaplotype(True)
-					fixed_indexes = np.asarray([fixed_indexes[0], fixed_indexes[0]])
-				else:
-					self.sequencepair_object.set_homozygoushaplotype(True)
-					fixed_indexes = np.asarray([fixed_indexes[0], fixed_indexes[0]])
+				##todo make sure this doesnt fuck shit up
+				pass
 			elif allele_object.get_cag() in fixed_indexes:
 				fixed_indexes = np.asarray([x for x in fixed_indexes if x == allele_object.get_cag()])
 			elif triplet_stage == 'CCG':
@@ -303,17 +292,17 @@ class AlleleGenotyping:
 							  self.sequencepair_object.get_secondaryallele()]:
 
 			##
-			## Read count
-			if allele_object.get_totalreads() < 1000:
-				allele_object.set_fatalalignmentwarning(True)
-				self.sequencepair_object.set_fatalreadallele(True)
-
-			##
 			## Unlabelled distributions
 			self.forward_distribution = self.scrape_distro(allele_object.get_fwdist())
 			self.reverse_distribution = self.scrape_distro(allele_object.get_rvdist())
 			allele_object.set_fwarray(self.forward_distribution)
 			allele_object.set_rvarray(self.reverse_distribution)
+
+			##
+			## Read count
+			if allele_object.get_totalreads() < 1000:
+				allele_object.set_fatalalignmentwarning(True)
+				self.sequencepair_object.set_fatalreadallele(True)
 
 			##
 			## If current alleleobj's assembly/distro is blank
@@ -670,11 +659,11 @@ class AlleleGenotyping:
 				self.sequencepair_object.set_neighbouringpeaks(True)
 				pass_vld = ensure_integrity()
 				return pass_vld
-			if np.isclose([pcnt], [0.25], atol=0.05):
+			elif np.isclose([pcnt], [0.25], atol=0.05):
 				self.sequencepair_object.set_neighbouringpeaks(True)
 				pass_vld = ensure_integrity()
 				return pass_vld
-			if primary_fod_cag.all() and secondary_fod_cag.all():
+			elif primary_fod_cag.all() and secondary_fod_cag.all():
 				self.sequencepair_object.set_homozygoushaplotype(True)
 				pass_vld = ensure_integrity()
 				return pass_vld
@@ -757,6 +746,7 @@ class AlleleGenotyping:
 					if np.isclose([major],[minor], atol=thresh):
 						allele.set_unexpectedpeaks(True)
 						self.pass_vld = False
+
 			##
 			## Slippage
 			## Gather from N-2:N-1, sum and ratio:N
@@ -766,12 +756,13 @@ class AlleleGenotyping:
 
 			rv_ratio = (target[allele.get_fodcag()-2]/target[allele.get_fodcag()-1])
 			fw_ratio = (target[allele.get_fodcag()]/target[allele.get_fodcag()-1])
-			if np.isclose([fw_ratio], [0.85], atol=0.075):
-				allele.set_fodcag(allele.get_fodcag()+1)
-				allele.set_slippageoverwrite(True)
-			if np.isclose([rv_ratio], [0.80], atol=0.150):
-				allele.set_fodcag(allele.get_fodcag()-1)
-				allele.set_slippageoverwrite(True)
+			if not self.sequencepair_object.get_homozygoushaplotype() and not self.sequencepair_object.get_neighbouringpeaks():
+				if np.isclose([fw_ratio], [0.85], atol=0.075):
+					allele.set_fodcag(allele.get_fodcag()+1)
+					allele.set_slippageoverwrite(True)
+				if np.isclose([rv_ratio], [0.80], atol=0.150):
+					allele.set_fodcag(allele.get_fodcag()-1)
+					allele.set_slippageoverwrite(True)
 			##
 			## If we're not homozygous or neighbouring, 'normal' peaks..
 			## Check dropoffs are legitimate and 'clean'
@@ -984,6 +975,8 @@ class AlleleGenotyping:
 		if self.sequencepair_object.get_subsampleflag():
 			if self.sequencepair_object.get_subsampleflag() == '0.05**':
 				pass
+			elif self.sequencepair_object.get_automatic_DSPsubsample():
+				pass
 			else:
 				c.setFillColorRGB(75, 0, 130)
 				c.drawCentredString(250, 25, '!! Genotype derived from subsampled data !!')
@@ -1051,8 +1044,10 @@ class AlleleGenotyping:
 				if 4 > self.sequencepair_object.get_recallcount() > 0: allele_confidence -= 5; penfi.write('{}, {}\n'.format('Recall Count', '-5'))
 				else: allele_confidence += 10; penfi.write('{}, {}\n'.format('Recall Count', '+10'))
 
-				if self.sequencepair_object.get_homozygoushaplotype(): allele_confidence -= 15; penfi.write('{}, {}\n'.format('Homozygous Haplotype','-15'))
-				elif self.sequencepair_object.get_neighbouringpeaks(): allele_confidence -= 25; penfi.write('{}, {}\n'.format('Neighbouring Peaks', '-25'))
+				if self.sequencepair_object.get_homozygoushaplotype():
+					allele_confidence -= 15; penfi.write('{}, {}\n'.format('Homozygous Haplotype','-15'))
+				elif self.sequencepair_object.get_neighbouringpeaks():
+					allele_confidence -= 25; penfi.write('{}, {}\n'.format('Neighbouring Peaks', '-25'))
 				else: allele_confidence += 15; penfi.write('{}, {}\n'.format('Normal Data','+15'))
 
 				if self.sequencepair_object.get_diminishedpeaks():

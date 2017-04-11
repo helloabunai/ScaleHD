@@ -45,6 +45,7 @@ class SequenceSample:
 		self.peakinspection_warning = False
 		self.ccgzygstate = ''
 		self.fatalreadallele = False
+		self.automatic_DSPsubsample = False
 
 	##
 	## Setters
@@ -90,6 +91,7 @@ class SequenceSample:
 	def set_atypical_zygrewrite(self, state): self.atypical_zygrewrite = state
 	def set_peakinspection_warning(self, state): self.peakinspection_warning = state
 	def set_fatalreadallele(self, state): self.fatalreadallele = state
+	def set_automatic_DSPsubsample(self, state): self.automatic_DSPsubsample = state
 
 	##
 	## Getters
@@ -135,6 +137,7 @@ class SequenceSample:
 	def get_atypical_zygrewrite(self): return self.atypical_zygrewrite
 	def get_peakinspection_warning(self): return self.peakinspection_warning
 	def get_fatalreadallele(self): return self.fatalreadallele
+	def get_automatic_DSPsubsample(self): return self.automatic_DSPsubsample
 
 	##
 	## Functions
