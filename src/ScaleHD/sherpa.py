@@ -302,12 +302,12 @@ class ScaleHD:
 				###########################################
 				## Stage five!! Genotype distributions.. ##
 				###########################################
-				try:
-					self.allele_genotyping(current_seqpair, invalid_data)
-				except Exception, e:
-					self.append_report(current_seqpair, "FAIL")
-					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Genotyping failure on ',seqpair_lbl, str(e)))
-					continue
+				#try:
+				self.allele_genotyping(current_seqpair, invalid_data)
+				#except Exception, e:
+				#	self.append_report(current_seqpair, "FAIL")
+				#	log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Genotyping failure on ',seqpair_lbl, str(e)))
+				#	continue
 
 				#######################################
 				## Stage six!! Bayesian Genotyping.. ##

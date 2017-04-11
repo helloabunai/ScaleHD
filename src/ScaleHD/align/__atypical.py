@@ -482,14 +482,20 @@ class ScanAtypical:
 				## Secondary allele unassigned, perhaps homzoygous haplotype
 				if not secondary_allele:
 					top1_top3_dist = abs(sorted_info[0][1]['EstimatedCAG']-sorted_info[2][1]['EstimatedCAG'])
+					top1_top2_dist = abs(sorted_info[0][1]['EstimatedCAG']-sorted_info[1][1]['EstimatedCAG'])
 					top2_top3_dist = abs(sorted_info[1][1]['EstimatedCAG']-sorted_info[2][1]['EstimatedCAG'])
 					if read_drop >= 0.65 and top2_top3_dist == 1:
 						secondary_allele = primary_allele.copy()
 						break
 					elif 0.0 < read_drop < 0.64:
-						secondary_allele = sorted_info[1][1]
-						secondary_allele['Reference'] = sorted_info[1][0]
-						break
+						if not top1_top2_dist == 1:
+							secondary_allele = sorted_info[1][1]
+							secondary_allele['Reference'] = sorted_info[1][0]
+							break
+						else:
+							secondary_allele = sorted_info[2][1]
+							secondary_allele['Reference'] = sorted_info[2][0]
+							break
 					elif top2_top3_dist >= 2:
 						if not top1_top3_dist == 1:
 							secondary_allele = sorted_info[2][1]

@@ -1,0 +1,6 @@
+include MANIFEST.in
+include ScaleHD/train/likelihood_matrix.csv
+include ScaleHD/train/long_descr.rst
+include ScaleHD/train/polyglutamine.csv
+include ScaleHD/train/raw_matrix.csv
+include ScaleHD/config/config.dtd
