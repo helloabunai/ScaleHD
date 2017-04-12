@@ -72,6 +72,7 @@ class ScaleHD:
 		self.parser.add_argument('-j', '--jobname', help='Customised folder output name. If not specified, defaults to normal output naming schema.', type=str)
 		self.parser.add_argument('-o', '--output', help='Output path. Specify a directory you wish output to be directed towards.', metavar='output', nargs=1, required=True)
 		self.args = self.parser.parse_args()
+		self.header = ''
 
 		##
 		## Set verbosity for CLI output
@@ -148,13 +149,13 @@ class ScaleHD:
 		##
 		## Instance results (genotype table)
 		self.instance_results = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		header = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
-			'SampleName', '', 'Primary GTYPE', 'Status', 'BSlippage', 'Somatic Mosaicism', 'Confidence',
-			'', 'Secondary GTYPE', 'Status', 'BSlippage', 'Somatic Mosaicism', 'Confidence', '',
+		self.header = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
+			'SampleName', 'Primary GTYPE', 'Status', 'BSlippage', 'Somatic Mosaicism', 'Confidence',
+			'Secondary GTYPE', 'Status', 'BSlippage', 'Somatic Mosaicism', 'Confidence',
 			'Homozygous Haplotype', 'Neighbouring Peaks', 'Diminished Peaks', 'Alignment Warning', 'CCG Rewritten',
 			'CCG Zygosity Rewritten', 'Peak Inspection Warning', 'SVM Failure', 'Very low reads'
 		)
-		with open(self.instance_results, 'w') as outfi: outfi.write(header); outfi.close()
+		with open(self.instance_results, 'w') as outfi: outfi.write(self.header); outfi.close()
 
 		##
 		## Instance matrix (sequence distributions)
@@ -324,9 +325,9 @@ class ScaleHD:
 				#############################
 				try:
 					self.collate_graphs(current_seqpair)
-					self.append_report(current_seqpair, "PASS")
+					self.append_report(current_seqpair)
 				except Exception, e:
-					self.append_report(current_seqpair, "FAIL")
+					self.append_report(current_seqpair)
 					log.info('{}{}{}{}{}: {}'.format(clr.red, 'shd__ ', clr.end, 'Report/Graphing failure on ', seqpair_lbl, str(e)))
 				gc.collect()
 				log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Sequence pair workflow complete!\n'))
@@ -418,91 +419,51 @@ class ScaleHD:
 			merger.append(PyPDF2.PdfFileReader(file(filename, 'rb')))
 		merger.write(instance_path)
 
-	def append_report(self, sequencepair_object, context):
+	def append_report(self, sequencepair_object):
 
-		##TODO work here
-		# def call_object_scraper(input_list, rep_str):
-		# 	for obj_pair in input_list:
-		# 		seq_object = obj_pair[0]
-		# 		func_call = obj_pair[1]
-		#
-		# 		print seq_object
-		# 		print func_call
-		#
-		# 		func = getattr(seq_object, func_call)
-		# 		func_output = func()
-		# 		# try:
-		# 		# 	func_output = func()
-		# 		# 	pr
-		# 		# except Exception, e:
-		# 		# 	func_output = 'fail_exc: {}'.format(e)
-		#
-		# 		rep_str += '{},'.format(func_output)
-		#
-		# seq_info = [[sequencepair_object, "get_label"]]
-		# primary_info = [[primary_allele, 'get_allelegenotype'],
-		# 				[primary_allele, 'get_allelestatus'],
-		# 				[primary_allele, 'get_backwardsslippage'],
-		# 				[primary_allele, 'get_somaticmosaicism'],
-		# 				[primary_allele, 'get_alleleconfidence']]
-		# secondary_info = [[secondary_allele, 'get_allelegenotype'],
-		# 				  [secondary_allele, 'get_allelestatus'],
-		# 				  [secondary_allele, 'get_backwardsslippage'],
-		# 				  [secondary_allele, 'get_somaticmosaicism'],
-		# 				  [secondary_allele, 'get_alleleconfidence']]
-		# flag_info = [[sequencepair_object, 'get_homozygoushaplotype'],
-		# 			 [sequencepair_object, 'get_neighbouringpeaks'],
-		# 			 [sequencepair_object, 'get_diminishedpeaks'],
-		# 			 [sequencepair_object, 'get_alignmentwarning'],
-		# 			 [sequencepair_object, 'get_atypical_ccgrewrite'],
-		# 			 [sequencepair_object, 'get_atypical_zygrewrite'],
-		# 			 [sequencepair_object, 'get_peakinspection_warning'],
-		# 			 [sequencepair_object, 'get_svm_failure'],
-		# 			 [sequencepair_object, 'get_fatalreadallele']]
+		primary_allele = sequencepair_object.get_primaryallele()
+		secondary_allele = sequencepair_object.get_secondaryallele()
 
-		# call_object_scraper(seq_info, report_string); report_string += '{},'.format('')
-		# call_object_scraper(primary_info, report_string); report_string += '{},'.format('')
-		# call_object_scraper(secondary_info, report_string); report_string += '{},'.format('')
-		# call_object_scraper(flag_info, report_string)
+		def call_object_scraper(input_list):
+			rep_str = ''
+			for obj_pair in input_list:
+				seq_object = obj_pair[0]
+				func_call = obj_pair[1]
+				func = getattr(seq_object, func_call)
+				try: func_output = func(); rep_str += '{},'.format(func_output)
+				except Exception, e: func_output = 'fail_exc: {}'.format(e); rep_str += '{},'.format(func_output)
+			return rep_str
 
-		report_string = ''
-		if context == "FAIL":
-			report_string = '{},,FAILURE!,\n'.format(sequencepair_object.get_label())
-		if context == 'PASS':
-			## data
-			sequence_label = sequencepair_object.get_label()
-			primary_allele = sequencepair_object.get_primaryallele()
-			primary_gtype = primary_allele.get_allelegenotype()
-			primary_status = primary_allele.get_allelestatus()
-			primary_bslip = primary_allele.get_backwardsslippage()
-			primary_sommos = primary_allele.get_somaticmosaicism()
-			secondary_allele = sequencepair_object.get_secondaryallele()
-			secondary_gtype = secondary_allele.get_allelegenotype()
-			secondary_status = secondary_allele.get_allelestatus()
-			secondary_bslip = secondary_allele.get_backwardsslippage()
-			secondary_sommos = secondary_allele.get_somaticmosaicism()
-			primary_confidence = primary_allele.get_alleleconfidence()
-			secondary_confidence = secondary_allele.get_alleleconfidence()
-			## flags
-			homozygous = sequencepair_object.get_homozygoushaplotype()
-			neighbours = sequencepair_object.get_neighbouringpeaks()
-			diminished = sequencepair_object.get_diminishedpeaks()
-			alignmentwarn = sequencepair_object.get_alignmentwarning()
-			ccgrewrite = sequencepair_object.get_atypical_ccgrewrite()
-			zygrewrite = sequencepair_object.get_atypical_zygrewrite()
-			peakinspect = sequencepair_object.get_peakinspection_warning()
-			svmfail = sequencepair_object.get_svm_failure()
-			lowreads = sequencepair_object.get_fatalreadallele()
+		unparsed_info = [[sequencepair_object, 'get_label'], [primary_allele, 'get_allelegenotype'],
+						 [primary_allele, 'get_allelestatus'], [primary_allele, 'get_backwardsslippage'],
+						 [primary_allele, 'get_somaticmosaicism'],
+						 [primary_allele, 'get_alleleconfidence'], [secondary_allele, 'get_allelegenotype'],
+						 [secondary_allele, 'get_allelestatus'], [secondary_allele, 'get_backwardsslippage'],
+						 [secondary_allele, 'get_somaticmosaicism'], [secondary_allele, 'get_alleleconfidence'],
+						 [sequencepair_object, 'get_homozygoushaplotype'],
+						 [sequencepair_object, 'get_neighbouringpeaks'],
+						 [sequencepair_object, 'get_diminishedpeaks'],
+						 [sequencepair_object, 'get_alignmentwarning'],
+						 [sequencepair_object, 'get_atypical_ccgrewrite'],
+						 [sequencepair_object, 'get_atypical_zygrewrite'],
+						 [sequencepair_object, 'get_peakinspection_warning'],
+						 [sequencepair_object, 'get_svm_failure'], [sequencepair_object, 'get_fatalreadallele'], ]
 
-			report_string = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
-				sequence_label, '', primary_gtype, primary_status,primary_bslip, primary_sommos, primary_confidence, '',
-				secondary_gtype, secondary_status,secondary_bslip,secondary_sommos, secondary_confidence, '',
-				homozygous, neighbours, diminished, alignmentwarn, ccgrewrite, zygrewrite, peakinspect, svmfail,
-				lowreads)
+		report_string = call_object_scraper(unparsed_info)
+		report_string += '\n'
 
-		with open(self.instance_results, 'a') as outfi:
-			outfi.write(report_string)
-			outfi.close()
+		try:
+			with open(self.instance_results, 'a') as outfi:
+				outfi.write(report_string)
+				outfi.close()
+		except IOError:
+			from os.path import expanduser; home = expanduser("~")
+			log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'InstanceReport.csv resource LOCKED. Open in excel?'))
+			log.info('{}{}{}{}{}'.format(clr.yellow, 'shd__ ', clr.end, 'Cannot write while locked. Writing to: ', home))
+			with open(os.path.join(home, 'InstanceReport.csv'), 'w') as newoutfi:
+				newoutfi.write(self.header); newoutfi.close()
+			with open(os.path.join(home, 'InstanceReport.csv'), 'a') as newappfi:
+				newappfi.write(report_string); newappfi.close()
 
 def main():
 	try:

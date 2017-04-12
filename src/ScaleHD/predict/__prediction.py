@@ -274,7 +274,7 @@ class AlleleGenotyping:
 			elif allele_object.get_cag() in fixed_indexes:
 				fixed_indexes = np.asarray([x for x in fixed_indexes if x == allele_object.get_cag()])
 			elif triplet_stage == 'CCG':
-				if len(fixed_indexes) > 2:
+				if len(fixed_indexes) > 2 and not self.zygosity_state == 'HETERO':
 					fixed_indexes = [np.where(distro == max(distro))[0][0]+1]
 					self.sequencepair_object.set_svm_failure(True)
 					self.sequencepair_object.set_alignmentwarning(True)
@@ -375,7 +375,7 @@ class AlleleGenotyping:
 					if pmo_ratio and ppo_ratio < 0.2:
 						if 0.0 not in [pmo_ratio, ppo_ratio]:
 							peak_count += 1
-				if peak_count == 2:
+				if peak_count == 2 and not self.zygosity_state == 'HETERO':
 					self.zygosity_state = 'HETERO'
 					self.sequencepair_object.set_svm_failure(True)
 
@@ -665,6 +665,14 @@ class AlleleGenotyping:
 				return pass_vld
 			elif primary_fod_cag.all() and secondary_fod_cag.all():
 				self.sequencepair_object.set_homozygoushaplotype(True)
+				self.sequencepair_object.set_secondary_allele(self.sequencepair_object.get_primaryallele())
+				for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
+					if allele.get_totalreads() < 1000:
+						allele.set_fatalalignmentwarning(True)
+						self.sequencepair_object.set_fatalreadallele(False)
+					else:
+						allele.set_fatalalignmentwarning(False)
+						self.sequencepair_object.set_fatalreadallele(False)
 				pass_vld = ensure_integrity()
 				return pass_vld
 
@@ -699,6 +707,7 @@ class AlleleGenotyping:
 	def inspect_peaks(self):
 
 		for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
+
 			distribution_split = self.split_cag_target(allele.get_fwarray())
 			target = distribution_split['CCG{}'.format(allele.get_ccg())]
 			linspace = np.linspace(0,199,200)
@@ -977,9 +986,11 @@ class AlleleGenotyping:
 				pass
 			elif self.sequencepair_object.get_automatic_DSPsubsample():
 				pass
+			elif float(self.sequencepair_object.get_subsampleflag()) >= 0.5:
+				pass
 			else:
 				c.setFillColorRGB(75, 0, 130)
-				c.drawCentredString(250, 25, '!! Genotype derived from subsampled data !!')
+				c.drawCentredString(250, 25, '!! Genotype derived from significantly subsampled data !!')
 		if self.invalid_data:
 			c.setFillColorRGB(255, 0, 0)
 			c.drawCentredString(250, 50, '!! Atypical alleles without re-alignment !!')

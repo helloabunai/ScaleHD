@@ -438,6 +438,7 @@ class ScanAtypical:
 		## Constructs
 		sorted_info = sorted(self.atypical_info.iteritems(), key=lambda (x, y): y['TotalReads'], reverse=True)
 		if len(sorted_info) != 3: raise IndexError('< 3 references in sorted top; alignment failure?')
+
 		##
 		## Check % dropoff in read count between #2 and #3
 		alpha_diff = float(abs(sorted_info[0][1]['TotalReads'] - sorted_info[1][1]['TotalReads']))
