@@ -244,7 +244,7 @@ class ScaleHD:
 				try:
 					self.quality_control(current_seqpair)
 				except Exception, e:
-					self.append_report(current_seqpair, "FAIL")
+					self.append_report(current_seqpair)
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'SeqQC failure on ',seqpair_lbl,str(e)))
 					continue
 
@@ -254,7 +254,7 @@ class ScaleHD:
 				try:
 					self.sequence_alignment(current_seqpair)
 				except Exception, e:
-					self.append_report(current_seqpair, "FAIL")
+					self.append_report(current_seqpair)
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Alignment failure on ',seqpair_lbl,str(e)))
 					continue
 
@@ -264,7 +264,7 @@ class ScaleHD:
 				try:
 					self.atypical_scanning(current_seqpair)
 				except Exception, e:
-					self.append_report(current_seqpair, "FAIL")
+					self.append_report(current_seqpair)
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Atypical scanning failure on ', seqpair_lbl, str(e)))
 					continue
 
@@ -279,7 +279,7 @@ class ScaleHD:
 							try:
 								self.sequence_realignment(current_seqpair, allele)
 							except Exception, e:
-								self.append_report(current_seqpair, "FAIL")
+								self.append_report(current_seqpair)
 								log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Realignment failure on ',seqpair_lbl,str(e)))
 								continue
 						else:
@@ -306,7 +306,7 @@ class ScaleHD:
 				try:
 					self.allele_genotyping(current_seqpair, invalid_data)
 				except Exception, e:
-					self.append_report(current_seqpair, "FAIL")
+					self.append_report(current_seqpair)
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Genotyping failure on ',seqpair_lbl, str(e)))
 					continue
 
@@ -430,8 +430,9 @@ class ScaleHD:
 				seq_object = obj_pair[0]
 				func_call = obj_pair[1]
 				func = getattr(seq_object, func_call)
-				try: func_output = func(); rep_str += '{},'.format(func_output)
-				except Exception, e: func_output = 'fail_exc: {}'.format(e); rep_str += '{},'.format(func_output)
+				func_output = func()
+				if func_output is None: rep_str += 'FAIL,'
+				else: rep_str += '{},'.format(func_output)
 			return rep_str
 
 		unparsed_info = [[sequencepair_object, 'get_label'], [primary_allele, 'get_allelegenotype'],
@@ -447,7 +448,7 @@ class ScaleHD:
 						 [sequencepair_object, 'get_atypical_ccgrewrite'],
 						 [sequencepair_object, 'get_atypical_zygrewrite'],
 						 [sequencepair_object, 'get_peakinspection_warning'],
-						 [sequencepair_object, 'get_svm_failure'], [sequencepair_object, 'get_fatalreadallele'], ]
+						 [sequencepair_object, 'get_svm_failure'], [sequencepair_object, 'get_fatalreadallele']]
 
 		report_string = call_object_scraper(unparsed_info)
 		report_string += '\n'

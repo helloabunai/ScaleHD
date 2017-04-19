@@ -263,6 +263,7 @@ class AlleleGenotyping:
 		if triplet_stage == 'CAGDim':
 			allele_object.set_cagthreshold(utilised_threshold)
 			error_boundary = 1
+
 		##
 		## Look for peaks in our distribution
 		peak_indexes = peakutils.indexes(distro, thres=utilised_threshold, min_dist=peak_dist)
@@ -280,7 +281,6 @@ class AlleleGenotyping:
 					self.sequencepair_object.set_alignmentwarning(True)
 			else:
 				fail_state = True
-
 		return fail_state, fixed_indexes
 
 	def allele_validation(self):
@@ -442,6 +442,7 @@ class AlleleGenotyping:
 		## First, ensure CCG matches between DSP estimate and FOD derision
 		for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 			allele.set_ccgthreshold(0.50)
+
 			fod_failstate, ccg_indexes = self.peak_detection(allele, allele.get_rvarray(), 1, 'CCG')
 			while fod_failstate:
 				fod_failstate, ccg_indexes = self.peak_detection(allele, allele.get_rvarray(), 1, 'CCG', fod_recall=True)
@@ -535,6 +536,7 @@ class AlleleGenotyping:
 				for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 					distro_split = self.split_cag_target(allele.get_fwarray())
 					total_reads = sum(distro_split['CCG{}'.format(allele.get_ccg())])
+
 					if total_reads > max_array[1]:
 						max_array[1] = total_reads
 						max_array[0] = allele.get_ccg()
@@ -556,6 +558,7 @@ class AlleleGenotyping:
 			for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
+
 				allele.set_cagthreshold(0.50)
 				fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, distance_threshold, 'CAGHom', est_dist=estimated_distance)
 				while fod_failstate:
@@ -679,21 +682,28 @@ class AlleleGenotyping:
 		##
 		## Check for diminished peaks (incase DSP failure / read count is low)
 		if ccg_zygstate == 'HOMO' or ccg_zygstate == 'HOMO*':
-			if primary_fod_ccg == secondary_fod_cag and primary_dsp_cag != secondary_dsp_cag:
-				primary_target = distribution_split['CCG{}'.format(primary_allele.get_ccg())]
-				split_target = primary_target[primary_allele.get_cag()+5:-1]
-				difference_buffer = len(primary_target)-len(split_target)
-				fod_failstate, cag_diminished = self.peak_detection(primary_allele, split_target, 1, 'CAGDim')
-				while fod_failstate:
-					fod_failstate, cag_diminished = self.peak_detection(primary_allele, split_target, 1, 'CAGDim', fod_recall=True)
+			primary_target = distribution_split['CCG{}'.format(primary_allele.get_ccg())]
+			secondary_target = distribution_split['CCG{}'.format(secondary_allele.get_ccg())]
+			primary_reads = primary_target[primary_allele.get_cag()-1]
+			secondary_reads = secondary_target[secondary_allele.get_cag()-1]
+			peak_total = sum([primary_reads, secondary_reads])
+			dist_total = sum(distribution_split['CCG{}'.format(primary_allele.get_ccg())])
+			if not peak_total/dist_total >= 0.65:
+				if primary_fod_ccg == secondary_fod_ccg and primary_dsp_cag != secondary_dsp_cag:
+					primary_target = distribution_split['CCG{}'.format(primary_allele.get_ccg())]
+					split_target = primary_target[primary_allele.get_cag()+5:-1]
+					difference_buffer = len(primary_target)-len(split_target)
+					fod_failstate, cag_diminished = self.peak_detection(primary_allele, split_target, 1, 'CAGDim')
+					while fod_failstate:
+						fod_failstate, cag_diminished = self.peak_detection(primary_allele, split_target, 1, 'CAGDim', fod_recall=True)
 
-				if split_target[cag_diminished] > 100:
-					## bypass integrity checks
-					secondary_allele.set_cagval(int(cag_diminished+difference_buffer-1))
-					secondary_allele.set_fodcag(int(cag_diminished+difference_buffer-1))
-					secondary_allele.set_fodoverwrite(True)
-					self.sequencepair_object.set_diminishedpeaks(True)
-					return pass_vld
+					if split_target[cag_diminished] > 100:
+						## bypass integrity checks
+						secondary_allele.set_cagval(int(cag_diminished+difference_buffer-1))
+						secondary_allele.set_fodcag(int(cag_diminished+difference_buffer-1))
+						secondary_allele.set_fodoverwrite(True)
+						self.sequencepair_object.set_diminishedpeaks(True)
+						return pass_vld
 
 		##
 		## Double check zygosity..
