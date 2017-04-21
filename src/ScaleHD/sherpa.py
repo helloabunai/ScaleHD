@@ -79,7 +79,7 @@ class ScaleHD:
 		if self.args.verbose:
 			log.basicConfig(format='%(message)s', level=log.DEBUG)
 			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'ScaleHD: Automated DNA micro-satellite genotyping.'))
-			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, '>>ALSPAC Double-Blind branch!<<'))
+			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, '! ALSPAC PheWAS branch !'))
 			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'alastair.maxwell@glasgow.ac.uk\n'))
 		else:
 			log.basicConfig(format='%(message)s')
@@ -130,7 +130,7 @@ class ScaleHD:
 		## A simple report file is appended after each sample pair, currently..
 		## In the future, replace with HTML based web-app, generated here?
 		## For now, just exit
-		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'ScaleHD pipeline completed; exiting.'))
+		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'ScaleHD (ALSPAC) pipeline completed; exiting.'))
 
 	def instance_data(self):
 
