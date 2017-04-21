@@ -91,7 +91,6 @@ If you do not have sudo access (to install requisite packages), you should run S
 
 Usage
 =====
-
 General usage is as follows:
 
     $ scalehd [-h/--help] [-v] [-c CONFIG] [-t THREADS] [-p] [-g] [-s FLOAT] [-b] [-j "jobname"] [-o OUTPUT]
@@ -111,3 +110,65 @@ ScaleHD flags are:
     -j/--jobname:: Specifies a prefix to use for the root output directory. Optional. If you specify a JobName that already
     exists within your specified -o output folder, ScaleHD will prompt the user to decide if they wish to delete the pre-existing folder and replace.
     -o/--output:: Desired output directory.
+
+Data Primer
+===========
+A short note on the requirements of filenames/structure for ScaleHD to function. A sample's filename (here, ExampleSampleName) must adhere to the following structure:
+    
+    ExampleSampleName_R1.fastq
+    ExampleSampleName_R2.fastq
+    
+You must utilise both forward (R1) and reverse (R2) reads, per sample pair. If the respective files do not end in _R1.fastq (.fq) or _R2.fastq (.fq), ScaleHD will not run correctly.
+Individual settings for different stages in ScaleHD are set within a configuration XML document. The particular acceptable data types/ranges for each parameter varies. The configuration XML document for ScaleHD settings must also adhere to the following structure:
+
+    <config data_dir="/path/to/reads/" forward_reference="/path/to/forward/ref_seq.fa" reverse_reference="/path/to/reverse/ref_seq.fa">
+      <instance_flags quality_control="BOOL" sequence_alignment="BOOL" atypical_realignment="BOOL" genotype_prediction="BOOL"/>
+      <trim_flags trim_type="x" quality_threshold="x" adapter_flag="x" adapter="x" error_tolerance="x"/>
+      <alignment_flags min_seed_length="x" band_width="x" seed_length_extension="x" skip_seed_with_occurrence="x" chain_drop="x" 
+      seeded_chain_drop="x" seq_match_score="x" mismatch_penalty="x" indel_penalty="x" gap_extend_penalty="x" prime_clipping_penalty="x" 
+      unpaired_pairing_penalty="x"/>
+      <prediction_flags plot_graphs="BOOL"/>
+    </config>
+    
+With each parameter data type/rule being as follows:
+    
+    CONFIG
+        data_dir: Must be a real path, with an even number of ONLY *.fastq or *.fq files within.
+        forward_reference: Must be a real reference file (*.fasta, *.fa or *.fas).
+        reverse_reference: See forward_reference.
+    INSTANCE
+        quality_control: Boolean, TRUE/FALSE
+        sequence_alignment: Boolean, TRUE/FALSE
+        atypical_realignment: Boolean, TRUE/FALSE
+        genotype_prediction: Boolean, TRUE/FALSE
+    TRIM
+        trim_type: String, "Quality", "Adapter" or "Both"
+        quality_threshold: Integer, within the range 0-38
+        adapter_flag: String, one of: '-a','-g','-a$','-g^','-b'. ([See Cutadapt](http://cutadapt.readthedocs.io/en/stable/guide.html#removing-adapters))
+        adapter: String, consisting of only 'A','T','G','C'
+        error_tolerance: Float, within the range of 0.0 to 1.0 (in 0.01 increments).
+    ALIGNMENT
+        All flags present are direct equivalents of parameters present in BWA-MEM. 
+        See [the BWA manual for more information](http://bio-bwa.sourceforge.net/bwa.shtml).
+    PREDICTION
+        plot_graphs: Boolean, TRUE/FALSE
+    
+Output
+======
+A brief overview of flags provided in the output is as follows:
+    
+    SampleName:: The extracted filename of the sample that was processed.
+    Primary/Secondary GTYPE:: Allele genotype in the format CAG_x_y_CCG_z
+    Status:: Atypical or Typical structure
+    BSlippage:: Slippage ratio of allele's read peak ('N minus 2' to 'N minus 1)', over 'N'.
+    Somatic Mosaicism:: Mosaicism ratio of allele's read peak ('N plus 1' to 'N plus 10'), over 'N'
+    Confidence:: Confidence in genotype prediction (0-100).
+    Homozygous Haplotype:: If True, both alleles have an identical genotype.
+    Neighbouring Peaks:: If True, both alleles exist within the same CCG distribution, neighbouring each other.
+    Diminished Peaks:: If True, an expanded peak has very few reads and was detected independently. Manual inspection recommended.
+    Alignment Warning:: If True, determining the CCG value(s) returned more peaks than is 'possible'. Manual inspection recommended.
+    CCG Rewritten:: If True, CCG was rewritten from the derived value. (I.E. DSP over-wrote FOD results). Happens in atypical alleles (infrequent), or SVM failure (insanely rare).
+    CCG Zygosity Rewritten:: If True, a sample (aligned to a typical reference) that was heterozygous (CCG), was actually detected to be an atypical homozygous (CCG) sample. SVM derived zygosity overwritten.
+    Peak Inspection Warning:: If True, at least one allele failed inspection on the distribution data was derived from. (i.e. messy data -- infrequent in samples with low total read count).
+    SVM Failure:: If True, SVM CCG zygosity calling was incorrect, as a result of a poor confusion matrix forcing a brute force manual ratio check, which returned a different zygosity state. Manual inspection recommended.
+    Very low reads:: If True, this particular sample has very low (<1000) reads in at least one allele's target CCG distribution.
