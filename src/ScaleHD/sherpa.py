@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.01
+__version__ = 0.21
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -150,9 +150,9 @@ class ScaleHD:
 		##
 		## Instance results (genotype table)
 		self.instance_results = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		self.header = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
-			'SampleName', 'Primary GTYPE', 'Status', 'BSlippage', 'Somatic Mosaicism', 'Confidence',
-			'Secondary GTYPE', 'Status', 'BSlippage', 'Somatic Mosaicism', 'Confidence',
+		self.header = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
+			'SampleName', 'Primary GTYPE', 'Status', 'Map% (FW)', 'Map% (RV)', 'BSlippage', 'Somatic Mosaicism', 'Confidence',
+			'Secondary GTYPE', 'Status', 'Map% (FW)', 'Map% (RV)', 'BSlippage', 'Somatic Mosaicism', 'Confidence',
 			'Homozygous Haplotype', 'Neighbouring Peaks', 'Diminished Peaks', 'Alignment Warning', 'CCG Rewritten',
 			'CCG Zygosity Rewritten', 'Peak Inspection Warning', 'SVM Failure', 'Very low reads'
 		)
@@ -376,8 +376,8 @@ class ScaleHD:
 		fw_xml = generate_atypical_xml(sequencepair_object.get_label(), individual_allele, atypical_index_path, 'fw')
 		rv_xml = generate_atypical_xml(sequencepair_object.get_label(), individual_allele, atypical_index_path, 'rv')
 
-		fwfasta = generate_reference(fw_xml, atypical_index_path)
-		rvfasta = generate_reference(rv_xml, atypical_index_path)
+		fwfasta = generate_reference(fw_xml, atypical_index_path, self.reference_indexes, 'fw')
+		rvfasta = generate_reference(rv_xml, atypical_index_path, self.reference_indexes, 'rv')
 
 		fwidx = align.ReferenceIndex(fwfasta, atypical_index_path).get_index_path()
 		rvidx = align.ReferenceIndex(rvfasta, atypical_index_path).get_index_path()
@@ -437,18 +437,16 @@ class ScaleHD:
 			return rep_str
 
 		unparsed_info = [[sequencepair_object, 'get_label'], [primary_allele, 'get_allelegenotype'],
-						 [primary_allele, 'get_allelestatus'], [primary_allele, 'get_backwardsslippage'],
-						 [primary_allele, 'get_somaticmosaicism'],
-						 [primary_allele, 'get_alleleconfidence'], [secondary_allele, 'get_allelegenotype'],
-						 [secondary_allele, 'get_allelestatus'], [secondary_allele, 'get_backwardsslippage'],
-						 [secondary_allele, 'get_somaticmosaicism'], [secondary_allele, 'get_alleleconfidence'],
-						 [sequencepair_object, 'get_homozygoushaplotype'],
-						 [sequencepair_object, 'get_neighbouringpeaks'],
-						 [sequencepair_object, 'get_diminishedpeaks'],
-						 [sequencepair_object, 'get_alignmentwarning'],
-						 [sequencepair_object, 'get_atypical_ccgrewrite'],
-						 [sequencepair_object, 'get_atypical_zygrewrite'],
-						 [sequencepair_object, 'get_peakinspection_warning'],
+						 [primary_allele, 'get_allelestatus'], [primary_allele, 'get_fwalnpcnt'],
+						 [primary_allele, 'get_rvalnpcnt'], [primary_allele, 'get_backwardsslippage'],
+						 [primary_allele, 'get_somaticmosaicism'], [primary_allele, 'get_alleleconfidence'],
+						 [secondary_allele, 'get_allelegenotype'], [secondary_allele, 'get_allelestatus'],
+						 [secondary_allele, 'get_fwalnpcnt'], [secondary_allele, 'get_rvalnpcnt'],
+						 [secondary_allele, 'get_backwardsslippage'], [secondary_allele, 'get_somaticmosaicism'],
+						 [secondary_allele, 'get_alleleconfidence'], [sequencepair_object, 'get_homozygoushaplotype'],
+						 [sequencepair_object, 'get_neighbouringpeaks'], [sequencepair_object, 'get_diminishedpeaks'],
+						 [sequencepair_object, 'get_alignmentwarning'], [sequencepair_object, 'get_atypical_ccgrewrite'],
+						 [sequencepair_object, 'get_atypical_zygrewrite'], [sequencepair_object, 'get_peakinspection_warning'],
 						 [sequencepair_object, 'get_svm_failure'], [sequencepair_object, 'get_fatalreadallele']]
 
 		report_string = call_object_scraper(unparsed_info)

@@ -72,19 +72,19 @@ If you do not have sudo access (to install requisite packages), you should run S
     $ python setup.py install
     ~~~~
 
-4. Install required third-party binaries. Please make sure any binaries you do install are included on your $PATH so that they can be found by your system.
+4. Install required third-party binaries. Please make sure any binaries you do install are included on your $PATH so that they can be found by your system. 
 **Please note**, ScaleHD will utilise GNU TYPE to determine if a command is on your $PATH. If either TYPE or a dependency is missing, ScaleHD will inform you and exit.
     ~~~~
     Quality Control:
         Cutadapt
         FastQC (Java required)
     Alignment:
-        BWA
+        BWA        
         SeqTK
         Samtools
         Generatr (setup.py will install this for you)
     Genotyping:
-        R
+        R        
         Samtools
         Generatr (as above)
     ~~~~
@@ -114,24 +114,24 @@ ScaleHD flags are:
 Data Primer
 ===========
 A short note on the requirements of filenames/structure for ScaleHD to function. A sample's filename (here, ExampleSampleName) must adhere to the following structure:
-
+    
     ExampleSampleName_R1.fastq
     ExampleSampleName_R2.fastq
-
+    
 You must utilise both forward (R1) and reverse (R2) reads, per sample pair. If the respective files do not end in _R1.fastq (.fq) or _R2.fastq (.fq), ScaleHD will not run correctly.
 Individual settings for different stages in ScaleHD are set within a configuration XML document. The particular acceptable data types/ranges for each parameter varies. The configuration XML document for ScaleHD settings must also adhere to the following structure:
 
     <config data_dir="/path/to/reads/" forward_reference="/path/to/forward/ref_seq.fa" reverse_reference="/path/to/reverse/ref_seq.fa">
       <instance_flags quality_control="BOOL" sequence_alignment="BOOL" atypical_realignment="BOOL" genotype_prediction="BOOL"/>
       <trim_flags trim_type="x" quality_threshold="x" adapter_flag="x" adapter="x" error_tolerance="x"/>
-      <alignment_flags min_seed_length="x" band_width="x" seed_length_extension="x" skip_seed_with_occurrence="x" chain_drop="x"
-      seeded_chain_drop="x" seq_match_score="x" mismatch_penalty="x" indel_penalty="x" gap_extend_penalty="x" prime_clipping_penalty="x"
+      <alignment_flags min_seed_length="x" band_width="x" seed_length_extension="x" skip_seed_with_occurrence="x" chain_drop="x" 
+      seeded_chain_drop="x" seq_match_score="x" mismatch_penalty="x" indel_penalty="x" gap_extend_penalty="x" prime_clipping_penalty="x" 
       unpaired_pairing_penalty="x"/>
       <prediction_flags plot_graphs="BOOL"/>
     </config>
-
+    
 With each parameter data type/rule being as follows:
-
+    
     CONFIG
         data_dir: Must be a real path, with an even number of ONLY *.fastq or *.fq files within.
         forward_reference: Must be a real reference file (*.fasta, *.fa or *.fas).
@@ -148,15 +148,15 @@ With each parameter data type/rule being as follows:
         adapter: String, consisting of only 'A','T','G','C'
         error_tolerance: Float, within the range of 0.0 to 1.0 (in 0.01 increments).
     ALIGNMENT
-        All flags present are direct equivalents of parameters present in BWA-MEM.
+        All flags present are direct equivalents of parameters present in BWA-MEM. 
         See [the BWA manual for more information](http://bio-bwa.sourceforge.net/bwa.shtml).
     PREDICTION
         plot_graphs: Boolean, TRUE/FALSE
-
+    
 Output
 ======
 A brief overview of flags provided in the output is as follows:
-
+    
     SampleName:: The extracted filename of the sample that was processed.
     Primary/Secondary GTYPE:: Allele genotype in the format CAG_x_y_CCG_z
     Status:: Atypical or Typical structure
@@ -171,4 +171,4 @@ A brief overview of flags provided in the output is as follows:
     CCG Zygosity Rewritten:: If True, a sample (aligned to a typical reference) that was heterozygous (CCG), was actually detected to be an atypical homozygous (CCG) sample. SVM derived zygosity overwritten.
     Peak Inspection Warning:: If True, at least one allele failed inspection on the distribution data was derived from. (i.e. messy data -- infrequent in samples with low total read count).
     SVM Failure:: If True, SVM CCG zygosity calling was incorrect, as a result of a poor confusion matrix forcing a brute force manual ratio check, which returned a different zygosity state. Manual inspection recommended.
-    Very low reads:: If True, this particular sample has very low (<1000) reads in at least one allele's target CCG distribution.
+    Very low reads:: If True, this particular sample has very low (<1000) reads in at least one allele's target CAG distribution.

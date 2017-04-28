@@ -125,8 +125,8 @@ class SeqAlign:
 		## Align the two FastQ files in the pair
 		if self.individual_allele is not None: typical_flag = 'atypical'
 		else: typical_flag = 'typical'
-		forward_distribution, forward_report, forward_assembly = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1',typical_flag)
-		reverse_distribution, reverse_report, reverse_assembly = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2',typical_flag)
+		forward_distribution, forward_report, forward_assembly, fwmapped_pcnt = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1',typical_flag)
+		reverse_distribution, reverse_report, reverse_assembly, rvmapped_pcnt = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2',typical_flag)
 		self.align_report.append(forward_report); self.align_report.append(reverse_report)
 
 		##
@@ -163,11 +163,15 @@ class SeqAlign:
 			self.sequencepair_object.set_rvdist(reverse_distribution)
 			self.sequencepair_object.set_fwassembly(forward_assembly)
 			self.sequencepair_object.set_rvassembly(reverse_assembly)
+			self.sequencepair_object.set_fwalnpcnt(fwmapped_pcnt)
+			self.sequencepair_object.set_rvalnpcnt(rvmapped_pcnt)
 		else:
 			self.individual_allele.set_fwdist(forward_distribution)
 			self.individual_allele.set_rvdist(reverse_distribution)
 			self.individual_allele.set_fwassembly(forward_assembly)
 			self.individual_allele.set_rvassembly(reverse_assembly)
+			self.individual_allele.set_fwalnpcnt(fwmapped_pcnt)
+			self.individual_allele.set_rvalnpcnt(rvmapped_pcnt)
 
 	def execute_alignment(self, reference_index, target_fqfile, feedback_string, io_index, typical_flag):
 
@@ -248,7 +252,25 @@ class SeqAlign:
 			csv_path, sorted_assembly = extract_repeat_distributions(self.sample_root, alignment_outdir, aln_outpath)
 			sys.stdout.flush()
 
-		return csv_path, alignment_report, sorted_assembly
+		##
+		## Run samtools flagstat on alignment file
+		## Set allele object's flagstat file variable..
+		flagstat_path = '{}/{}'.format(alignment_outdir, 'AlignmentStats.txt')
+		#flagstat_file = open(flagstat_path, 'w')
+		flagstat_process = subprocess.Popen(['samtools', 'flagstat', sorted_assembly],
+											stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		flagstat_output = flagstat_process.communicate(); flagstat_process.wait()
+
+		##
+		## Write output to file..
+		## Determine % mapped for this assembly
+		with open(flagstat_path, 'w') as outfi:
+			outfi.write(flagstat_output[0])
+			outfi.close()
+		mapped_pcnt = [x for x in (flagstat_output[0].split('\n')) if '%' in x]
+		aln_pcnt = str(mapped_pcnt[0]).split('(')[1].rsplit('%')[0]
+
+		return csv_path, alignment_report, sorted_assembly, aln_pcnt
 
 	def get_alignreport(self):
 		return self.align_report
