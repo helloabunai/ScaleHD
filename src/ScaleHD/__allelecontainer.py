@@ -14,6 +14,8 @@ class SequenceSample:
 		self.boost_flag = False
 		self.group_flag = False
 		self.total_seqreads = 0
+		self.fwalnpcnt = 0.0
+		self.rvalnpcnt = 0.0
 
 		self.forward_index = ''
 		self.reverse_index = ''
@@ -60,6 +62,8 @@ class SequenceSample:
 	def set_boostflag(self, flag): self.boost_flag = flag
 	def set_groupflag(self, flag): self.group_flag = flag
 	def set_totalseqreads(self, count): self.total_seqreads = count
+	def set_fwalnpcnt(self, pcnt): self.fwalnpcnt = pcnt
+	def set_rvalnpcnt(self, pcnt): self.rvalnpcnt = pcnt
 
 	def set_fwidx(self, idx): self.forward_index = idx
 	def set_rvidx(self, idx): self.reverse_index = idx
@@ -106,6 +110,8 @@ class SequenceSample:
 	def get_boostflag(self): return self.boost_flag
 	def get_groupflag(self): return self.group_flag
 	def get_totalseqreads(self): return self.total_seqreads
+	def get_fwalnpcnt(self): return self.fwalnpcnt
+	def get_rvalnpcnt(self): return self.rvalnpcnt
 
 	def get_fwidx(self): return self.forward_index
 	def get_rvidx(self): return self.reverse_index
@@ -174,6 +180,8 @@ class IndividualAllele:
 		self.typical_pcnt = 0.0
 		self.atypical_count = 0
 		self.atypical_pcnt = 0.0
+		self.fwalnpcnt = 0.0
+		self.rvalnpcnt = 0.0
 
 		self.forward_index = ''
 		self.reverse_index = ''
@@ -232,6 +240,8 @@ class IndividualAllele:
 	def set_typicalpcnt(self, pcnt): self.typical_pcnt = pcnt
 	def set_atypicalreads(self, count): self.atypical_count = count
 	def set_atypicalpcnt(self, pcnt): self.atypical_pcnt = pcnt
+	def set_fwalnpcnt(self, pcnt): self.fwalnpcnt = pcnt
+	def set_rvalnpcnt(self, pcnt): self.rvalnpcnt = pcnt
 
 	def set_fwidx(self, idx): self.forward_index = idx
 	def set_rvidx(self, idx): self.reverse_index = idx
@@ -289,6 +299,8 @@ class IndividualAllele:
 	def get_typicalpcnt(self): return self.typical_pcnt
 	def get_atypicalreads(self): return self.atypical_count
 	def get_atypicalpcnt(self): return self.atypical_pcnt
+	def get_fwalnpcnt(self): return self.fwalnpcnt
+	def get_rvalnpcnt(self): return self.rvalnpcnt
 
 	def get_fwidx(self): return self.forward_index
 	def get_rvidx(self): return self.reverse_index

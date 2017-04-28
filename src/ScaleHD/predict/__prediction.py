@@ -292,6 +292,12 @@ class AlleleGenotyping:
 							  self.sequencepair_object.get_secondaryallele()]:
 
 			##
+			## Assign read mapped percent if not present in allele
+			if not allele_object.get_fwalnpcnt() and not allele_object.get_rvalnpcnt():
+				allele_object.set_fwalnpcnt(self.sequencepair_object.get_fwalnpcnt())
+				allele_object.set_rvalnpcnt(self.sequencepair_object.get_rvalnpcnt())
+
+			##
 			## Unlabelled distributions
 			self.forward_distribution = self.scrape_distro(allele_object.get_fwdist())
 			self.reverse_distribution = self.scrape_distro(allele_object.get_rvdist())
@@ -300,7 +306,7 @@ class AlleleGenotyping:
 
 			##
 			## Read count
-			if allele_object.get_totalreads() < 1000:
+			if allele_object.get_totalreads() < 250:
 				allele_object.set_fatalalignmentwarning(True)
 				self.sequencepair_object.set_fatalreadallele(True)
 
@@ -670,7 +676,7 @@ class AlleleGenotyping:
 				self.sequencepair_object.set_homozygoushaplotype(True)
 				self.sequencepair_object.set_secondary_allele(self.sequencepair_object.get_primaryallele())
 				for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
-					if allele.get_totalreads() < 1000:
+					if allele.get_totalreads() < 250:
 						allele.set_fatalalignmentwarning(True)
 						self.sequencepair_object.set_fatalreadallele(False)
 					else:
@@ -777,11 +783,13 @@ class AlleleGenotyping:
 			fw_ratio = (target[allele.get_fodcag()]/target[allele.get_fodcag()-1])
 			if not self.sequencepair_object.get_homozygoushaplotype() and not self.sequencepair_object.get_neighbouringpeaks():
 				if np.isclose([fw_ratio], [0.85], atol=0.075):
-					allele.set_fodcag(allele.get_fodcag()+1)
-					allele.set_slippageoverwrite(True)
+					if rv_ratio > 0.65:
+						allele.set_fodcag(allele.get_fodcag()+1)
+						allele.set_slippageoverwrite(True)
 				if np.isclose([rv_ratio], [0.80], atol=0.150):
-					allele.set_fodcag(allele.get_fodcag()-1)
-					allele.set_slippageoverwrite(True)
+					if fw_ratio > 0.65:
+						allele.set_fodcag(allele.get_fodcag()-1)
+						allele.set_slippageoverwrite(True)
 			##
 			## If we're not homozygous or neighbouring, 'normal' peaks..
 			## Check dropoffs are legitimate and 'clean'
@@ -875,106 +883,37 @@ class AlleleGenotyping:
 			plt.savefig(os.path.join(predict_path, file_handle), format='pdf')
 			plt.close()
 
-		###############################################
-		## CCG heterozygous example					 ##
-		## i.e. CCG two peaks, one CAG dist per peak ##
-		###############################################
-		if self.zygosity_state == 'HETERO' or self.zygosity_state == 'HOMO*':
+		def pagemerge_subfunction(graph_list, prediction_path, ccg_val, header=None):
 
 			##
-			## Render CCG graph, append path to allele path list
-			hetero_graphs = [];	ccg_peaks = [int(pri_fodccg),int(sec_fodccg)]
-			concat = np.asarray([a + b for a, b in zip(pri_rvarray,sec_rvarray)])
-			graph_subfunction([0, 21, 20], concat, ['CCG Value', 'Read Count'], ([1, 20, 1], [1, 20], range(1,21)),
-							  ccg_peaks, predpath, 'CCGDetection.pdf', graph_type='bar', neg_anchor=True)
-			hetero_graphs.append(os.path.join(predpath, 'CCGDetection.pdf'))
-			plt.close()
+			## Readers and pages
+			line_reader = PyPDF2.PdfFileReader(open(graph_list[0], 'rb')); line_page = line_reader.getPage(0)
+			bar_reader = PyPDF2.PdfFileReader(open(graph_list[1], 'rb')); bar_page = bar_reader.getPage(0)
 
 			##
-			## For each CCG allele in this heterozygous sample
-			for allele in [self.sequencepair_object.get_primaryallele(),self.sequencepair_object.get_secondaryallele()]:
-
-				##
-				## Data for this allele (peak detection graph)
-				distribution_split = self.split_cag_target(allele.get_fwarray())
-				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
-				if allele.get_rewrittenccg():
-					peak_filename = 'CCG{}-CAGDetection_atypical.pdf'.format(allele.get_fodccg())
-					peak_prefix = '(CCG{}**) '.format(allele.get_fodccg())
-				else:
-					peak_filename = 'CCG{}-CAGDetection.pdf'.format(allele.get_fodccg())
-					peak_prefix = '(CCG{}) '.format(allele.get_fodccg())
-				peak_graph_path = os.path.join(predpath, peak_filename)
-				## Render the graph, append to list, close plot
-				graph_subfunction([0, 199, 200], target_distro, ['CAG Value', 'Read Count'],
-								  ([1, 200, 50], [1, 200], [0,50,100,150,200]), [np.int64(allele.get_fodcag() - 1)],
-								  predpath, peak_filename, prefix=peak_prefix)
-				hetero_graphs.append(peak_graph_path); plt.close()
-
-				##
-				## Inspect the peak (subslice)
-				slice_range = range(allele.get_fodcag()-4, allele.get_fodcag()+7)
-				if allele.get_rewrittenccg():
-					slice_filename = 'CCG{}-Peak_atypical.pdf'.format(allele.get_fodccg())
-					slice_prefix = '(CCG{}**) '.format(allele.get_ccg())
-				else:
-					slice_filename = 'CCG{}-Peak.pdf'.format(allele.get_fodccg())
-					slice_prefix = '(CCG{}) ' .format(allele.get_ccg())
-				sub = target_distro[np.int64(allele.get_fodcag()-6):np.int64(allele.get_fodcag()+5)]
-				## Render the graph, append to list, close plot
-				graph_subfunction([0,10,11], sub, ['CAG Value', 'Read Count'], ([1,11,1], [1,11], slice_range),
-								  [np.int64(allele.get_fodcag()-1)], predpath,slice_filename, prefix=slice_prefix, graph_type='bar')
-				hetero_graphs.append(os.path.join(predpath,slice_filename)); plt.close()
-
-			self.sequencepair_object.get_primaryallele().set_allelegraphs(hetero_graphs)
-			self.sequencepair_object.get_secondaryallele().set_allelegraphs(hetero_graphs)
-
-		##############################################
-		## CCG homozygous example					##
-		## i.e. CCG one peak, one CAG dist per peak ##
-		##############################################
-		if self.zygosity_state == 'HOMO':
+			## Create new page (double width), append bar and line pages side-by-side
+			translated_page = PyPDF2.pdf.PageObject.createBlankPage(None, bar_page.mediaBox.getWidth()*2, bar_page.mediaBox.getHeight())
+			translated_page.mergeScaledTranslatedPage(bar_page, 1, 720, 0)
+			translated_page.mergePage(line_page)
 
 			##
-			##Data for homozygous graph(s)
-			homo_graphs = []
-			target_ccg = 'CCG{}'.format(self.sequencepair_object.get_primaryallele().get_ccg())
-			## Peak data
-			peak_filename = 'CCG{}-CAGDetection.pdf'.format(self.sequencepair_object.get_primaryallele().get_fodccg())
-			peak_prefix = '(CCG{}) '.format(self.sequencepair_object.get_primaryallele().get_ccg())
-			altpeak_filename = 'CCG{}-Peak.pdf'.format(self.sequencepair_object.get_primaryallele().get_fodccg())
-			ccg_peaks = [int(pri_fodccg),int(sec_fodccg)]; cag_peaks = [int(pri_fodcag),int(sec_fodcag)]
-			distribution_split = self.split_cag_target(pri_fwarray); target_distro = distribution_split[target_ccg]
-			## Subslice data
-			pri_cag = self.sequencepair_object.get_primaryallele().get_cag()
-			sec_cag = self.sequencepair_object.get_secondaryallele().get_cag()
-			upper = max([pri_cag, sec_cag])
-			if self.sequencepair_object.get_homozygoushaplotype(): lower = upper
-			else: lower = max(n for n in [pri_cag, sec_cag] if n != upper)
-			sub = target_distro[lower-6:upper+5]
-			slice_range = range(lower-4,upper+7)
+			## Write to one PDF
+			if not header: output_path = os.path.join(prediction_path, 'CCG{}CAGDetection.pdf'.format(ccg_val))
+			else: output_path = os.path.join(prediction_path, 'IntroCCG.pdf')
+			writer = PyPDF2.PdfFileWriter()
+			writer.addPage(translated_page)
+			with open(output_path, 'wb') as f:
+				writer.write(f)
 
 			##
-			## Render the graph, append to list, close plot
-			graph_subfunction([0, 21, 20], pri_rvarray, ['CCG Value', 'Read Count'], ([1, 20, 1], [1, 20], range(1,21)),
-							  ccg_peaks, predpath, 'CCGDetection.pdf', graph_type='bar', neg_anchor=True); plt.close()
-			graph_subfunction([0, 199, 200], target_distro, ['CAG Value', 'Read Count'],
-							  ([1, 200, 50], [1, 200], [0,50,100,150,200]), cag_peaks, predpath,
-							  peak_filename, prefix=peak_prefix); plt.close()
-			graph_subfunction([0, len(sub)-1, len(sub)], sub, ['CAG Value', 'Read Count'],
-							  ([1, len(sub), 1], [1, len(sub)], slice_range), cag_peaks, predpath, altpeak_filename,
-							  prefix=peak_prefix, graph_type='bar'); plt.close()
-			homo_graphs.append(os.path.join(predpath, 'CCGDetection.pdf'))
-			homo_graphs.append(os.path.join(predpath, peak_filename))
-			homo_graphs.append(os.path.join(predpath, altpeak_filename))
-			self.sequencepair_object.get_primaryallele().set_allelegraphs(homo_graphs)
-			self.sequencepair_object.get_secondaryallele().set_allelegraphs(homo_graphs)
+			## Return CAG plot path
+			return output_path
 
-		############################################
-		## Merge graphs into a single summary PDF ##
-		############################################
+		##########################################
+		## SAMPLE CARD FOR GENOTYPE INFORMATION ##
+		##########################################
 		sample_pdf_path = os.path.join(predpath, 'SampleSummary.pdf')
-		c = canvas.Canvas(sample_pdf_path, pagesize=(500,250))
+		c = canvas.Canvas(sample_pdf_path, pagesize=(720,432))
 		header_string = '{}{}'.format('Sample header: ', self.sequencepair_object.get_label())
 		primary_string = '{}(CAG{}, CCG{}) ({}; {})'.format('Primary: ', self.sequencepair_object.get_primaryallele().get_fodcag(),
 												 self.sequencepair_object.get_primaryallele().get_fodccg(),
@@ -1000,16 +939,139 @@ class AlleleGenotyping:
 				pass
 			else:
 				c.setFillColorRGB(75, 0, 130)
-				c.drawCentredString(250, 25, '!! Genotype derived from significantly subsampled data !!')
+				c.drawCentredString(360, 25, '!! Genotype derived from significantly subsampled data !!')
 		if self.invalid_data:
 			c.setFillColorRGB(255, 0, 0)
 			c.drawCentredString(250, 50, '!! Atypical alleles without re-alignment !!')
 		if not self.invalid_data:
 			c.setFillColorRGB(0, 0, 0)
-		c.drawCentredString(250, 150, header_string)
-		c.drawCentredString(250, 125, primary_string)
-		c.drawCentredString(250, 100, secondary_string)
+		c.drawCentredString(360, 256, header_string)
+		c.drawCentredString(360, 236, primary_string)
+		c.drawCentredString(360, 216, secondary_string)
 		c.save()
+
+		###############################################
+		## CCG heterozygous example					 ##
+		## i.e. CCG two peaks, one CAG dist per peak ##
+		###############################################
+		if self.zygosity_state == 'HETERO' or self.zygosity_state == 'HOMO*':
+
+			##
+			## Render CCG graph, append path to allele path list
+			## Merge intro_ccg card with sample CCG graph
+			## Append merged intro_ccg to heterozygous list
+			hetero_graphs = []; ccg_peaks = [int(pri_fodccg),int(sec_fodccg)]
+			concat = np.asarray([a + b for a, b in zip(pri_rvarray,sec_rvarray)])
+			graph_subfunction([0, 21, 20], concat, ['CCG Value', 'Read Count'], ([1, 20, 1], [1, 20], range(1,21)),
+							  ccg_peaks, predpath, 'CCGDetection.pdf', graph_type='bar', neg_anchor=True)
+			intro_card = pagemerge_subfunction([sample_pdf_path, os.path.join(predpath, 'CCGDetection.pdf')],
+													predpath, ccg_val=0, header=True)
+			hetero_graphs.append(intro_card)
+			plt.close()
+
+			##
+			## For each CCG allele in this heterozygous sample
+			for allele in [self.sequencepair_object.get_primaryallele(),self.sequencepair_object.get_secondaryallele()]:
+
+				##
+				## Data for this allele (peak detection graph)
+				temp_graphs = []
+				distribution_split = self.split_cag_target(allele.get_fwarray())
+				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
+				if allele.get_rewrittenccg():
+					peak_filename = 'CCG{}-CAGDetection_atypical.pdf'.format(allele.get_fodccg())
+					peak_prefix = '(CCG{}**) '.format(allele.get_fodccg())
+				else:
+					peak_filename = 'CCG{}-CAGDetection.pdf'.format(allele.get_fodccg())
+					peak_prefix = '(CCG{}) '.format(allele.get_fodccg())
+				peak_graph_path = os.path.join(predpath, peak_filename)
+				## Render the graph, append to list, close plot
+				graph_subfunction([0, 199, 200], target_distro, ['CAG Value', 'Read Count'],
+								  ([1, 200, 50], [1, 200], [0,50,100,150,200]), [np.int64(allele.get_fodcag() - 1)],
+								  predpath, peak_filename, prefix=peak_prefix)
+				temp_graphs.append(peak_graph_path); plt.close()
+
+				##
+				## Inspect the peak (subslice)
+				slice_range = range(allele.get_fodcag()-4, allele.get_fodcag()+7)
+				if allele.get_rewrittenccg():
+					slice_filename = 'CCG{}-Peak_atypical.pdf'.format(allele.get_fodccg())
+					slice_prefix = '(CCG{}**) '.format(allele.get_ccg())
+				else:
+					slice_filename = 'CCG{}-Peak.pdf'.format(allele.get_fodccg())
+					slice_prefix = '(CCG{}) ' .format(allele.get_ccg())
+				sub = target_distro[np.int64(allele.get_fodcag()-6):np.int64(allele.get_fodcag()+5)]
+				## Render the graph, append to list, close plot
+				graph_subfunction([0,10,11], sub, ['CAG Value', 'Read Count'], ([1,11,1], [1,11], slice_range),
+								  [np.int64(allele.get_fodcag()-1)], predpath,slice_filename, prefix=slice_prefix, graph_type='bar')
+				temp_graphs.append(os.path.join(predpath,slice_filename)); plt.close()
+
+				##
+				## Merge 'allele sample' into one page
+				ccg_val = allele.get_fodccg()
+				merged_graph = pagemerge_subfunction(temp_graphs, predpath, ccg_val)
+				hetero_graphs.append(merged_graph)
+
+			self.sequencepair_object.get_primaryallele().set_allelegraphs(hetero_graphs)
+			self.sequencepair_object.get_secondaryallele().set_allelegraphs(hetero_graphs)
+
+		##############################################
+		## CCG homozygous example					##
+		## i.e. CCG one peak, one CAG dist per peak ##
+		##############################################
+		if self.zygosity_state == 'HOMO':
+
+			##
+			##Data for homozygous graph(s)
+			homo_graphs = []
+			page_graphs = []
+			target_ccg = 'CCG{}'.format(self.sequencepair_object.get_primaryallele().get_ccg())
+			## Peak data
+			peak_filename = 'CCG{}-CAGDetection.pdf'.format(self.sequencepair_object.get_primaryallele().get_fodccg())
+			peak_prefix = '(CCG{}) '.format(self.sequencepair_object.get_primaryallele().get_ccg())
+			altpeak_filename = 'CCG{}-Peak.pdf'.format(self.sequencepair_object.get_primaryallele().get_fodccg())
+			ccg_peaks = [int(pri_fodccg),int(sec_fodccg)]; cag_peaks = [int(pri_fodcag),int(sec_fodcag)]
+			distribution_split = self.split_cag_target(pri_fwarray); target_distro = distribution_split[target_ccg]
+			## Subslice data
+			pri_cag = self.sequencepair_object.get_primaryallele().get_cag()
+			sec_cag = self.sequencepair_object.get_secondaryallele().get_cag()
+			upper = max([pri_cag, sec_cag])
+			if self.sequencepair_object.get_homozygoushaplotype(): lower = upper
+			else: lower = max(n for n in [pri_cag, sec_cag] if n != upper)
+			sub = target_distro[lower-6:upper+5]
+			slice_range = range(lower-4,upper+7)
+
+			##
+			## Render the graph, append to list, close plot
+			## Merge intro_ccg card with sample CCG graph
+			## Append merged intro_ccg to homozygous list, append line/bar peak to page list
+			graph_subfunction([0, 21, 20], pri_rvarray, ['CCG Value', 'Read Count'], ([1, 20, 1], [1, 20], range(1,21)),
+							  ccg_peaks, predpath, 'CCGDetection.pdf', graph_type='bar', neg_anchor=True); plt.close()
+			graph_subfunction([0, 199, 200], target_distro, ['CAG Value', 'Read Count'],
+							  ([1, 200, 50], [1, 200], [0,50,100,150,200]), cag_peaks, predpath,
+							  peak_filename, prefix=peak_prefix); plt.close()
+			graph_subfunction([0, len(sub)-1, len(sub)], sub, ['CAG Value', 'Read Count'],
+							  ([1, len(sub), 1], [1, len(sub)], slice_range), cag_peaks, predpath, altpeak_filename,
+							  prefix=peak_prefix, graph_type='bar'); plt.close()
+			intro_card = pagemerge_subfunction([sample_pdf_path, os.path.join(predpath, 'CCGDetection.pdf')],
+													predpath, ccg_val=0, header=True)
+			homo_graphs.append(intro_card)
+			page_graphs.append(os.path.join(predpath, peak_filename))
+			page_graphs.append(os.path.join(predpath, altpeak_filename))
+
+			##
+			## Merge 'allele sample' into one page
+			ccg_val = self.sequencepair_object.get_primaryallele().get_fodccg()
+			merged_graph = pagemerge_subfunction(page_graphs, predpath, ccg_val)
+
+			## Combine CCG and CAG graphs
+			homo_graphs.append(merged_graph)
+			self.sequencepair_object.get_primaryallele().set_allelegraphs(homo_graphs)
+			self.sequencepair_object.get_secondaryallele().set_allelegraphs(homo_graphs)
+
+		############################################
+		## Merge graphs into a single summary PDF ##
+		############################################
 
 		##
 		## Allele graphs
@@ -1029,19 +1091,22 @@ class AlleleGenotyping:
 				result.append(item)
 			return result
 		uniques = set_orderpreserve(sample_graphs)
-		target_pdflist = [sample_pdf_path] + uniques
 
 		##
 		## Merge alleles together
 		merger = PyPDF2.PdfFileMerger()
-		for pdf in target_pdflist:
+		for pdf in uniques:
 			merger.append(pdf)
 		merger.write(sample_pdf_path)
 		merger.close()
 
 		##
 		## Remove individual plots
-		for rmpdf in target_pdflist:
+		clean_target = []
+		for target_file in os.listdir(predpath):
+			if target_file.endswith(".pdf"):
+				clean_target.append(os.path.join(predpath, target_file))
+		for rmpdf in clean_target:
 			if not 'SampleSummary.pdf' in rmpdf:
 				os.remove(rmpdf)
 
@@ -1072,9 +1137,9 @@ class AlleleGenotyping:
 				else: allele_confidence += 15; penfi.write('{}, {}\n'.format('Normal Data','+15'))
 
 				if self.sequencepair_object.get_diminishedpeaks():
-					allele_confidence -= 20; penfi.write('{}, {}\n'.format('Diminished Peaks','-20'))
+					allele_confidence -= 15; penfi.write('{}, {}\n'.format('Diminished Peaks','-15'))
 				if allele.get_fodoverwrite():
-					allele_confidence -= 20; penfi.write('{}, {}\n'.format('Differential Overwrite','-20'))
+					allele_confidence -= 15; penfi.write('{}, {}\n'.format('Differential Overwrite','-15'))
 
 				##
 				## Allele based genotyping flags
@@ -1176,11 +1241,18 @@ class AlleleGenotyping:
 					penfi.write('{}, -{}\n'.format('Read Ratio Context', context_penalty))
 
 				##
+				## Mapping percentage
+				for map_pcnt in [allele.get_fwalnpcnt(), allele.get_rvalnpcnt()]:
+					if map_pcnt > 90: allele_confidence += 25; penfi.write('{}, {}\n'.format('Mapping percentage', '+25'))
+					elif 85 < map_pcnt < 90: allele_confidence += 10; penfi.write('{}, {}\n'.format('Mapping percentage', '+10'))
+					else: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Mapping percentage', '-10'))
+
+				##
 				## Warning penalty.. if triggered, no confidence
 				if self.warning_triggered: allele_confidence -= 20; penfi.write('{}, {}\n'.format('Peak Inspection warning triggered','-20'))
 				if self.sequencepair_object.get_ccguncertainty(): allele_confidence -= 10; penfi.write('{}, {}\n'.format('CCG Uncertainty','-10'))
 				if self.sequencepair_object.get_alignmentwarning(): allele_confidence -= 15; penfi.write('{}, {}\n'.format('Low read count alignment warning','-15'))
-				if allele.get_fatalalignmentwarning(): allele_confidence -=65; penfi.write('{}, {}\n'.format('Fatal low read count alignment warning','-65'))
+				if allele.get_fatalalignmentwarning(): allele_confidence -=40; penfi.write('{}, {}\n'.format('Fatal low read count alignment warning','-40'))
 
 				##
 				## If reflabel CAG and FOD CAG differ.. no confidence
@@ -1193,7 +1265,7 @@ class AlleleGenotyping:
 				## Determine score (max out at 100), return genotype
 				capped_confidence = sorted([0, allele_confidence, 100])[1]
 				allele.set_alleleconfidence(capped_confidence)
-				penfi.write('{}, {}'.format('Final score', capped_confidence))
+				penfi.write('{}, {}\n\n'.format('Final score', capped_confidence))
 				penfi.close()
 
 	def set_report(self):

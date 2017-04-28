@@ -5,14 +5,14 @@ from os import path
 here = path.abspath(path.dirname(__file__))
 
 # Get the long description from the relevant file
-with open(path.join(here, '..', 'README.md'), encoding='utf-8') as f:
+with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
     name='ScaleHD',
 
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.01',
+    version='0.21',
 
     description='Automated DNA micro-satellite genotyping.',
     long_description=long_description,
@@ -37,14 +37,12 @@ setup(
         'Development Status :: 2 - Pre-Alpha',
 
         # Indicate who your project is intended for
-        'Intended Audience :: Genetic Researchers',
-		'Intended Audience :: End User/Desktop',
-		'Intended Audience :: Academics',
-        'Topic :: Data Analysis :: Data Classification',
-		'Topic :: Machine Learning :: Support Vectors'
+        'Intended Audience :: Education',
+		'Intended Audience :: End Users/Desktop',
+		'Intended Audience :: Science/Research',
 
         # Classifier matching license flag from above
-        'License :: GPLv3 :: GPLv3 License',
+        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
 
 		# Specific version of the python interpreter that are supported
 		# by this package. Python 3 not support at this time.
@@ -53,9 +51,7 @@ setup(
 
 		## And so on
         'Environment :: Console',
-		'Operating System :: MacOS :: MacOS X 10.8'
-		'Operating System :: MacOS :: MacOS X 10.9'
-		'Operating System :: MacOS :: MacOS X 10.10'
+		'Operating System :: MacOS :: MacOS X',
 		'Operating System :: POSIX'
     ],
 
