@@ -48,6 +48,8 @@ class SequenceSample:
 		self.ccgzygstate = ''
 		self.fatalreadallele = False
 		self.automatic_DSPsubsample = False
+		self.distribution_readcount_warning = False
+		self.novel_atypical_structure = False
 
 	##
 	## Setters
@@ -96,6 +98,8 @@ class SequenceSample:
 	def set_peakinspection_warning(self, state): self.peakinspection_warning = state
 	def set_fatalreadallele(self, state): self.fatalreadallele = state
 	def set_automatic_DSPsubsample(self, state): self.automatic_DSPsubsample = state
+	def set_distribution_readcount_warning(self, state): self.distribution_readcount_warning = state
+	def set_novel_atypical_structure(self, state): self.novel_atypical_structure = state
 
 	##
 	## Getters
@@ -144,6 +148,8 @@ class SequenceSample:
 	def get_peakinspection_warning(self): return self.peakinspection_warning
 	def get_fatalreadallele(self): return self.fatalreadallele
 	def get_automatic_DSPsubsample(self): return self.automatic_DSPsubsample
+	def get_distribution_readcount_warning(self): return self.distribution_readcount_warning
+	def get_novel_atypical_structure(self): return self.novel_atypical_structure
 
 	##
 	## Functions
@@ -169,6 +175,7 @@ class IndividualAllele:
 		self.intervening_sequence = ''
 		self.ccg_value = 0
 		self.rewritten_ccg = 0
+		self.unrewritten_ccg = 0
 		self.cct_value = 0
 		self.three_prime = ''
 
@@ -176,6 +183,7 @@ class IndividualAllele:
 		self.reference_label = ''
 		self.original_reference = ''
 		self.total_reads = 0
+		self.peak_reads = 0
 		self.typical_count = 0
 		self.typical_pcnt = 0.0
 		self.atypical_count = 0
@@ -214,6 +222,7 @@ class IndividualAllele:
 		self.fod_overwrite = False
 		self.slippage_overwrite = False
 		self.fatalalignmentwarning = False
+		self.distribution_readcount_warning = False
 
 
 	##
@@ -229,6 +238,7 @@ class IndividualAllele:
 	def set_intervening(self, intv): self.intervening_sequence = intv
 	def set_ccgval(self, ccg): self.ccg_value = ccg
 	def set_rewrittenccg(self, ccg): self.rewritten_ccg = ccg
+	def set_unrewrittenccg(self, ccg): self.unrewritten_ccg = ccg
 	def set_cctval(self, cct): self.cct_value = cct
 	def set_threeprime(self, tp): self.three_prime = tp
 
@@ -236,6 +246,7 @@ class IndividualAllele:
 	def set_referencelabel(self, label): self.reference_label = label
 	def set_originalreference(self, label): self.original_reference = label
 	def set_totalreads(self, count): self.total_reads = count
+	def set_peakreads(self, count): self.peak_reads = count
 	def set_typicalreads(self, count): self.typical_count = count
 	def set_typicalpcnt(self, pcnt): self.typical_pcnt = pcnt
 	def set_atypicalreads(self, count): self.atypical_count = count
@@ -274,6 +285,7 @@ class IndividualAllele:
 	def set_fodoverwrite(self, bool): self.fod_overwrite = bool
 	def set_slippageoverwrite(self, state): self.slippage_overwrite = state
 	def set_fatalalignmentwarning(self, state): self.fatalalignmentwarning = state
+	def set_distribution_readcount_warning(self, state): self.distribution_readcount_warning = state
 
 	##
 	## Getters
@@ -288,6 +300,7 @@ class IndividualAllele:
 	def get_intervening(self): return self.intervening_sequence
 	def get_ccg(self): return self.ccg_value
 	def get_rewrittenccg(self): return self.rewritten_ccg
+	def get_unrewrittenccg(self): return self.unrewritten_ccg
 	def get_cct(self): return self.cct_value
 	def get_threeprime(self): return self.three_prime
 
@@ -295,6 +308,7 @@ class IndividualAllele:
 	def get_reflabel(self): return self.reference_label
 	def get_originalreference(self): return self.original_reference
 	def get_totalreads(self): return self.total_reads
+	def get_peakreads(self): return self.peak_reads
 	def get_typicalreads(self): return self.typical_count
 	def get_typicalpcnt(self): return self.typical_pcnt
 	def get_atypicalreads(self): return self.atypical_count
@@ -333,3 +347,4 @@ class IndividualAllele:
 	def get_fodoverwrite(self): return self.fod_overwrite
 	def get_slippageoverwrite(self): return self.slippage_overwrite
 	def get_fatalalignmentwarning(self): return self.fatalalignmentwarning
+	def get_distribution_readcount_warning(self): return self.distribution_readcount_warning
