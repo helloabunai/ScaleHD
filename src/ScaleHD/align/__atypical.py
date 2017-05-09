@@ -3,6 +3,7 @@ from __future__ import division
 ##
 ##Imports
 import os
+import re
 import regex
 import pysam
 import difflib
@@ -80,6 +81,7 @@ class ScanAtypical:
 			obj.set_cctval(dat.get('EstimatedCCT'))
 			obj.set_threeprime(dat.get('3PFlank'))
 			obj.set_rewrittenccg(dat.get('RewrittenCCG'))
+			obj.set_unrewrittenccg(dat.get('UnrewrittenCCG'))
 		sequencepair_object.set_primary_allele(primary_object)
 		sequencepair_object.set_secondary_allele(secondary_object)
 
@@ -289,7 +291,7 @@ class ScanAtypical:
 			atypical_population = Counter(reference_atypicals).most_common()
 			fp_flank_population = Counter(fp_flanks).most_common()
 			tp_flank_population = Counter(tp_flanks).most_common()
-
+			single_counter = 0
 			if len(atypical_population) == 0: atypical_population = [['CAACAGCCGCCA']]
 			reference_dictionary = {'TotalReads':investigation[1],
 									'TypicalCount': typical_count,
@@ -334,6 +336,13 @@ class ScanAtypical:
 							reference_dictionary['InterveningSequence'] = 'CAACAGCCGCCA'
 			except IndexError:
 				pass
+
+			##
+			## If all scanned items are only counted once
+			for item in atypical_population:
+				if item[1] == 1: single_counter += 1
+			if single_counter == len(atypical_population) and reference_dictionary['Status'] == 'Typical':
+				reference_dictionary['InterveningSequence'] = 'CAACAGCCGCCA'
 
 			##
 			## Append results to reference label
@@ -482,36 +491,40 @@ class ScanAtypical:
 					top1_top2_dist = abs(sorted_info[0][1]['EstimatedCAG']-sorted_info[1][1]['EstimatedCAG'])
 					top2_top3_dist = abs(sorted_info[1][1]['EstimatedCAG']-sorted_info[2][1]['EstimatedCAG'])
 					top2_ccg = sorted_info[1][1]['EstimatedCCG']; top3_ccg = sorted_info[2][1]['EstimatedCCG']
-					if read_drop >= 0.65 and (top2_top3_dist == 1 and top2_ccg==top3_ccg):
-						top2_cag = sorted_info[1][1]['EstimatedCAG']; top3_cag = sorted_info[2][1]['EstimatedCAG']
-						##
-						## Diminished Peak (Top2)
-						if top2_cag > top3_cag:
-							if np.isclose([sub_drop],[0.5],atol=0.1):
-								if not np.isclose([primary_allele['EstimatedCAG']],[top2_cag],atol=5):
-									secondary_allele = sorted_info[1][1]
-									secondary_allele['Reference'] = sorted_info[1][0]
-									break
+					if read_drop >= 0.65:
+						if top2_top3_dist == 1 and top2_ccg==top3_ccg:
+							top2_cag = sorted_info[1][1]['EstimatedCAG']; top3_cag = sorted_info[2][1]['EstimatedCAG']
+							##
+							## Diminished Peak (Top2)
+							if top2_cag > top3_cag:
+								if np.isclose([sub_drop],[0.5],atol=0.1):
+									if not np.isclose([primary_allele['EstimatedCAG']],[top2_cag],atol=5):
+										secondary_allele = sorted_info[1][1]
+										secondary_allele['Reference'] = sorted_info[1][0]
+										break
+									else:
+										secondary_allele = primary_allele.copy()
+										break
 								else:
 									secondary_allele = primary_allele.copy()
 									break
-							else:
-								secondary_allele = primary_allele.copy()
-								break
-						##
-						## Diminished peak (Top3)
-						elif top3_cag > top2_cag:
-							if np.isclose([sub_drop],[0.2],atol=0.2):
-								if not np.isclose([primary_allele['EstimatedCAG']],[top3_cag],atol=5):
-									secondary_allele = sorted_info[1][1]
-									secondary_allele['Reference'] = sorted_info[1][0]
-									break
+							##
+							## Diminished peak (Top3)
+							elif top3_cag > top2_cag:
+								if np.isclose([sub_drop],[0.2],atol=0.2):
+									if not np.isclose([primary_allele['EstimatedCAG']],[top3_cag],atol=5):
+										secondary_allele = sorted_info[1][1]
+										secondary_allele['Reference'] = sorted_info[1][0]
+										break
+									else:
+										secondary_allele = primary_allele.copy()
+										break
 								else:
 									secondary_allele = primary_allele.copy()
 									break
-							else:
-								secondary_allele = primary_allele.copy()
-								break
+						else:
+							secondary_allele = sorted_info[1][1]
+							secondary_allele['Reference'] = sorted_info[1][0]
 					##
 					## Legit peak (not diminished or homozyg)
 					elif 0.0 < read_drop < 0.64:
@@ -571,12 +584,13 @@ class ScanAtypical:
 		## Get intervening lengths, create accurate genotype string
 		atypical_count = 0
 		for allele in [primary_allele, secondary_allele]:
+			if allele['Status'] == 'Atypical': atypical_count += 1
+			else: allele['InterveningSequence'] = 'CAACAGCCGCCA'
 			new_genotype, caacag_count, ccgcca_count = self.create_genotype_label(allele)
 			allele['OriginalReference'] = allele['Reference']
 			allele['Reference'] = new_genotype
 			allele['EstimatedCAACAG'] = caacag_count
 			allele['EstimatedCCGCCA'] = ccgcca_count
-			if allele['Status'] == 'Atypical': atypical_count += 1
 
 		##
 		## Check for atypical allele rewriting CCG Het to CCG Hom
@@ -587,9 +601,13 @@ class ScanAtypical:
 			curr_ccg = allele['EstimatedCCG']
 			temp_zyg.append(orig_ccg); temp_curr.append(curr_ccg)
 			if allele['Status'] == 'Atypical':
-				if orig_ccg != curr_ccg:
+				if int(orig_ccg) != int(curr_ccg):
 					self.sequencepair_object.set_atypical_ccgrewrite(True)
 					allele['RewrittenCCG'] = orig_ccg
+				if int(orig_ccg) == int(curr_ccg):
+					allele['UnrewrittenCCG'] = orig_ccg
+					self.sequencepair_object.set_atypical_zygrewrite(True)
+
 		if not temp_zyg[0] == temp_zyg[1]:
 			if temp_curr[0] == temp_curr[1]:
 				if self.sequencepair_object.get_atypical_ccgrewrite():
@@ -599,57 +617,124 @@ class ScanAtypical:
 
 	def create_genotype_label(self, input_reference):
 
+		##
+		## Check before typical intervening for 'new' atypicals
+		## Set up data structure
 		intervening = input_reference['InterveningSequence']
-		intervening_freq = Counter(list((intervening[0 + i:6 + i] for i in range(0, len(intervening), 6)))).items()
-		caacag_count = 0; ccgcca_count = 0
-		caacag_flag = False; ccgcca_flag = False
+		int_one = {'Mask': 'CAACAG', 'Count': 0, 'StartIDX': 0, 'EndIDX': 0, 'Label': '', 'Suffix': ''}
+		int_two = {'Mask': 'CCGCCA', 'Count': 0, 'StartIDX': 0, 'EndIDX': 0, 'Label': '', 'Suffix': ''}
 
 		##
-		## TODO fix this dumpster garbage shit
-		## TODO oh my god it's so ugly
-		if len(intervening_freq) < 1: caacag_count = 1; ccgcca_count = 1
-		if len(intervening_freq) < 2: caacag_count = 1; ccgcca_count = 1
+		## Scrape data into structure
+		for mask_dict in [int_one, int_two]:
+			self.scraper(mask_dict, intervening)
 
-		##
-		## Check CAACAG
-		try:
-			caacag_freq = intervening_freq[0]
-			if self.rotation_check('CAACAG', caacag_freq[0]):
-				caacag_count = caacag_freq[1]
+		intervening_flag = True; atypical_flag = True; int_one_offset_flag = False
+		int_two_offset_flag = False; int_one_investigate = False; int_two_investigate = False
+		caacag_count = int_one['Count']; ccgcca_count = int_two['Count']
+		if caacag_count == 0 and ccgcca_count == 0: intervening_flag = False
+		if caacag_count != 1 and ccgcca_count != 1: atypical_flag = True
+		int_one_offset = 0; int_one_simscore = 0; int_two_simscore = 0
+
+		##########################
+		##CAACAG (int one) check##
+		##########################
+		if int_one['Count'] > 0:
+			if not int_one['StartIDX'] == 0:
+				offset_str = intervening.split(int_one['Mask'])[0]
+				int_one_offset = len(offset_str)
+				int_one_offset_flag = True
+				int_one_investigate = True
+		else:
+			remainder = len(intervening) % 6
+			if not remainder == 0:
+				offset_mutated = intervening.split(intervening[remainder:remainder + 6])[0]
+				int_one_offset = len(offset_mutated)
+				potential_mask = intervening[remainder:remainder + 6]
+				int_one_offset_simscore = self.similar('CAACAG', potential_mask)
+				int_one_offset_flag = True
+				if int_one_offset_simscore >= 0.5:
+					int_one['Mask'] = potential_mask
+					self.scraper(int_one, intervening)
+					int_one_investigate = True
 			else:
-				if input_reference['Status'] == 'Typical':
-					caacag_count = 1; ccgcca_count = 1
-		except IndexError:
-			caacag_flag = True
+				if len(intervening) > 6 and not int_one_offset_flag:
+					int_one_simscore = self.similar('CAACAG', intervening[0:6])
+					if int_one_simscore >= 0.5:
+						int_one['Mask'] = intervening[0:6]
+						self.scraper(int_one, intervening)
+						int_one_investigate = True
 
-		##
-		## Check CCGCCA
-		try:
-			ccgcca_freq = intervening_freq[1]
-			if self.rotation_check('CCGCCA', ccgcca_freq[0]):
-				ccgcca_count = ccgcca_freq[1]
-			else:
-				if input_reference['Status'] == 'Typical':
-					caacag_count = 1; ccgcca_count = 1
-		except IndexError:
-			ccgcca_flag = True
+		##########################
+		##CCGCCA (int two) check##
+		##########################
+		if int_two['Count'] > 0:
+			offset = (int_one['Count'] * 6) + int_one_offset
+			if not int_two['StartIDX'] == offset:
+				int_two_offset_flag = True
+				offset_str = intervening.split(int_two['Mask'])[0].split(int_one['Mask'])[1]
+				int_two_investigate = True
+		else:
+			remainder = len(intervening) % 6
+			if not remainder == 0:
+				lhinge = remainder + 6; rhinge = lhinge + 6
+				offset_mutated = intervening.split(intervening[lhinge:rhinge])[0].split(int_one['Mask'])[1]
+				offset = (int_one['Count'] * 6) + len(offset_mutated)
+				if not int_two['StartIDX'] == offset:
+					offset_str = intervening[lhinge:rhinge]
+					int_two_offset_simscore = self.similar('CCGCCA', offset_str)
+					int_two_offset_flag = True
+					if int_two_offset_simscore >= 0.5:
+						int_two['Mask'] = offset_str
+						self.scraper(int_two, intervening)
+						int_two_investigate = True
+			if len(intervening) > 6 and not int_two_offset_flag:
+				int_two_simscore = self.similar('CCGCCA', intervening[6:12])
+				if int_two_simscore >= 0.5:
+					int_two['Mask'] = intervening[6:12]
+					self.scraper(int_two, intervening)
+					int_two_investigate = True
 
-		##
-		## Parse flags in event of error
-		if caacag_flag: caacag_count = 0; ccgcca_count = 0
-		if ccgcca_flag:
-			if not caacag_flag:
-				caacag_count = 1; ccgcca_count = 0
-			else:
-				caacag_count = 0; ccgcca_count = 0
+		#################################
+		##Anything longer than typical?##
+		#################################
+		if intervening_flag and len(intervening) > 12:
+			returned_suffix = intervening[int_two['EndIDX']:]
+			if returned_suffix:
+				int_two_investigate = True
 
-		##
-		## Safety check
+		###########################
+		##If not present at all..##
+		###########################
+		if not intervening_flag:
+			int_one['Count'] = 0; int_one_investigate = True
+			int_two_investigate = True; int_two['Count'] = 0
+
+		###############
+		##Easy checks##
+		###############
+		for count in [int_one['Count'], int_two['Count']]:
+			if not int(count) in [0,1,2]:
+				self.sequencepair_object.set_novel_atypical_structure(True)
+		if not int(input_reference['EstimatedCCT']) in [0,1,2,3]:
+			self.sequencepair_object.set_novel_atypical_structure(True)
 		if input_reference['Status'] == 'Typical' and (caacag_count != 1 or ccgcca_count != 1):
 			caacag_count = 1; ccgcca_count = 1
 
-		genotype_label = '{}_{}_{}_{}_{}'.format(input_reference['EstimatedCAG'], caacag_count, ccgcca_count,
+		########################
+		##Build genotype label##
+		########################
+		if int_one_investigate:
+			int_one['Suffix'] = '*'
+			self.sequencepair_object.set_novel_atypical_structure(True)
+		if int_two_investigate:
+			int_two['Suffix'] = '*'
+			self.sequencepair_object.set_novel_atypical_structure(True)
+		int_one['Label'] = '{}'.format(str(int_one['Count']) + int_one['Suffix'])
+		int_two['Label'] = '{}'.format(str(int_two['Count']) + int_two['Suffix'])
+		genotype_label = '{}_{}_{}_{}_{}'.format(input_reference['EstimatedCAG'], int_one['Label'], int_two['Label'],
 												 input_reference['EstimatedCCG'], input_reference['EstimatedCCT'])
+
 		return genotype_label, caacag_count, ccgcca_count
 
 	def get_atypicalreport(self):
@@ -661,7 +746,7 @@ class ScanAtypical:
 		size2 = len(string2)
 
 		# Check if sizes of two strings are same
-		if size1 != size2: return 0
+		if size1 != size2: return False
 
 		# Create a temp string with value str1.str1
 		temp = string1 + string1
@@ -670,10 +755,20 @@ class ScanAtypical:
 		rotation_match = regex.findall(r"(?:" + string2 + "){s<=1}", temp, regex.BESTMATCH)
 
 		if len(rotation_match) > 0:
-			return 1
+			return True
 		else:
-			return 0
+			return False
 
 	@staticmethod
 	def similar(seq1, seq2):
 		return difflib.SequenceMatcher(a=seq1.lower(), b=seq2.lower()).ratio()
+
+	@staticmethod
+	def scraper(intv_dict, intervening_str):
+		for dna_module in re.finditer(intv_dict['Mask'], intervening_str):
+			if intv_dict['Count'] == 0:
+				intv_dict['StartIDX'] = dna_module.start(); intv_dict['EndIDX'] = dna_module.end()
+			elif intv_dict['Count'] != 0:
+				intv_dict['EndIDX'] = dna_module.end()
+			intv_dict['Count'] += 1
+		return intv_dict

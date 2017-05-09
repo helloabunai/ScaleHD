@@ -305,10 +305,10 @@ class AlleleGenotyping:
 			allele_object.set_rvarray(self.reverse_distribution)
 
 			##
-			## Read count
-			if allele_object.get_totalreads() < 250:
-				allele_object.set_fatalalignmentwarning(True)
-				self.sequencepair_object.set_fatalreadallele(True)
+			## Distribution ead count / Peak read count
+			if allele_object.get_totalreads() < 1000:
+				allele_object.set_distribution_readcount_warning(True)
+				self.sequencepair_object.set_distribution_readcount_warning(True)
 
 			##
 			## If current alleleobj's assembly/distro is blank
@@ -333,7 +333,7 @@ class AlleleGenotyping:
 				## Data has been realigned to custom reference
 				if not self.invalid_data:
 					self.forward_aggregate = self.distribution_collapse(self.forward_distribution)
-					self.reverse_aggregate = self.pad_distribution(self.reverse_distribution, allele_object)
+					self.reverse_aggregate = self.reverse_distribution
 					allele_object.set_rvarray(self.reverse_aggregate)
 				## Data has not been realigned -- brute force genotyping
 				if self.invalid_data:
@@ -424,8 +424,13 @@ class AlleleGenotyping:
 			raise Exception('CCG Prediction Failure.')
 
 		##
-		## Check for atypical realignment (resulting in HET to HOM refactor)
-		if self.sequencepair_object.get_atypical_ccgrewrite():
+		## If atypical detected, but zygosity was rewritten
+		## allele CCG remained the same, but one allele is now atypical
+		if not self.sequencepair_object.get_atypical_ccgrewrite():
+			if self.sequencepair_object.get_atypical_zygrewrite():
+				self.zygosity_state = 'HOMO+'
+		## allele CCG value was changed as a result of the atypical detection
+		else:
 			if self.sequencepair_object.get_atypical_zygrewrite():
 				self.zygosity_state = 'HOMO*'
 
@@ -476,7 +481,7 @@ class AlleleGenotyping:
 				self.zygosity_state = self.expected_zygstate = local_zygstate
 
 		self.sequencepair_object.set_ccgzygstate(self.expected_zygstate)
-		if not self.zygosity_state == 'HOMO*':
+		if not self.zygosity_state == 'HOMO*' or not self.zygosity_state == 'HOMO+':
 			if not local_zygstate == self.expected_zygstate:
 				if abs(ccg_sum[0][0]-ccg_sum[1][0]) == 1:
 					if not np.isclose([ccg_sum[0][1]],[ccg_sum[1][1]],atol=(0.70*max(ccg_sum)[1])):
@@ -514,10 +519,15 @@ class AlleleGenotyping:
 		##########################
 		## Heterozygous for CCG ##
 		##########################
-		if self.zygosity_state == 'HETERO' or self.zygosity_state == 'HOMO*':
+		if self.zygosity_state == 'HETERO' or self.zygosity_state == 'HOMO*' or self.zygosity_state == 'HOMO+':
 			for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
+				if self.zygosity_state == 'HOMO+':
+					for i in range(0, len(target_distro)):
+						if i != allele.get_cag() - 1:
+							removal = (target_distro[i] / 100) * 85
+							target_distro[i] -= removal
 				allele.set_cagthreshold(0.50)
 				fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, 1, 'CAGHet')
 				while fod_failstate:
@@ -676,7 +686,7 @@ class AlleleGenotyping:
 				self.sequencepair_object.set_homozygoushaplotype(True)
 				self.sequencepair_object.set_secondary_allele(self.sequencepair_object.get_primaryallele())
 				for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
-					if allele.get_totalreads() < 250:
+					if allele.get_peakreads() < 250:
 						allele.set_fatalalignmentwarning(True)
 						self.sequencepair_object.set_fatalreadallele(False)
 					else:
@@ -687,23 +697,32 @@ class AlleleGenotyping:
 
 		##
 		## Check for diminished peaks (incase DSP failure / read count is low)
-		if ccg_zygstate == 'HOMO' or ccg_zygstate == 'HOMO*':
-			primary_target = distribution_split['CCG{}'.format(primary_allele.get_ccg())]
-			secondary_target = distribution_split['CCG{}'.format(secondary_allele.get_ccg())]
-			primary_reads = primary_target[primary_allele.get_cag()-1]
-			secondary_reads = secondary_target[secondary_allele.get_cag()-1]
-			peak_total = sum([primary_reads, secondary_reads])
-			dist_total = sum(distribution_split['CCG{}'.format(primary_allele.get_ccg())])
-			if not peak_total/dist_total >= 0.65:
-				if primary_fod_ccg == secondary_fod_ccg and primary_dsp_cag != secondary_dsp_cag:
-					primary_target = distribution_split['CCG{}'.format(primary_allele.get_ccg())]
-					split_target = primary_target[primary_allele.get_cag()+5:-1]
-					difference_buffer = len(primary_target)-len(split_target)
-					fod_failstate, cag_diminished = self.peak_detection(primary_allele, split_target, 1, 'CAGDim')
-					while fod_failstate:
-						fod_failstate, cag_diminished = self.peak_detection(primary_allele, split_target, 1, 'CAGDim', fod_recall=True)
-
-					if split_target[cag_diminished] > 100:
+		## Primary read info
+		primary_dist = self.split_cag_target(primary_allele.get_fwarray())
+		primary_target = primary_dist['CCG{}'.format(primary_allele.get_ccg())]
+		primary_reads = primary_target[primary_allele.get_cag() - 1]
+		primary_total = sum(primary_target)
+		## Secondary read info
+		secondary_dist = self.split_cag_target(secondary_allele.get_fwarray())
+		secondary_target = secondary_dist['CCG{}'.format(secondary_allele.get_ccg())]
+		secondary_reads = secondary_target[secondary_allele.get_cag() - 1]
+		secondary_total = sum(secondary_target)
+		## Set specifics for zygstate
+		peak_total = sum([primary_reads, secondary_reads]); dist_total = 0
+		if ccg_zygstate == 'HOMO':
+			dist_total = sum([primary_total])
+		if ccg_zygstate == 'HOMO*' or ccg_zygstate == 'HOMO+':
+			dist_total = sum([primary_total, secondary_total])
+		if not peak_total/dist_total >= 0.65:
+			if primary_fod_ccg == secondary_fod_ccg and primary_dsp_cag != secondary_dsp_cag:
+				primary_target = distribution_split['CCG{}'.format(primary_allele.get_ccg())]
+				split_target = primary_target[primary_allele.get_cag()+5:-1]
+				difference_buffer = len(primary_target)-len(split_target)
+				fod_failstate, cag_diminished = self.peak_detection(primary_allele, split_target, 1, 'CAGDim')
+				while fod_failstate:
+					fod_failstate, cag_diminished = self.peak_detection(primary_allele, split_target, 1, 'CAGDim', fod_recall=True)
+				if split_target[cag_diminished] > 100:
+					if not primary_allele.get_allelestatus()=='Atypical' and not secondary_allele.get_allelestatus()=='Atypical':
 						## bypass integrity checks
 						secondary_allele.set_cagval(int(cag_diminished+difference_buffer-1))
 						secondary_allele.set_fodcag(int(cag_diminished+difference_buffer-1))
@@ -713,7 +732,7 @@ class AlleleGenotyping:
 
 		##
 		## Double check zygosity..
-		if not (primary_fod_ccg == secondary_fod_ccg) and (ccg_zygstate == 'HOMO' or ccg_zygstate == 'HOMO*'):
+		if not (primary_fod_ccg == secondary_fod_ccg) and (ccg_zygstate == 'HOMO' or ccg_zygstate == 'HOMO*' or ccg_zygstate == 'HOMO+'):
 			raise Exception('CCG validity check failure')
 		if (primary_fod_ccg == secondary_fod_ccg) and ccg_zygstate == 'HETERO':
 			raise Exception('CCG validity check failure')
@@ -727,6 +746,11 @@ class AlleleGenotyping:
 			distribution_split = self.split_cag_target(allele.get_fwarray())
 			target = distribution_split['CCG{}'.format(allele.get_ccg())]
 			linspace = np.linspace(0,199,200)
+
+			allele.set_peakreads(target[allele.get_fodcag()-1])
+			if allele.get_peakreads() < 250:
+				allele.set_fatalalignmentwarning(True)
+				self.sequencepair_object.set_fatalreadallele(True)
 
 			##
 			## fucking weird interp bug filtering
@@ -823,8 +847,9 @@ class AlleleGenotyping:
 			allele.set_cagvalid(True)
 			allele.set_genotypestatus(True)
 
-			allele.set_allelegenotype('{}_{}_{}_{}_{}'.format(allele.get_fodcag(), allele.get_caacag(),
-															  allele.get_ccgcca(), allele.get_fodccg(),
+			novel_caacag = allele.get_reflabel().split('_')[1]; novel_ccgcca = allele.get_reflabel().split('_')[2]
+			allele.set_allelegenotype('{}_{}_{}_{}_{}'.format(allele.get_fodcag(), novel_caacag,
+															  novel_ccgcca, allele.get_fodccg(),
 															  allele.get_cct()))
 
 			##
@@ -883,7 +908,7 @@ class AlleleGenotyping:
 			plt.savefig(os.path.join(predict_path, file_handle), format='pdf')
 			plt.close()
 
-		def pagemerge_subfunction(graph_list, prediction_path, ccg_val, header=None):
+		def pagemerge_subfunction(graph_list, prediction_path, ccg_val, header=None, hplus=False):
 
 			##
 			## Readers and pages
@@ -898,7 +923,9 @@ class AlleleGenotyping:
 
 			##
 			## Write to one PDF
-			if not header: output_path = os.path.join(prediction_path, 'CCG{}CAGDetection.pdf'.format(ccg_val))
+			if hplus: suffix = 'AtypicalHomozyg'
+			else: suffix = ''
+			if not header: output_path = os.path.join(prediction_path, 'CCG{}CAGDetection_{}.pdf'.format(ccg_val, suffix))
 			else: output_path = os.path.join(prediction_path, 'IntroCCG.pdf')
 			writer = PyPDF2.PdfFileWriter()
 			writer.addPage(translated_page)
@@ -912,7 +939,7 @@ class AlleleGenotyping:
 		##########################################
 		## SAMPLE CARD FOR GENOTYPE INFORMATION ##
 		##########################################
-		sample_pdf_path = os.path.join(predpath, 'SampleSummary.pdf')
+		sample_pdf_path = os.path.join(predpath, '{}{}'.format(self.sequencepair_object.get_label(),'.pdf'))
 		c = canvas.Canvas(sample_pdf_path, pagesize=(720,432))
 		header_string = '{}{}'.format('Sample header: ', self.sequencepair_object.get_label())
 		primary_string = '{}(CAG{}, CCG{}) ({}; {})'.format('Primary: ', self.sequencepair_object.get_primaryallele().get_fodcag(),
@@ -954,7 +981,7 @@ class AlleleGenotyping:
 		## CCG heterozygous example					 ##
 		## i.e. CCG two peaks, one CAG dist per peak ##
 		###############################################
-		if self.zygosity_state == 'HETERO' or self.zygosity_state == 'HOMO*':
+		if self.zygosity_state == 'HETERO' or self.zygosity_state == 'HOMO*' or self.zygosity_state == 'HOMO+':
 
 			##
 			## Render CCG graph, append path to allele path list
@@ -978,9 +1005,17 @@ class AlleleGenotyping:
 				temp_graphs = []
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
+				if self.zygosity_state == 'HOMO+':
+					for i in range(0, len(target_distro)):
+						if i != allele.get_cag() - 1:
+							removal = (target_distro[i] / 100) * 75
+							target_distro[i] -= removal
 				if allele.get_rewrittenccg():
-					peak_filename = 'CCG{}-CAGDetection_atypical.pdf'.format(allele.get_fodccg())
+					peak_filename = 'CCG{}-CAGDetection_atypical_ccgdiff.pdf'.format(allele.get_fodccg())
 					peak_prefix = '(CCG{}**) '.format(allele.get_fodccg())
+				elif allele.get_unrewrittenccg():
+					peak_filename = 'CCG{}-CAGDetection_atypical_ccgsame.pdf'.format(allele.get_fodccg())
+					peak_prefix = '(CCG{}++) '.format(allele.get_fodccg())
 				else:
 					peak_filename = 'CCG{}-CAGDetection.pdf'.format(allele.get_fodccg())
 					peak_prefix = '(CCG{}) '.format(allele.get_fodccg())
@@ -995,8 +1030,11 @@ class AlleleGenotyping:
 				## Inspect the peak (subslice)
 				slice_range = range(allele.get_fodcag()-4, allele.get_fodcag()+7)
 				if allele.get_rewrittenccg():
-					slice_filename = 'CCG{}-Peak_atypical.pdf'.format(allele.get_fodccg())
+					slice_filename = 'CCG{}-Peak_atypical_ccgdiff.pdf'.format(allele.get_fodccg())
 					slice_prefix = '(CCG{}**) '.format(allele.get_ccg())
+				elif allele.get_unrewrittenccg():
+					slice_filename = 'CCG{}-Peak_atypical_ccgsame.pdf'.format(allele.get_fodccg())
+					slice_prefix = '(CCG{}++) '.format(allele.get_ccg())
 				else:
 					slice_filename = 'CCG{}-Peak.pdf'.format(allele.get_fodccg())
 					slice_prefix = '(CCG{}) ' .format(allele.get_ccg())
@@ -1009,7 +1047,9 @@ class AlleleGenotyping:
 				##
 				## Merge 'allele sample' into one page
 				ccg_val = allele.get_fodccg()
-				merged_graph = pagemerge_subfunction(temp_graphs, predpath, ccg_val)
+				if allele.get_unrewrittenccg(): hplus = True
+				else: hplus = False
+				merged_graph = pagemerge_subfunction(temp_graphs, predpath, ccg_val, hplus=hplus)
 				hetero_graphs.append(merged_graph)
 
 			self.sequencepair_object.get_primaryallele().set_allelegraphs(hetero_graphs)
@@ -1107,7 +1147,7 @@ class AlleleGenotyping:
 			if target_file.endswith(".pdf"):
 				clean_target.append(os.path.join(predpath, target_file))
 		for rmpdf in clean_target:
-			if not 'SampleSummary.pdf' in rmpdf:
+			if not '{}{}'.format(self.sequencepair_object.get_label(),'.pdf') in rmpdf:
 				os.remove(rmpdf)
 
 	def calculate_score(self):
@@ -1252,7 +1292,7 @@ class AlleleGenotyping:
 				if self.warning_triggered: allele_confidence -= 20; penfi.write('{}, {}\n'.format('Peak Inspection warning triggered','-20'))
 				if self.sequencepair_object.get_ccguncertainty(): allele_confidence -= 10; penfi.write('{}, {}\n'.format('CCG Uncertainty','-10'))
 				if self.sequencepair_object.get_alignmentwarning(): allele_confidence -= 15; penfi.write('{}, {}\n'.format('Low read count alignment warning','-15'))
-				if allele.get_fatalalignmentwarning(): allele_confidence -=40; penfi.write('{}, {}\n'.format('Fatal low read count alignment warning','-40'))
+				if allele.get_fatalalignmentwarning(): allele_confidence -= 40; penfi.write('{}, {}\n'.format('Fatal low read count alignment warning','-40'))
 
 				##
 				## If reflabel CAG and FOD CAG differ.. no confidence

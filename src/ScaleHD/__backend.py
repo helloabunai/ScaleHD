@@ -716,8 +716,8 @@ def generate_atypical_xml(label, allele_object, index_path, direction):
 		cagstart = '1'; cagend = '200'
 		ccgstart = '1'; ccgend = '20'
 	if direction == 'rv':
-		cagstart = '50'; cagend = '50'
-		ccgstart = str(ccglen-3); ccgend = str(ccglen+3)
+		cagstart = '100'; cagend = '100'
+		ccgstart = '1'; ccgend = '20'
 
 	##
 	## Create XML

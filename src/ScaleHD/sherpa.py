@@ -149,11 +149,12 @@ class ScaleHD:
 		##
 		## Instance results (genotype table)
 		self.instance_results = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		self.header = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
-			'SampleName', 'Primary GTYPE', 'Status', 'Map% (FW)', 'Map% (RV)', 'BSlippage', 'Somatic Mosaicism', 'Confidence',
-			'Secondary GTYPE', 'Status', 'Map% (FW)', 'Map% (RV)', 'BSlippage', 'Somatic Mosaicism', 'Confidence',
-			'Homozygous Haplotype', 'Neighbouring Peaks', 'Diminished Peaks', 'Alignment Warning', 'CCG Rewritten',
-			'CCG Zygosity Rewritten', 'Peak Inspection Warning', 'SVM Failure', 'Very low reads'
+		self.header = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
+			'SampleName', 'Primary GTYPE', 'Status', 'Map% (FW)', 'Map% (RV)', 'BSlippage', 'Somatic Mosaicism',
+			'Intervening Sequence', 'Confidence', 'Secondary GTYPE', 'Status', 'Map% (FW)', 'Map% (RV)', 'BSlippage',
+			'Somatic Mosaicism', 'Intervening Sequence', 'Confidence', 'Homozygous Haplotype', 'Neighbouring Peaks',
+			'Diminished Peaks', 'Novel Atypical', 'Alignment Warning', 'CCG Rewritten', 'CCG Zygosity Rewritten',
+			'Peak Inspection Warning', 'SVM Failure', 'Low Distribution Reads', 'Low Peak Reads'
 		)
 		with open(self.instance_results, 'w') as outfi: outfi.write(self.header); outfi.close()
 
@@ -280,7 +281,7 @@ class ScaleHD:
 								self.sequence_realignment(current_seqpair, allele)
 							except Exception, e:
 								self.append_report(current_seqpair)
-								log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Realignment failure on ',seqpair_lbl,str(e)))
+								log.info('{}{}{}{}{}: {}'.format(clr.red,'shd__ ',clr.end,'Realignment failure on ',seqpair_lbl,str(e)))
 								continue
 						else:
 							log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Atypical realignment not selected. Brute-force genotyping on inaccurate data.'))
@@ -409,7 +410,7 @@ class ScaleHD:
 
 		##
 		## Paths required for merging
-		sample_pdf_path = os.path.join(sequencepair_object.get_predictpath(), 'SampleSummary.pdf')
+		sample_pdf_path = os.path.join(sequencepair_object.get_predictpath(), '{}{}'.format(sequencepair_object.get_label(),'.pdf'))
 		instance_path = os.path.join(self.instance_rundir, 'InstanceGraphs.pdf')
 
 		##
@@ -429,24 +430,30 @@ class ScaleHD:
 			for obj_pair in input_list:
 				seq_object = obj_pair[0]
 				func_call = obj_pair[1]
-				func = getattr(seq_object, func_call)
-				func_output = func()
+				try:
+					func = getattr(seq_object, func_call)
+					func_output = func()
+				except AttributeError:
+					func_output = 'FAIL'
 				if func_output is None: rep_str += 'FAIL,'
 				else: rep_str += '{},'.format(func_output)
 			return rep_str
 
-		unparsed_info = [[sequencepair_object, 'get_label'], [primary_allele, 'get_allelegenotype'],
+		unparsed_info = [[sequencepair_object, 'get_label'], [primary_allele, 'get_reflabel'],
 						 [primary_allele, 'get_allelestatus'], [primary_allele, 'get_fwalnpcnt'],
 						 [primary_allele, 'get_rvalnpcnt'], [primary_allele, 'get_backwardsslippage'],
-						 [primary_allele, 'get_somaticmosaicism'], [primary_allele, 'get_alleleconfidence'],
-						 [secondary_allele, 'get_allelegenotype'], [secondary_allele, 'get_allelestatus'],
-						 [secondary_allele, 'get_fwalnpcnt'], [secondary_allele, 'get_rvalnpcnt'],
-						 [secondary_allele, 'get_backwardsslippage'], [secondary_allele, 'get_somaticmosaicism'],
+						 [primary_allele, 'get_somaticmosaicism'], [primary_allele, 'get_intervening'],
+						 [primary_allele, 'get_alleleconfidence'], [secondary_allele, 'get_reflabel'],
+						 [secondary_allele, 'get_allelestatus'], [secondary_allele, 'get_fwalnpcnt'],
+						 [secondary_allele, 'get_rvalnpcnt'], [secondary_allele, 'get_backwardsslippage'],
+						 [secondary_allele, 'get_somaticmosaicism'], [secondary_allele, 'get_intervening'],
 						 [secondary_allele, 'get_alleleconfidence'], [sequencepair_object, 'get_homozygoushaplotype'],
 						 [sequencepair_object, 'get_neighbouringpeaks'], [sequencepair_object, 'get_diminishedpeaks'],
-						 [sequencepair_object, 'get_alignmentwarning'], [sequencepair_object, 'get_atypical_ccgrewrite'],
-						 [sequencepair_object, 'get_atypical_zygrewrite'], [sequencepair_object, 'get_peakinspection_warning'],
-						 [sequencepair_object, 'get_svm_failure'], [sequencepair_object, 'get_fatalreadallele']]
+						 [sequencepair_object, 'get_novel_atypical_structure'], [sequencepair_object, 'get_alignmentwarning'],
+						 [sequencepair_object, 'get_atypical_ccgrewrite'], [sequencepair_object, 'get_atypical_zygrewrite'],
+						 [sequencepair_object, 'get_peakinspection_warning'], [sequencepair_object, 'get_svm_failure'],
+						 [sequencepair_object, 'get_distribution_readcount_warning'],
+						 [sequencepair_object, 'get_fatalreadallele']]
 
 		report_string = call_object_scraper(unparsed_info)
 		report_string += '\n'
