@@ -46,7 +46,6 @@ def extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfil
 	##
 	## Text to CSV, clean up text distribution
 	with open(raw_repeat_distribution) as text_distribution:
-		repeat_values = []
 		data_string = ''
 		for line in text_distribution.readlines()[:-1]:
 			values = line.split('\t')
@@ -300,7 +299,6 @@ class ReferenceIndex:
 
 		##
 		## Indexing reference with bowtie2-build
-		output_root = os.path.join(reference_index, reference_root)
 		build_subprocess = subprocess.Popen(['bwa', 'index', index_copy], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		build_rawoutput = build_subprocess.communicate()
 		build_stderr = build_rawoutput[1]
