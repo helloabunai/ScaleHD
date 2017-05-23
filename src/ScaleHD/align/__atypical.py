@@ -1,15 +1,17 @@
 from __future__ import division
-
 ##
 ##Imports
 import os
 import re
 import regex
 import pysam
+import random
 import difflib
 import subprocess
 import numpy as np
 import logging as log
+from heapq import nlargest
+from operator import itemgetter
 from collections import Counter
 from ..__backend import Colour as clr
 from ..__allelecontainer import IndividualAllele
@@ -143,7 +145,7 @@ class ScanAtypical:
 
 		##
 		## Assign our target references (Top 3 sorted references, sorted by read count)
-		self.assembly_targets = sorted(assembly_refdat, key=lambda x:x[1], reverse=True)[0:3]
+		self.assembly_targets = sorted(assembly_refdat, key=itemgetter(1), reverse=True)[0:3]
 
 		##
 		## Check for a mal-aligned sample
@@ -195,7 +197,6 @@ class ScanAtypical:
 		:return:
 		"""
 
-
 		##
 		## Iterate over top 3 aligned references in this assembly
 		## Fetch the reads aligned to the current reference
@@ -208,9 +209,22 @@ class ScanAtypical:
 			ref_cag = []; ref_ccg = []; ref_cct = []
 
 			##
+			## Temporary workaround to DSP taking too long (0.01s per read is bad)
+			## If readcount is x, subsample is y. Iterate into randomised subsample list of x(y)
+			## Do not execute if user has boosted.
+			read_count = len([x for x in self.assembly_object.fetch(reference=investigation[0])]); samplesize = None
+			if read_count > 3000: samplesize = 1000
+			elif 1000 < read_count < 3000: samplesize = 1500
+			if 0 < read_count < 1000: samplesize = 1000
+			if not self.sequencepair_object.get_boostflag():
+				subsampled_reads = [x for _, x in nlargest(samplesize, ((random.random(), x) for x in reference_data))]
+			else:
+				subsampled_reads = reference_data
+
+			##
 			## For every read in this reference, get the aligned sequence
 			## Split into triplet sliding window list, remove any triplets that are < 3
-			for read in reference_data:
+			for read in subsampled_reads:
 				target_sequence = read.query_alignment_sequence
 				sequence_windows = [target_sequence[i:i + 3] for i in range(0, len(target_sequence), 3)]
 				sequence_windows = [x for x in sequence_windows if len(x)==3]

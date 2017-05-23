@@ -1,18 +1,33 @@
+# try:
+# 	import Cython
+# 	USE_CYTHON = True
+# except ImportError:
+# 	USE_CYTHON = False
 from setuptools import setup, find_packages
+#from setuptools.extension import Extension
 from codecs import open
 from os import path
 
-here = path.abspath(path.dirname(__file__))
+# ##
+# ## Determine which source to use for cython module
+# ext = '.pyx' if USE_CYTHON else '.c'
+# extensions = [Extension("ScaleHD.align.scanref", ["ScaleHD/align/scanref"+ext])]
+# if USE_CYTHON:
+# 	from Cython.Build import cythonize
+# 	extensions = cythonize(extensions)
 
 # Get the long description from the relevant file
+here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
-    long_description = f.read()
+	long_description = f.read()
 
+##
+## Begin the setup installation
 setup(
     name='ScaleHD',
 
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.21',
+    version='0.23',
 
     description='Automated DNA micro-satellite genotyping.',
     long_description=long_description,
@@ -87,6 +102,7 @@ setup(
 					  'reportlab',
 					  'rpy2',
 					  'generatr',
+					  'cython',
 					  ],
 
     # These are the data files to be included in the package

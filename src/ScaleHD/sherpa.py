@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.21
+__version__ = 0.22
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -263,12 +263,12 @@ class ScaleHD:
 				###############################################
 				## Stage three!! Scan for atypical alleles.. ##
 				###############################################
-				try:
-					self.atypical_scanning(current_seqpair)
-				except Exception, e:
-					self.append_report(current_seqpair)
-					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Atypical scanning failure on ', seqpair_lbl, str(e)))
-					continue
+				#try:
+				self.atypical_scanning(current_seqpair)
+				#except Exception, e:
+				#	self.append_report(current_seqpair)
+				#	log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Atypical scanning failure on ', seqpair_lbl, str(e)))
+				#	continue
 
 				##########################################
 				## Stage four!! Process allele status.. ##

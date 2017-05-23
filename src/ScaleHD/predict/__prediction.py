@@ -277,8 +277,12 @@ class AlleleGenotyping:
 			elif triplet_stage == 'CCG':
 				if len(fixed_indexes) > 2 and not self.zygosity_state == 'HETERO':
 					fixed_indexes = [np.where(distro == max(distro))[0][0]+1]
-					self.sequencepair_object.set_svm_failure(True)
-					self.sequencepair_object.set_alignmentwarning(True)
+					if self.zygosity_state == 'HOMO+' or self.zygosity_state == 'HOMO*':
+						self.sequencepair_object.set_svm_failure(False)
+						pass
+					else:
+						self.sequencepair_object.set_svm_failure(True)
+						self.sequencepair_object.set_alignmentwarning(True)
 			else:
 				fail_state = True
 		return fail_state, fixed_indexes
@@ -382,8 +386,13 @@ class AlleleGenotyping:
 						if 0.0 not in [pmo_ratio, ppo_ratio]:
 							peak_count += 1
 				if peak_count == 2 and not self.zygosity_state == 'HETERO':
-					self.zygosity_state = 'HETERO'
-					self.sequencepair_object.set_svm_failure(True)
+					if self.zygosity_state == 'HOMO+' or self.zygosity_state == 'HOMO*':
+						self.sequencepair_object.set_svm_failure(False)
+						pass
+					else:
+						self.zygosity_state = 'HETERO'
+						self.sequencepair_object.set_svm_failure(True)
+
 
 			##
 			## Clean up distribution for erroneous peaks
@@ -727,7 +736,9 @@ class AlleleGenotyping:
 						secondary_allele.set_cagval(int(cag_diminished+difference_buffer-1))
 						secondary_allele.set_fodcag(int(cag_diminished+difference_buffer-1))
 						secondary_allele.set_fodoverwrite(True)
-						self.sequencepair_object.set_diminishedpeaks(True)
+						for peak in [primary_reads, secondary_reads]:
+							if peak < 750:
+								self.sequencepair_object.set_diminishedpeaks(True)
 						return pass_vld
 
 		##
