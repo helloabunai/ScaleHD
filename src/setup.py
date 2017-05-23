@@ -1,20 +1,6 @@
-# try:
-# 	import Cython
-# 	USE_CYTHON = True
-# except ImportError:
-# 	USE_CYTHON = False
 from setuptools import setup, find_packages
-#from setuptools.extension import Extension
 from codecs import open
 from os import path
-
-# ##
-# ## Determine which source to use for cython module
-# ext = '.pyx' if USE_CYTHON else '.c'
-# extensions = [Extension("ScaleHD.align.scanref", ["ScaleHD/align/scanref"+ext])]
-# if USE_CYTHON:
-# 	from Cython.Build import cythonize
-# 	extensions = cythonize(extensions)
 
 # Get the long description from the relevant file
 here = path.abspath(path.dirname(__file__))
@@ -101,8 +87,7 @@ setup(
 					  'PyPDF2',
 					  'reportlab',
 					  'rpy2',
-					  'generatr',
-					  'cython',
+					  'generatr'
 					  ],
 
     # These are the data files to be included in the package
