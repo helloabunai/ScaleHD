@@ -221,8 +221,8 @@ class ScanAtypical:
 			else:
 				subsampled_reads = self.assembly_object.fetch(reference=investigation[0])
 
-			if read_count < 500:
-				raise Exception('<500 aligned reads. Unworkable data.')
+			if read_count < 100:
+				raise Exception('<100 aligned reads. Unworkable data.')
 
 			##
 			## For every read in this reference, get the aligned sequence
