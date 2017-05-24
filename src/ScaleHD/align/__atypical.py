@@ -216,10 +216,13 @@ class ScanAtypical:
 			if read_count > 3000: samplesize = 1000
 			elif 1000 < read_count < 3000: samplesize = 1500
 			if 0 < read_count < 1000: samplesize = 1000
-			if not self.sequencepair_object.get_boostflag():
+			if not self.sequencepair_object.get_boostflag() and not self.alignment_warning:
 				subsampled_reads = [x for _, x in nlargest(samplesize, ((random.random(), x) for x in reference_data))]
 			else:
-				subsampled_reads = reference_data
+				subsampled_reads = self.assembly_object.fetch(reference=investigation[0])
+
+			if read_count < 500:
+				raise Exception('<500 aligned reads. Unworkable data.')
 
 			##
 			## For every read in this reference, get the aligned sequence
