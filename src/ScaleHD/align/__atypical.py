@@ -200,6 +200,7 @@ class ScanAtypical:
 		##
 		## Iterate over top 3 aligned references in this assembly
 		## Fetch the reads aligned to the current reference
+		inv_killswitch = 0
 		for investigation in self.assembly_targets:
 			reference_data = self.assembly_object.fetch(reference=investigation[0])
 
@@ -221,8 +222,12 @@ class ScanAtypical:
 			else:
 				subsampled_reads = self.assembly_object.fetch(reference=investigation[0])
 
-			if read_count < 100:
-				raise Exception('<100 aligned reads. Unworkable data.')
+			inv_killswitch += 1
+			if inv_killswitch > 1 and read_count < 100:
+				self.sequencepair_object.set_fatalreadallele(True)
+			elif inv_killswitch == 1 and read_count < 100:
+				self.sequencepair_object.set_fatalreadallele(True)
+				raise Exception('<100 aligned reads. Data un-usable.')
 
 			##
 			## For every read in this reference, get the aligned sequence
@@ -357,7 +362,12 @@ class ScanAtypical:
 			##
 			## If all scanned items are only counted once
 			for item in atypical_population:
-				if item[1] == 1: single_counter += 1
+				try:
+					if item[1] == 1: single_counter += 1
+				except IndexError:
+					if ref_typical > ref_atypical:
+						reference_dictionary['Status'] = 'Typical'
+						reference_dictionary['InterveningSequence'] = 'CAACAGCCGCCA'
 			if single_counter == len(atypical_population) and reference_dictionary['Status'] == 'Typical':
 				reference_dictionary['InterveningSequence'] = 'CAACAGCCGCCA'
 
@@ -666,7 +676,7 @@ class ScanAtypical:
 			remainder = len(intervening) % 6
 			if not remainder == 0:
 				offset_mutated = intervening.split(intervening[remainder:remainder + 6])[0]
-				int_one_offset = len(offset_mutated)
+				int_one_offse4t = len(offset_mutated)
 				potential_mask = intervening[remainder:remainder + 6]
 				int_one_offset_simscore = self.similar('CAACAG', potential_mask)
 				int_one_offset_flag = True
