@@ -508,13 +508,16 @@ def initialise_libraries(instance_params):
 	##
 	## Subfunction for recycling code
 	## Calls UNIX which for checking binaries present
-	def type_func(library):
-		library_subprocess = subprocess.Popen(['type', library], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		library_directory = library_subprocess.communicate()
-		library_subprocess.wait()
-		if not library in library_directory[0]:
-			log.critical('{}{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Missing library: ', library, '. Not installed or not on $PATH'))
-			raise ScaleHDException
+	# def type_func(library):
+	# 	library_subprocess = subprocess.Popen(['type', library], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	# 	library_directory = library_subprocess.communicate()
+	# 	library_subprocess.wait()
+	# 	if not library in library_directory[0]:
+	# 		log.critical('{}{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Missing library: ', library, '. Not installed or not on $PATH'))
+	# 		raise ScaleHDException
+
+	def cmd_exists(cmd):
+		return subprocess.call("type " + cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0
 
 	##
 	## To determine which binaries to check for
@@ -530,28 +533,18 @@ def initialise_libraries(instance_params):
 		genotyping = instance_params['genotype_prediction']
 
 	if quality_control == 'True':
-		try:type_func('java')
-		except ScaleHDException: trigger=True
-		try:type_func('fastqc')
-		except ScaleHDException: trigger=True
-		try:type_func('cutadapt')
-		except ScaleHDException: trigger=True
+		if not cmd_exists('java'): trigger=True
+		if not cmd_exists('fastqc'): trigger=True
+		if not cmd_exists('cutadapt'): trigger=True
 	if alignment == 'True':
-		try:type_func('seqtk')
-		except ScaleHDException: trigger=True
-		try:type_func('bwa')
-		except ScaleHDException: trigger=True
-		try:type_func('samtools')
-		except ScaleHDException: trigger=True
-		try:type_func('generatr')
-		except ScaleHDException: trigger=True
+		if not cmd_exists('seqtk'): trigger=True
+		if not cmd_exists('bwa'): trigger=True
+		if not cmd_exists('samtools'): trigger=True
+		if not cmd_exists('generatr'): trigger=True
 	if genotyping == 'True':
-		try:type_func('samtools')
-		except ScaleHDException: trigger=True
-		try:type_func('r')
-		except ScaleHDException: trigger=True
-		try:type_func('generatr')
-		except ScaleHDException: trigger=True
+		if not cmd_exists('samtools'): trigger=True
+		if not cmd_exists('r'): trigger=True
+		if not cmd_exists('generatr'): trigger=True
 
 	return trigger
 
