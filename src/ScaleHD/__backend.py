@@ -548,7 +548,7 @@ def initialise_libraries(instance_params):
 	if genotyping == 'True':
 		try:which_func('samtools')
 		except ScaleHDException: trigger=True
-		try:which_func('r')
+		try:which_func('R')
 		except ScaleHDException: trigger=True
 		try:which_func('generatr')
 		except ScaleHDException: trigger=True
