@@ -89,6 +89,8 @@ If you do not have sudo access (to install requisite packages), you should run S
         Generatr (as above)
     ~~~~
 
+5. Check that libxml2-dev and libxslt-dev are installed...
+
 Usage
 =====
 General usage is as follows:
