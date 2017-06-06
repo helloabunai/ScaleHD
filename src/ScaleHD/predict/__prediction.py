@@ -270,7 +270,6 @@ class AlleleGenotyping:
 		fixed_indexes = np.array(peak_indexes + 1)
 		if not len(fixed_indexes) == error_boundary:
 			if triplet_stage == 'CAGHom' and (est_dist==1 or est_dist==0):
-				##todo make sure this doesnt fuck shit up
 				pass
 			elif allele_object.get_cag() in fixed_indexes:
 				fixed_indexes = np.asarray([x for x in fixed_indexes if x == allele_object.get_cag()])
@@ -285,6 +284,7 @@ class AlleleGenotyping:
 						self.sequencepair_object.set_alignmentwarning(True)
 			else:
 				fail_state = True
+
 		return fail_state, fixed_indexes
 
 	def allele_validation(self):
@@ -466,6 +466,9 @@ class AlleleGenotyping:
 			fod_failstate, ccg_indexes = self.peak_detection(allele, allele.get_rvarray(), 1, 'CCG')
 			while fod_failstate:
 				fod_failstate, ccg_indexes = self.peak_detection(allele, allele.get_rvarray(), 1, 'CCG', fod_recall=True)
+
+			if len(ccg_indexes) == 0:
+				raise Exception('CCG Peak un-callable; cannot process.')
 
 			if ccg_indexes[0] == allele.get_ccg():
 				ccg_matches += 1
@@ -672,6 +675,15 @@ class AlleleGenotyping:
 			primary_fod_cag = primary_allele.get_fodcag(); secondary_fod_cag = secondary_allele.get_fodcag()
 
 		##
+		## Brute force zygosity
+		if not (primary_fod_ccg == secondary_fod_ccg) and (ccg_zygstate == 'HOMO' or ccg_zygstate == 'HOMO*' or ccg_zygstate == 'HOMO+'):
+			self.zygosity_state = 'HETERO'; ccg_zygstate = 'HETERO'
+			self.sequencepair_object.set_svm_failure(True)
+		if (primary_fod_ccg == secondary_fod_ccg) and ccg_zygstate == 'HETERO':
+			self.zygosity_state = 'HOMO'; ccg_zygstate = 'HOMO'
+			self.sequencepair_object.set_svm_failure(True)
+
+		##
 		## Check for potential homozygous haplotype/neighbouring peak
 		if ccg_zygstate == 'HOMO' and np.isclose(primary_dsp_cag, secondary_dsp_cag, atol=1):
 			primary_target = distribution_split['CCG{}'.format(primary_allele.get_ccg())]
@@ -741,13 +753,6 @@ class AlleleGenotyping:
 								self.sequencepair_object.set_diminishedpeaks(True)
 						return pass_vld
 
-		##
-		## Double check zygosity..
-		if not (primary_fod_ccg == secondary_fod_ccg) and (ccg_zygstate == 'HOMO' or ccg_zygstate == 'HOMO*' or ccg_zygstate == 'HOMO+'):
-			raise Exception('CCG validity check failure')
-		if (primary_fod_ccg == secondary_fod_ccg) and ccg_zygstate == 'HETERO':
-			raise Exception('CCG validity check failure')
-
 		return pass_vld
 
 	def inspect_peaks(self):
@@ -758,11 +763,19 @@ class AlleleGenotyping:
 			target = distribution_split['CCG{}'.format(allele.get_ccg())]
 			linspace = np.linspace(0,199,200)
 
+			##
+			## Here we set the peak reads for this allele (i.e. number of reads aligned to N)
+			## In the case of WOEFUL atypical re-alignments, sometimes more than one 'peak' is found
+			## Hence we detect for that, raise an exception as this allele is un-genotype-able
 			allele.set_peakreads(target[allele.get_fodcag()-1])
-			if allele.get_peakreads() < 250:
-				allele.set_fatalalignmentwarning(True)
-				self.sequencepair_object.set_fatalreadallele(True)
-
+			try:
+				if allele.get_peakreads() < 250:
+					allele.set_fatalalignmentwarning(True)
+					self.sequencepair_object.set_fatalreadallele(True)
+			except ValueError:
+				if not len(allele.get_peakreads()) == 1:
+					self.sequencepair_object.set_atypical_alignmentwarning(True)
+					raise Exception('Atypical re-alignment inaccuracy. Cannot genotype.')
 			##
 			## fucking weird interp bug filtering
 			## Interp a gaussian to suspected peak
@@ -1303,6 +1316,7 @@ class AlleleGenotyping:
 				if self.warning_triggered: allele_confidence -= 20; penfi.write('{}, {}\n'.format('Peak Inspection warning triggered','-20'))
 				if self.sequencepair_object.get_ccguncertainty(): allele_confidence -= 10; penfi.write('{}, {}\n'.format('CCG Uncertainty','-10'))
 				if self.sequencepair_object.get_alignmentwarning(): allele_confidence -= 15; penfi.write('{}, {}\n'.format('Low read count alignment warning','-15'))
+				if self.sequencepair_object.get_atypical_alignmentwarning(): allele_confidence -= 50; penfi.write('{}, {}\n'.format('Atypical re-alignment inaccurate','-50'))
 				if allele.get_fatalalignmentwarning(): allele_confidence -= 40; penfi.write('{}, {}\n'.format('Fatal low read count alignment warning','-40'))
 
 				##

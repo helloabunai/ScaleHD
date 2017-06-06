@@ -42,6 +42,7 @@ class SequenceSample:
 		self.ccguncertainty = False
 		self.svm_failure = False
 		self.alignmentwarning = False
+		self.atypical_alignmentwarning = False
 		self.atypical_ccgrewrite = False
 		self.atypical_zygrewrite = False
 		self.peakinspection_warning = False
@@ -92,6 +93,7 @@ class SequenceSample:
 	def set_ccguncertainty(self, state): self.ccguncertainty = state
 	def set_svm_failure(self, state): self.svm_failure = state
 	def set_alignmentwarning(self, state): self.alignmentwarning = state
+	def set_atypical_alignmentwarning(self, state): self.atypical_alignmentwarning = state
 	def set_ccgzygstate(self, state): self.ccgzygstate = state
 	def set_atypical_ccgrewrite(self, state): self.atypical_ccgrewrite = state
 	def set_atypical_zygrewrite(self, state): self.atypical_zygrewrite = state
@@ -141,6 +143,7 @@ class SequenceSample:
 	def get_diminishedpeaks(self): return self.diminishedpeaks
 	def get_ccguncertainty(self): return self.ccguncertainty
 	def get_alignmentwarning(self): return self.alignmentwarning
+	def get_atypical_alignmentwarning(self): return self.atypical_alignmentwarning
 	def get_ccgzygstate(self): return self.ccgzygstate
 	def get_svm_failure(self): return self.svm_failure
 	def get_atypical_ccgrewrite(self): return self.atypical_ccgrewrite
