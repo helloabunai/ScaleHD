@@ -561,7 +561,7 @@ class ScanAtypical:
 							break
 						else:
 							differential = max(sub_diff, alpha_diff)/min(sub_diff, alpha_diff)
-							if differential >= 3:
+							if np.isclose([differential], [1.5], atol=0.25):
 								secondary_allele = sorted_info[1][1]
 								secondary_allele['Reference'] = sorted_info[1][0]
 								break
@@ -614,6 +614,7 @@ class ScanAtypical:
 			if allele['Status'] == 'Atypical': atypical_count += 1
 			else: allele['InterveningSequence'] = 'CAACAGCCGCCA'
 			new_genotype, caacag_count, ccgcca_count = self.create_genotype_label(allele)
+			print '--------------'
 			allele['OriginalReference'] = allele['Reference']
 			allele['Reference'] = new_genotype
 			allele['EstimatedCAACAG'] = caacag_count
@@ -621,8 +622,7 @@ class ScanAtypical:
 
 		##
 		## Check for atypical allele rewriting CCG Het to CCG Hom
-		temp_zyg = []
-		temp_curr = []
+		temp_zyg = []; temp_curr = []
 		for allele in [primary_allele, secondary_allele]:
 			orig_ccg = allele['OriginalReference'].split('_')[3]
 			curr_ccg = allele['EstimatedCCG']
@@ -647,7 +647,15 @@ class ScanAtypical:
 		##
 		## Check before typical intervening for 'new' atypicals
 		## Set up data structure
+		## Check for rotations of known structures...
 		intervening = input_reference['InterveningSequence']
+		for real in ['CAACAG','CCGCCA','CAACAGCAACAGCCGCCA','CAACAGCCGCCACCGCCA']:
+			if self.rotation_check(real, intervening):
+				intervening = real
+				input_reference['InterveningSequence'] = real
+
+		##
+		## Dictionary constructs to be filled by the following manual checks
 		int_one = {'Mask': 'CAACAG', 'Count': 0, 'StartIDX': 0, 'EndIDX': 0, 'Label': '', 'Suffix': ''}
 		int_two = {'Mask': 'CCGCCA', 'Count': 0, 'StartIDX': 0, 'EndIDX': 0, 'Label': '', 'Suffix': ''}
 
@@ -659,8 +667,6 @@ class ScanAtypical:
 		intervening_flag = True; atypical_flag = True; int_one_offset_flag = False
 		int_two_offset_flag = False; int_one_investigate = False; int_two_investigate = False
 		caacag_count = int_one['Count']; ccgcca_count = int_two['Count']
-		if caacag_count == 0 and ccgcca_count == 0: intervening_flag = False
-		if caacag_count != 1 and ccgcca_count != 1: atypical_flag = True
 		int_one_offset = 0; int_one_simscore = 0; int_two_simscore = 0
 
 		##########################
@@ -676,7 +682,7 @@ class ScanAtypical:
 			remainder = len(intervening) % 6
 			if not remainder == 0:
 				offset_mutated = intervening.split(intervening[remainder:remainder + 6])[0]
-				int_one_offse4t = len(offset_mutated)
+				int_one_offset = len(offset_mutated)
 				potential_mask = intervening[remainder:remainder + 6]
 				int_one_offset_simscore = self.similar('CAACAG', potential_mask)
 				int_one_offset_flag = True
@@ -691,6 +697,15 @@ class ScanAtypical:
 						int_one['Mask'] = intervening[0:6]
 						self.scraper(int_one, intervening)
 						int_one_investigate = True
+				elif len(intervening) == 6:
+					for sub_mask in ['CAA','CAG']:
+						remainder = ''
+						if sub_mask in intervening:
+							remainder = intervening.replace(sub_mask, '')
+						if self.rotation_check(remainder, sub_mask):
+							int_one['Count'] = 1
+							int_one['EndIDX'] = 6
+							caacag_count = 1
 
 		##########################
 		##CCGCCA (int two) check##
@@ -721,6 +736,22 @@ class ScanAtypical:
 					int_two['Mask'] = intervening[6:12]
 					self.scraper(int_two, intervening)
 					int_two_investigate = True
+			elif len(intervening) == 6:
+				for sub_mask in ['CCG','CCA']:
+					remainder = ''
+					if sub_mask in intervening:
+						remainder = intervening.replace(sub_mask, '')
+					if self.rotation_check(remainder, sub_mask):
+						int_two['Count'] = 1
+						int_two['StartIDX'] = int_one['EndIDX'] + 6
+						int_two['EndIDX'] = int_two['StartIDX'] + 6
+						ccgcca_count = 1
+
+		##################
+		## Header check ##
+		##################
+		if caacag_count == 0 and ccgcca_count == 0: intervening_flag = False
+		if caacag_count != 1 and ccgcca_count != 1: atypical_flag = True
 
 		#################################
 		##Anything longer than typical?##
@@ -757,6 +788,8 @@ class ScanAtypical:
 		if int_two_investigate:
 			int_two['Suffix'] = '*'
 			self.sequencepair_object.set_novel_atypical_structure(True)
+
+
 		int_one['Label'] = '{}'.format(str(int_one['Count']) + int_one['Suffix'])
 		int_two['Label'] = '{}'.format(str(int_two['Count']) + int_two['Suffix'])
 		genotype_label = '{}_{}_{}_{}_{}'.format(input_reference['EstimatedCAG'], int_one['Label'], int_two['Label'],

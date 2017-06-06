@@ -29,7 +29,8 @@ The Config Element deals with specifying any required sub-configs (elements), an
 <!ATTLIST trim_flags trim_type CDATA #REQUIRED>
 <!ATTLIST trim_flags quality_threshold CDATA #IMPLIED>
 <!ATTLIST trim_flags adapter_flag CDATA #IMPLIED>
-<!ATTLIST trim_flags adapter CDATA #IMPLIED>
+<!ATTLIST trim_flags forward_adapter CDATA #IMPLIED>
+<!ATTLIST trim_flags reverse_adapter CDATA #IMPLIED>
 <!ATTLIST trim_flags error_tolerance CDATA #IMPLIED>
 
 <!-- ALIGNMENT_FLAGS ELEMENT -->

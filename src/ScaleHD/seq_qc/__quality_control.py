@@ -81,12 +81,17 @@ class SeqQC:
 					if i == 1: self.sequencepair_data.set_rvreads(trimmed_outdir)
 					self.trimming_report.append(trim_report)
 
+			stepwise_counter = 0
 			if trim_type.lower()=='adapter':
 				for i in range(0,len(self.input_filepair)):
 					file_root = self.input_filepair[i].split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
 					trimmed_outdir = '{}/{}{}{}'.format(self.target_output,'trimmed_',file_root,'.fq')
 					adapter_anchor = self.instance_params.config_dict['trim_flags']['@adapter_flag']
-					adapter_string = self.instance_params.config_dict['trim_flags']['@adapter']
+					adapter_string = ''
+					if stepwise_counter == 0:
+						adapter_string = self.instance_params.config_dict['trim_flags']['@forward_adapter']
+					if stepwise_counter == 1:
+						adapter_string = self.instance_params.config_dict['trim_flags']['@reverse_adapter']
 
 					##
 					## Alter string based on anchor, messy but whatever
@@ -98,14 +103,20 @@ class SeqQC:
 					if i == 0: self.sequencepair_data.set_fwreads(trimmed_outdir)
 					if i == 1: self.sequencepair_data.set_rvreads(trimmed_outdir)
 					self.trimming_report.append(trim_report)
+					stepwise_counter += 1
 
+			stepwise_counter = 0
 			if trim_type.lower()=='both':
 				for i in range(0,len(self.input_filepair)):
 					file_root = self.input_filepair[i].split('/')[-1].split('.')[0] ##absolutely_disgusting.jpg
 					trimmed_outdir = '{}/{}{}{}'.format(self.target_output,'trimmed_',file_root,'.fq')
 					quality_threshold = self.instance_params.config_dict['trim_flags']['@quality_threshold']
 					adapter_anchor = self.instance_params.config_dict['trim_flags']['@adapter_flag']
-					adapter_string = self.instance_params.config_dict['trim_flags']['@adapter']
+					adapter_string = ''
+					if stepwise_counter == 0:
+						adapter_string = self.instance_params.config_dict['trim_flags']['@forward_adapter']
+					if stepwise_counter == 1:
+						adapter_string = self.instance_params.config_dict['trim_flags']['@reverse_adapter']
 
 					##
 					## Alter string based on anchor, messy but whatever

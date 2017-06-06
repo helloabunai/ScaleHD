@@ -214,10 +214,15 @@ class ConfigReader(object):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified trimming adapter not valid selection.'))
 				trigger = True
 			trim_adapter_base = ['A','G','C','T']
-			adapter_sequence = self.config_dict['trim_flags']['@adapter']
-			for charbase in adapter_sequence:
+			forward_adapter = self.config_dict['trim_flags']['@forward_adapter']
+			for charbase in forward_adapter:
 				if charbase not in trim_adapter_base:
-					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Invalid character detected in adapter sequence.'))
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Invalid character detected in FW adapter sequence.'))
+					trigger = True
+			reverse_adapter = self.config_dict['trim_flags']['@reverse_adapter']
+			for charbase in reverse_adapter:
+				if charbase not in trim_adapter_base:
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Invalid character detected in RV adapter sequence.'))
 					trigger = True
 			error_tolerance = self.config_dict['trim_flags']['@error_tolerance']
 			if not isinstance(float(error_tolerance), float):
