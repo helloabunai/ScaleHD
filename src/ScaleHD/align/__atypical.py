@@ -614,7 +614,6 @@ class ScanAtypical:
 			if allele['Status'] == 'Atypical': atypical_count += 1
 			else: allele['InterveningSequence'] = 'CAACAGCCGCCA'
 			new_genotype, caacag_count, ccgcca_count = self.create_genotype_label(allele)
-			print '--------------'
 			allele['OriginalReference'] = allele['Reference']
 			allele['Reference'] = new_genotype
 			allele['EstimatedCAACAG'] = caacag_count
