@@ -732,7 +732,7 @@ class AlleleGenotyping:
 		peak_total = sum([primary_reads, secondary_reads]); dist_total = 0
 		if ccg_zygstate == 'HOMO':
 			dist_total = sum([primary_total])
-		if ccg_zygstate == 'HOMO*' or ccg_zygstate == 'HOMO+':
+		if ccg_zygstate == 'HOMO*' or ccg_zygstate == 'HOMO+' or ccg_zygstate == 'HETERO':
 			dist_total = sum([primary_total, secondary_total])
 		if not peak_total/dist_total >= 0.65:
 			if primary_fod_ccg == secondary_fod_ccg and primary_dsp_cag != secondary_dsp_cag:
