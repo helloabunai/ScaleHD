@@ -1,5 +1,5 @@
 #/usr/bin/python
-__version__ = 0.01
+__version__ = 0.247
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
