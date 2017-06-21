@@ -9,13 +9,15 @@ class SequenceSample:
 		self.sample_alignpath = ''
 		self.sample_predictpath = ''
 		self.sample_bayespath = ''
-		self.purge_flag = False
+		self.enshrine_flag = False
 		self.subsample_flag = False
 		self.boost_flag = False
 		self.group_flag = False
 		self.total_seqreads = 0
 		self.fwalnpcnt = 0.0
 		self.rvalnpcnt = 0.0
+		self.fwalncount = 0
+		self.rvalncount = 0
 
 		self.forward_index = ''
 		self.reverse_index = ''
@@ -34,6 +36,7 @@ class SequenceSample:
 		self.primary_allele = None
 		self.secondary_allele = None
 
+		self.exception_raised = ''
 		self.atypical_count = 0
 		self.recall_count = 0
 		self.homozygous_haplotype = False
@@ -60,13 +63,15 @@ class SequenceSample:
 	def set_alignpath(self, alignpath):	self.sample_alignpath = alignpath
 	def set_predictpath(self, predictpath):	self.sample_predictpath = predictpath
 	def set_bayespath(self, bayespath):	self.sample_bayespath = bayespath
-	def set_purgeflag(self, flag): self.purge_flag = flag
+	def set_enshrineflag(self, flag): self.enshrine_flag = flag
 	def set_subsampleflag(self, flag): self.subsample_flag = flag
 	def set_boostflag(self, flag): self.boost_flag = flag
 	def set_groupflag(self, flag): self.group_flag = flag
 	def set_totalseqreads(self, count): self.total_seqreads = count
 	def set_fwalnpcnt(self, pcnt): self.fwalnpcnt = pcnt
 	def set_rvalnpcnt(self, pcnt): self.rvalnpcnt = pcnt
+	def set_fwalncount(self, count): self.fwalncount = count
+	def set_rvalncount(self, count): self.rvalncount = count
 
 	def set_fwidx(self, idx): self.forward_index = idx
 	def set_rvidx(self, idx): self.reverse_index = idx
@@ -85,6 +90,7 @@ class SequenceSample:
 	def set_primary_allele(self, alleleobj): self.primary_allele = alleleobj
 	def set_secondary_allele(self, alleleobj): self.secondary_allele = alleleobj
 
+	def set_exceptionraised(self, stage_string): self.exception_raised = stage_string
 	def set_atypical_count(self, count): self.atypical_count = count
 	def set_recallcount(self, count): self.recall_count = count
 	def set_homozygoushaplotype(self, state): self.homozygous_haplotype = state
@@ -111,13 +117,15 @@ class SequenceSample:
 	def get_alignpath(self): return self.sample_alignpath
 	def get_predictpath(self): return self.sample_predictpath
 	def get_bayespath(self): return self.sample_bayespath
-	def get_purgeflag(self): return self.purge_flag
+	def get_enshrineflag(self): return self.enshrine_flag
 	def get_subsampleflag(self): return self.subsample_flag
 	def get_boostflag(self): return self.boost_flag
 	def get_groupflag(self): return self.group_flag
 	def get_totalseqreads(self): return self.total_seqreads
 	def get_fwalnpcnt(self): return self.fwalnpcnt
 	def get_rvalnpcnt(self): return self.rvalnpcnt
+	def get_fwalncount(self): return self.fwalncount
+	def get_rvalncount(self): return self.rvalncount
 
 	def get_fwidx(self): return self.forward_index
 	def get_rvidx(self): return self.reverse_index
@@ -136,6 +144,7 @@ class SequenceSample:
 	def get_primaryallele(self): return self.primary_allele
 	def get_secondaryallele(self): return self.secondary_allele
 
+	def get_exceptionraised(self): return self.exception_raised
 	def get_atypicalcount(self): return self.atypical_count
 	def get_recallcount(self): return self.recall_count
 	def get_homozygoushaplotype(self): return self.homozygous_haplotype
@@ -193,6 +202,8 @@ class IndividualAllele:
 		self.atypical_pcnt = 0.0
 		self.fwalnpcnt = 0.0
 		self.rvalnpcnt = 0.0
+		self.fwalncount = 0
+		self.rvalncount = 0
 
 		self.forward_index = ''
 		self.reverse_index = ''
@@ -256,6 +267,8 @@ class IndividualAllele:
 	def set_atypicalpcnt(self, pcnt): self.atypical_pcnt = pcnt
 	def set_fwalnpcnt(self, pcnt): self.fwalnpcnt = pcnt
 	def set_rvalnpcnt(self, pcnt): self.rvalnpcnt = pcnt
+	def set_fwalncount(self, count): self.fwalncount = count
+	def set_rvalncount(self, count): self.rvalncount = count
 
 	def set_fwidx(self, idx): self.forward_index = idx
 	def set_rvidx(self, idx): self.reverse_index = idx
@@ -318,6 +331,8 @@ class IndividualAllele:
 	def get_atypicalpcnt(self): return self.atypical_pcnt
 	def get_fwalnpcnt(self): return self.fwalnpcnt
 	def get_rvalnpcnt(self): return self.rvalnpcnt
+	def get_fwalncount(self): return self.fwalncount
+	def get_rvalncount(self): return self.rvalncount
 
 	def get_fwidx(self): return self.forward_index
 	def get_rvidx(self): return self.reverse_index

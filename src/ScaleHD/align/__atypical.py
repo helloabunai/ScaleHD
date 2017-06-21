@@ -97,6 +97,15 @@ class ScanAtypical:
 			'Secondary Original: ', secondary_object.get_originalreference()))
 		report_file.close()
 
+		##
+		## Cleanup any remaining subsampled files
+		## OSError == file doesn't exist
+		## TypeError == subsampling didn't occur
+		for potential_subsample in [self.subsample_assembly, self.subsample_index]:
+			try: os.remove(potential_subsample)
+			except OSError: pass
+			except TypeError: pass
+
 	def process_assembly(self):
 		"""
 		Function which processes the input SAM for atypical scanning.
@@ -490,6 +499,8 @@ class ScanAtypical:
 
 		##
 		## CCG matches between #2/#3, potential peak skew
+		##TODO lmao this is fucking horrible
+		##TODO refactor this please
 		if sorted_info[1][1]['EstimatedCCG'] == sorted_info[2][1]['EstimatedCCG']:
 			##
 			## check #2 and #3 vs CAG(#1)
@@ -561,14 +572,19 @@ class ScanAtypical:
 							break
 						else:
 							differential = max(sub_diff, alpha_diff)/min(sub_diff, alpha_diff)
-							if np.isclose([differential], [1.5], atol=0.25):
+							if not (primary_allele['Status'] == val[1].get('Status')) and differential > 5:
 								secondary_allele = sorted_info[1][1]
 								secondary_allele['Reference'] = sorted_info[1][0]
 								break
 							else:
-								secondary_allele = sorted_info[2][1]
-								secondary_allele['Reference'] = sorted_info[2][0]
-								break
+								if np.isclose([differential], [1.5], atol=0.25):
+									secondary_allele = sorted_info[1][1]
+									secondary_allele['Reference'] = sorted_info[1][0]
+									break
+								else:
+									secondary_allele = sorted_info[2][1]
+									secondary_allele['Reference'] = sorted_info[2][0]
+									break
 					elif top2_top3_dist >= 2:
 						if not top1_top3_dist == 1:
 							secondary_allele = sorted_info[2][1]
@@ -587,9 +603,12 @@ class ScanAtypical:
 		else:
 			if sorted_info[0][1]['EstimatedCCG'] == sorted_info[1][1]['EstimatedCCG']:
 				if np.isclose([sorted_info[0][1]['EstimatedCAG']], [sorted_info[1][1]['EstimatedCAG']],atol=1):
-					if sorted_info[0][1]['EstimatedCCG'] != sorted_info[2][1]['EstimatedCCG']:
-						secondary_allele = sorted_info[2][1]
-						secondary_allele['Reference'] = sorted_info[2][0]
+					if alpha_drop > 0.75:
+						secondary_allele = primary_allele.copy()
+					else:
+						if sorted_info[0][1]['EstimatedCCG'] != sorted_info[2][1]['EstimatedCCG']:
+							secondary_allele = sorted_info[2][1]
+							secondary_allele['Reference'] = sorted_info[2][0]
 				else:
 					secondary_allele = sorted_info[1][1]
 					secondary_allele['Reference'] = sorted_info[1][0]

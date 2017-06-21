@@ -119,6 +119,7 @@ class AlleleGenotyping:
 			self.allele_flags['CCGZygDisconnect'] = True
 		else:
 			self.allele_flags['CCGZyg_disconnect'] = False
+
 		return reverse_zygstate[2:-2]
 
 	def index_inspector(self, index_inspection_count):
@@ -127,6 +128,7 @@ class AlleleGenotyping:
 		majoridx = np.where(self.reverse_aggregate == major)[0][0]
 		minor = max(n for n in self.reverse_aggregate if n != major)
 		minoridx = np.where(self.reverse_aggregate == minor)[0][0]
+
 		if index_inspection_count == 2:
 			return [(major, majoridx), (minor, minoridx)]
 		if index_inspection_count == 1:
@@ -250,19 +252,12 @@ class AlleleGenotyping:
 			threshold -= 0.06
 			utilised_threshold = max(threshold, 0.05)
 
-		if triplet_stage == 'CCG':
-			allele_object.set_ccgthreshold(utilised_threshold)
-			error_boundary = 1
-		if triplet_stage == 'CAGHet':
-			allele_object.set_cagthreshold(utilised_threshold)
-			if not self.zygosity_state == 'HOMO*': error_boundary = 1
-			else: error_boundary = 2
-		if triplet_stage == 'CAGHom':
-			allele_object.set_cagthreshold(utilised_threshold)
-			error_boundary = 2
-		if triplet_stage == 'CAGDim':
-			allele_object.set_cagthreshold(utilised_threshold)
-			error_boundary = 1
+		##
+		## CCG, CAGHet (Hetero, Homo*, Homo+), CAGDim == 1 peak
+		## CAGHom == 2 peaks
+		allele_object.set_cagthreshold(utilised_threshold)
+		if triplet_stage == 'CAGHom': error_boundary = 2
+		else: error_boundary = 1
 
 		##
 		## Look for peaks in our distribution
@@ -299,7 +294,9 @@ class AlleleGenotyping:
 			## Assign read mapped percent if not present in allele
 			if not allele_object.get_fwalnpcnt() and not allele_object.get_rvalnpcnt():
 				allele_object.set_fwalnpcnt(self.sequencepair_object.get_fwalnpcnt())
+				allele_object.set_fwalncount(self.sequencepair_object.get_fwalncount())
 				allele_object.set_rvalnpcnt(self.sequencepair_object.get_rvalnpcnt())
+				allele_object.set_rvalncount(self.sequencepair_object.get_rvalncount())
 
 			##
 			## Unlabelled distributions
@@ -355,9 +352,10 @@ class AlleleGenotyping:
 			tertiary = max(n for n in self.reverse_aggregate if n!= major and n!= minor)
 			majidx = int(np.where(self.reverse_aggregate == major)[0][0])
 			minidx = int(np.where(self.reverse_aggregate == minor)[0][0])
+			## Check discrete diff between majidx and minidx
+			abs_ratio = self.reverse_aggregate[minidx] / self.reverse_aggregate[majidx]
 
 			## check if minor is n-1/n+1 AND third peak is np.close(minor)
-			## skip the following block if so
 			skip_flag = False
 			if abs(majidx-minidx) == 1:
 				if np.isclose([minor], [tertiary], atol=minor*0.80):
@@ -366,38 +364,46 @@ class AlleleGenotyping:
 			if minor == self.reverse_aggregate[allele_object.get_ccg()-1]:
 				skip_flag = True
 				self.sequencepair_object.set_ccguncertainty(True)
+			## skip the following block if so
 			if not skip_flag:
-				for fod_peak in [majidx+1, minidx+1]:
-					if allele_object.get_ccg() not in [majidx+1, minidx]:
-						if fod_peak not in [self.sequencepair_object.get_primaryallele().get_ccg(),
-											self.sequencepair_object.get_secondaryallele().get_ccg()]:
-							allele_object.set_fodoverwrite(True)
-							allele_object.set_ccgval(int(fod_peak))
+				if abs_ratio < 0.05: pass
+				else:
+					for fod_peak in [majidx+1, minidx+1]:
+						if allele_object.get_ccg() not in [majidx+1, minidx]:
+							if fod_peak not in [self.sequencepair_object.get_primaryallele().get_ccg(),
+												self.sequencepair_object.get_secondaryallele().get_ccg()]:
+								allele_object.set_fodoverwrite(True)
+								allele_object.set_ccgval(int(fod_peak))
 
 			##
 			## Check SVM didn't fail...
 			if 1 < abs(majidx-minidx) < 10:
 				peak_count = 0
-				for peak in [majidx, minidx]:
-					pmo = self.reverse_aggregate[peak-1]; ppo = self.reverse_aggregate[peak+1]
-					pmo_ratio = pmo/self.reverse_aggregate[peak]
-					ppo_ratio = ppo/self.reverse_aggregate[peak]
-					if pmo_ratio and ppo_ratio < 0.2:
-						if 0.0 not in [pmo_ratio, ppo_ratio]:
-							peak_count += 1
-				if peak_count == 2 and not self.zygosity_state == 'HETERO':
-					if self.zygosity_state == 'HOMO+' or self.zygosity_state == 'HOMO*':
-						self.sequencepair_object.set_svm_failure(False)
-						pass
-					else:
-						self.zygosity_state = 'HETERO'
-						self.sequencepair_object.set_svm_failure(True)
-
+				if abs_ratio < 0.05:
+					pass
+				## otherwise, perhaps SVM was wrong and missed a peak
+				else:
+					for peak in [majidx, minidx]:
+						pmo = self.reverse_aggregate[peak-1]; ppo = self.reverse_aggregate[peak+1]
+						pmo_ratio = pmo/self.reverse_aggregate[peak]
+						ppo_ratio = ppo/self.reverse_aggregate[peak]
+						## calc ratio of peak+1/-1, if within range, add peak
+						if pmo_ratio and ppo_ratio < 0.2:
+							if 0.0 not in [pmo_ratio, ppo_ratio]:
+								peak_count += 1
+					## hotfix SVM results based on peak detection
+					if peak_count == 2 and not self.zygosity_state == 'HETERO':
+						if self.zygosity_state == 'HOMO+' or self.zygosity_state == 'HOMO*':
+							self.sequencepair_object.set_svm_failure(False)
+							pass
+						else:
+							self.zygosity_state = 'HETERO'
+							self.sequencepair_object.set_svm_failure(True)
 
 			##
 			## Clean up distribution for erroneous peaks
 			## In the case of atypical alleles, unexpected peaks may exist in aggregates
-			if self.zygosity_state == 'HOMO' or self.zygosity_state == 'HOMO*':
+			if self.zygosity_state == 'HOMO' or self.zygosity_state == 'HOMO*' or self.zygosity_state == 'HOMO+':
 				for i in range(0, len(self.reverse_aggregate)):
 					if np.isclose([i], [allele_object.get_ccg() - 1], atol=2):
 						if np.isclose([self.reverse_aggregate[i]], [self.reverse_aggregate[allele_object.get_ccg() - 1]],
@@ -410,6 +416,7 @@ class AlleleGenotyping:
 					if i != allele_object.get_ccg()-1:
 						removal = (self.reverse_aggregate[i]/100) * 75
 						self.reverse_aggregate[i] -= removal
+
 			allele_object.set_rvarray(self.reverse_aggregate)
 
 			#################################
@@ -462,7 +469,6 @@ class AlleleGenotyping:
 		## First, ensure CCG matches between DSP estimate and FOD derision
 		for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 			allele.set_ccgthreshold(0.50)
-
 			fod_failstate, ccg_indexes = self.peak_detection(allele, allele.get_rvarray(), 1, 'CCG')
 			while fod_failstate:
 				fod_failstate, ccg_indexes = self.peak_detection(allele, allele.get_rvarray(), 1, 'CCG', fod_recall=True)
@@ -990,10 +996,10 @@ class AlleleGenotyping:
 				pass
 			else:
 				c.setFillColorRGB(75, 0, 130)
-				c.drawCentredString(360, 25, '!! Genotype derived from significantly subsampled data !!')
+				c.drawCentredString(360, 186, '!! Genotype derived from significantly subsampled data !!')
 		if self.invalid_data:
 			c.setFillColorRGB(255, 0, 0)
-			c.drawCentredString(250, 50, '!! Atypical alleles without re-alignment !!')
+			c.drawCentredString(360, 196, '!! Atypical alleles without re-alignment !!')
 		if not self.invalid_data:
 			c.setFillColorRGB(0, 0, 0)
 		c.drawCentredString(360, 256, header_string)
