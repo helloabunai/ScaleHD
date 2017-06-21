@@ -65,7 +65,7 @@ class ScaleHD:
 		self.parser.add_argument('-v', '--verbose', help='Verbose output mode. Setting this flag enables verbose output. Default: off.', action='store_true')
 		self.parser.add_argument('-c', '--config', help='Pipeline config. Specify a directory to your ArgumentConfig.xml file.', nargs=1, required=True)
 		self.parser.add_argument('-t', '--threads', help='Thread utilisation. Typically only alters third party alignment performance. Default: system max.', type=int, choices=xrange(1, THREADS+1), default=THREADS)
-		self.parser.add_argument('-p', '--purgesam', help='Remove non-unique reads in sam files the application will work with.', action='store_true')
+		self.parser.add_argument('-e', '--enshrine', help='Do not remove only uniquely mapped reads from any sequence assemblies.', action='store_true')
 		self.parser.add_argument('-g', '--groupsam', help='Outputs all sorted SAM files into one instance-wide output folder, rather than sample subfolders.', action='store_true')
 		self.parser.add_argument('-s', '--subsample', help='Subsample any given input FastQ sequence file before processing for alignment.', type=float, choices=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9])
 		self.parser.add_argument('-b', '--boost', help='Increase DSP scanning speed by sacrificing sample-wide precision.', action='store_true')
@@ -94,7 +94,7 @@ class ScaleHD:
 		except Exception, e:
 			log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, e))
 			sys.exit(2)
-		self.purge_flag = self.args.purgesam
+		self.enshrine_assembly = self.args.enshrine
 		self.subsample_flag = self.args.subsample
 		self.boost_flag = self.args.boost
 		self.group_flag = self.args.groupsam
@@ -150,12 +150,15 @@ class ScaleHD:
 		##
 		## Instance results (genotype table)
 		self.instance_results = os.path.join(self.instance_rundir, 'InstanceReport.csv')
-		self.header = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
-			'SampleName', 'Primary GTYPE', 'Status', 'Map% (FW)', 'Map% (RV)', 'BSlippage', 'Somatic Mosaicism',
-			'Intervening Sequence', 'Confidence', 'Secondary GTYPE', 'Status', 'Map% (FW)', 'Map% (RV)', 'BSlippage',
-			'Somatic Mosaicism', 'Intervening Sequence', 'Confidence', 'Homozygous Haplotype', 'Neighbouring Peaks',
-			'Diminished Peaks', 'Novel Atypical', 'Alignment Warning', 'Atypical Alignment Warning', 'CCG Rewritten',
-			'CCG Zygosity Rewritten', 'Peak Inspection Warning', 'SVM Failure', 'Low Distribution Reads', 'Low Peak Reads'
+		self.header = '{},{},{},{},{},{},{},{},{},{},{},{},' \
+					  '{},{},{},{},{},{},{},{},{},{},{},{},' \
+					  '{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
+			'SampleName', '' ,'Primary GTYPE', 'Status', 'Map (FW)', 'Map% (FW)', 'Map (RV)', 'Map% (RV)', 'BSlippage',
+			'Somatic Mosaicism', 'Intervening Sequence', 'Confidence', '', 'Secondary GTYPE', 'Status', 'Map (FW)',
+			'Map% (FW)', 'Map (RV)','Map% (RV)', 'BSlippage', 'Somatic Mosaicism', 'Intervening Sequence', 'Confidence',
+			'', 'Exception Raised', 'Homozygous Haplotype', 'Neighbouring Peaks', 'Diminished Peaks', 'Novel Atypical',
+			'Alignment Warning', 'Atypical Alignment Warning', 'CCG Rewritten', 'CCG Zygosity Rewritten',
+			'Peak Inspection Warning', 'SVM Failure', 'Low Distribution Reads', 'Low Peak Reads'
 		)
 		with open(self.instance_results, 'w') as outfi: outfi.write(self.header); outfi.close()
 
@@ -230,7 +233,7 @@ class ScaleHD:
 				current_seqpair.set_alignpath(seqpair_dat[4])
 				current_seqpair.set_predictpath(seqpair_dat[5])
 				current_seqpair.set_bayespath(seqpair_dat[6])
-				current_seqpair.set_purgeflag(self.purge_flag)
+				current_seqpair.set_enshrineflag(self.enshrine_assembly)
 				current_seqpair.set_boostflag(self.boost_flag)
 				current_seqpair.set_groupflag(self.group_flag)
 				current_seqpair.set_subsampleflag(self.subsample_flag)
@@ -246,6 +249,7 @@ class ScaleHD:
 				try:
 					self.quality_control(current_seqpair)
 				except Exception, e:
+					current_seqpair.set_exceptionraised('SeqQC')
 					self.append_report(current_seqpair)
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'SeqQC failure on ',seqpair_lbl,str(e)))
 					continue
@@ -256,6 +260,7 @@ class ScaleHD:
 				try:
 					self.sequence_alignment(current_seqpair)
 				except Exception, e:
+					current_seqpair.set_exceptionraised('SeqALN')
 					self.append_report(current_seqpair)
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Alignment failure on ',seqpair_lbl,str(e)))
 					continue
@@ -266,6 +271,7 @@ class ScaleHD:
 				try:
 					self.atypical_scanning(current_seqpair)
 				except Exception, e:
+					current_seqpair.set_exceptionraised('DSP')
 					self.append_report(current_seqpair)
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Atypical scanning failure on ', seqpair_lbl, str(e)))
 					continue
@@ -281,6 +287,7 @@ class ScaleHD:
 							try:
 								self.sequence_realignment(current_seqpair, allele)
 							except Exception, e:
+								current_seqpair.set_exceptionraised('SeqRE-ALN')
 								self.append_report(current_seqpair)
 								log.info('{}{}{}{}{}: {}'.format(clr.red,'shd__ ',clr.end,'Realignment failure on ',seqpair_lbl,str(e)))
 								continue
@@ -308,6 +315,7 @@ class ScaleHD:
 				try:
 					self.allele_genotyping(current_seqpair, invalid_data)
 				except Exception, e:
+					current_seqpair.set_exceptionraised('Genotype')
 					self.append_report(current_seqpair)
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Genotyping failure on ',seqpair_lbl, str(e)))
 					continue
@@ -318,6 +326,7 @@ class ScaleHD:
 				# try:
 				# 	self.bayesian_analyses(current_seqpair)
 				# except Exception, e:
+				#	current_seqpair.set_exceptionraised('Bayes')
 				# 	self.append_report(current_seqpair, "FAIL")
 				# 	log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Bayesian failure on ', seqpair_lbl, str(e)))
 				# 	continue
@@ -327,8 +336,10 @@ class ScaleHD:
 				#############################
 				try:
 					self.collate_graphs(current_seqpair)
+					current_seqpair.set_exceptionraised('N/A')
 					self.append_report(current_seqpair)
 				except Exception, e:
+					current_seqpair.set_exceptionraised('Report/Graph')
 					self.append_report(current_seqpair)
 					log.info('{}{}{}{}{}: {}'.format(clr.red, 'shd__ ', clr.end, 'Report/Graphing failure on ', seqpair_lbl, str(e)))
 				gc.collect()
@@ -431,24 +442,31 @@ class ScaleHD:
 			for obj_pair in input_list:
 				seq_object = obj_pair[0]
 				func_call = obj_pair[1]
-				try:
-					func = getattr(seq_object, func_call)
-					func_output = func()
-				except AttributeError:
-					func_output = 'FAIL'
-				if func_output is None: rep_str += 'FAIL,'
-				else: rep_str += '{},'.format(func_output)
+				if not seq_object == 'NULL':
+					try:
+						func = getattr(seq_object, func_call)
+						func_output = func()
+					except AttributeError:
+						func_output = 'FAIL'
+					if func_output is None:
+						func_output += 'FAIL'
+				else:
+					func_output = ' '
+				rep_str += '{},'.format(func_output)
 			return rep_str
 
-		unparsed_info = [[sequencepair_object, 'get_label'], [primary_allele, 'get_reflabel'],
-						 [primary_allele, 'get_allelestatus'], [primary_allele, 'get_fwalnpcnt'],
+		unparsed_info = [[sequencepair_object, 'get_label'], ['NULL', 'NULL'], [primary_allele, 'get_reflabel'],
+						 [primary_allele, 'get_allelestatus'], [primary_allele, 'get_fwalncount'],
+						 [primary_allele, 'get_fwalnpcnt'], [primary_allele, 'get_rvalncount'],
 						 [primary_allele, 'get_rvalnpcnt'], [primary_allele, 'get_backwardsslippage'],
 						 [primary_allele, 'get_somaticmosaicism'], [primary_allele, 'get_intervening'],
-						 [primary_allele, 'get_alleleconfidence'], [secondary_allele, 'get_reflabel'],
-						 [secondary_allele, 'get_allelestatus'], [secondary_allele, 'get_fwalnpcnt'],
+						 [primary_allele, 'get_alleleconfidence'], ['NULL', 'NULL'], [secondary_allele, 'get_reflabel'],
+						 [secondary_allele, 'get_allelestatus'], [secondary_allele, 'get_fwalncount'],
+						 [secondary_allele, 'get_fwalnpcnt'], [secondary_allele, 'get_rvalncount'],
 						 [secondary_allele, 'get_rvalnpcnt'], [secondary_allele, 'get_backwardsslippage'],
 						 [secondary_allele, 'get_somaticmosaicism'], [secondary_allele, 'get_intervening'],
-						 [secondary_allele, 'get_alleleconfidence'], [sequencepair_object, 'get_homozygoushaplotype'],
+						 [secondary_allele, 'get_alleleconfidence'], ['NULL', 'NULL'],
+						 [sequencepair_object, 'get_exceptionraised'],[sequencepair_object, 'get_homozygoushaplotype'],
 						 [sequencepair_object, 'get_neighbouringpeaks'], [sequencepair_object, 'get_diminishedpeaks'],
 						 [sequencepair_object, 'get_novel_atypical_structure'], [sequencepair_object, 'get_alignmentwarning'],
 						 [sequencepair_object, 'get_atypical_alignmentwarning'], [sequencepair_object, 'get_atypical_ccgrewrite'],

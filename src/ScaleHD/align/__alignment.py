@@ -19,7 +19,7 @@ from ..seq_qc.__quality_control import THREADS
 def purge_alignment_map(alignment_outdir, alignment_outfile):
 	purged_assembly = '{}{}'.format(alignment_outdir, '/assembly_unique.bam')
 	purged_file = open(purged_assembly, 'w')
-	view_subprocess = subprocess.Popen(['samtools', 'view', '-bq', '1', '-@', str(THREADS), alignment_outfile], stdout=purged_file)
+	view_subprocess = subprocess.Popen(['samtools', 'view', '-b', '-F', '256', '-@', str(THREADS), alignment_outfile], stdout=purged_file)
 	view_subprocess.wait()
 	purged_file.close()
 	os.remove(alignment_outfile)
@@ -80,7 +80,7 @@ class SeqAlign:
 		else:
 			self.reference_indexes = [sequencepair_object.get_fwidx(), sequencepair_object.get_rvidx()]
 		self.instance_params = instance_params
-		self.purge_flag = sequencepair_object.get_purgeflag()
+		self.enshrine_flag = sequencepair_object.get_enshrineflag()
 		self.subsample_flag = sequencepair_object.get_subsampleflag()
 		self.align_report = []
 		self.alignment_workflow()
@@ -124,8 +124,8 @@ class SeqAlign:
 		## Align the two FastQ files in the pair
 		if self.individual_allele is not None: typical_flag = 'atypical'
 		else: typical_flag = 'typical'
-		forward_distribution, forward_report, forward_assembly, fwmapped_pcnt = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1',typical_flag)
-		reverse_distribution, reverse_report, reverse_assembly, rvmapped_pcnt = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2',typical_flag)
+		forward_distribution, forward_report, forward_assembly, fwmapped_pcnt, fwmapped_count = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1',typical_flag)
+		reverse_distribution, reverse_report, reverse_assembly, rvmapped_pcnt, rvmapped_count = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2',typical_flag)
 		self.align_report.append(forward_report); self.align_report.append(reverse_report)
 
 		##
@@ -164,6 +164,8 @@ class SeqAlign:
 			self.sequencepair_object.set_rvassembly(reverse_assembly)
 			self.sequencepair_object.set_fwalnpcnt(fwmapped_pcnt)
 			self.sequencepair_object.set_rvalnpcnt(rvmapped_pcnt)
+			self.sequencepair_object.set_fwalncount(fwmapped_count)
+			self.sequencepair_object.set_rvalncount(rvmapped_count)
 		else:
 			self.individual_allele.set_fwdist(forward_distribution)
 			self.individual_allele.set_rvdist(reverse_distribution)
@@ -171,6 +173,8 @@ class SeqAlign:
 			self.individual_allele.set_rvassembly(reverse_assembly)
 			self.individual_allele.set_fwalnpcnt(fwmapped_pcnt)
 			self.individual_allele.set_rvalnpcnt(rvmapped_pcnt)
+			self.individual_allele.set_fwalncount(fwmapped_count)
+			self.individual_allele.set_rvalncount(rvmapped_count)
 
 	def execute_alignment(self, reference_index, target_fqfile, feedback_string, io_index, typical_flag):
 
@@ -190,7 +194,7 @@ class SeqAlign:
 		unpaired_pairing_penalty = self.instance_params.config_dict['alignment_flags']['@unpaired_pairing_penalty']
 
 		##
-		##User feedback on alignment progres.. maybe improve later
+		##User feedback on alignment progress.. maybe improve later
 		##if you're reading this and want better feedback, you probably know 'htop' exists
 		log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,feedback_string))
 		sample_string = '{}_{}_{}'.format(self.sample_root, io_index, typical_flag)
@@ -240,22 +244,21 @@ class SeqAlign:
 		report_file.close()
 
 		##
-		## If the user wants to purge reads which are not uniquely mapped
-		## Then we execute that here..
-		## the respective files are sent for read count extraction as normal
-		if self.purge_flag:
+		## If the user specified to maintain the assembly (i.e. not remove non-uniquely mapped reads)
+		## Create the relevant objects without purging (i.e. -e was present at CLI)
+		if self.enshrine_flag:
+			csv_path, sorted_assembly = extract_repeat_distributions(self.sample_root, alignment_outdir, aln_outpath)
+			sys.stdout.flush()
+		## Otherwise -e wasn't present (default), and we purge all non-uniquely mapped reads
+		else:
 			purged_sam = purge_alignment_map(alignment_outdir, aln_outpath)
 			csv_path, sorted_assembly = extract_repeat_distributions(self.sample_root, alignment_outdir, purged_sam)
-			sys.stdout.flush()
-		else:
-			csv_path, sorted_assembly = extract_repeat_distributions(self.sample_root, alignment_outdir, aln_outpath)
 			sys.stdout.flush()
 
 		##
 		## Run samtools flagstat on alignment file
 		## Set allele object's flagstat file variable..
 		flagstat_path = '{}/{}'.format(alignment_outdir, 'AlignmentStats.txt')
-		#flagstat_file = open(flagstat_path, 'w')
 		flagstat_process = subprocess.Popen(['samtools', 'flagstat', sorted_assembly],
 											stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		flagstat_output = flagstat_process.communicate(); flagstat_process.wait()
@@ -268,8 +271,9 @@ class SeqAlign:
 			outfi.close()
 		mapped_pcnt = [x for x in (flagstat_output[0].split('\n')) if '%' in x]
 		aln_pcnt = str(mapped_pcnt[0]).split('(')[1].rsplit('%')[0]
+		aln_count = mapped_pcnt[0].split(' +')[0]
 
-		return csv_path, alignment_report, sorted_assembly, aln_pcnt
+		return csv_path, alignment_report, sorted_assembly, aln_pcnt, aln_count
 
 	def get_alignreport(self):
 		return self.align_report
