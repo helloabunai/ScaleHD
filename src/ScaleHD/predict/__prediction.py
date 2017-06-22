@@ -475,11 +475,10 @@ class AlleleGenotyping:
 
 			if len(ccg_indexes) == 0:
 				raise Exception('CCG Peak un-callable; cannot process.')
-
-			if ccg_indexes[0] == allele.get_ccg():
+			if allele.get_ccg() in ccg_indexes:
 				ccg_matches += 1
 				allele.set_ccgvalid(True)
-			ccg_values.append(ccg_indexes[0])
+			ccg_values.append([x for x in ccg_indexes if x == allele.get_ccg()])
 			allele.set_fodccg(np.asarray(ccg_indexes[0]))
 
 			distribution_split = self.split_cag_target(allele.get_fwarray())
@@ -741,7 +740,9 @@ class AlleleGenotyping:
 		if ccg_zygstate == 'HOMO*' or ccg_zygstate == 'HOMO+' or ccg_zygstate == 'HETERO':
 			dist_total = sum([primary_total, secondary_total])
 		if not peak_total/dist_total >= 0.65:
-			if primary_fod_ccg == secondary_fod_ccg and primary_dsp_cag != secondary_dsp_cag:
+			if np.isclose([peak_total/dist_total], [0.65], atol=0.15):
+				pass
+			elif primary_fod_ccg == secondary_fod_ccg and primary_dsp_cag != secondary_dsp_cag:
 				primary_target = distribution_split['CCG{}'.format(primary_allele.get_ccg())]
 				split_target = primary_target[primary_allele.get_cag()+5:-1]
 				difference_buffer = len(primary_target)-len(split_target)
