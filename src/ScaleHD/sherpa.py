@@ -151,14 +151,14 @@ class ScaleHD:
 		## Instance results (genotype table)
 		self.instance_results = os.path.join(self.instance_rundir, 'InstanceReport.csv')
 		self.header = '{},{},{},{},{},{},{},{},{},{},{},{},' \
-					  '{},{},{},{},{},{},{},{},{},{},{},{},' \
+					  '{},{},{},{},{},{},{},{},{},{},{},{},{},' \
 					  '{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
 			'SampleName', '' ,'Primary GTYPE', 'Status', 'Map (FW)', 'Map% (FW)', 'Map (RV)', 'Map% (RV)', 'BSlippage',
 			'Somatic Mosaicism', 'Intervening Sequence', 'Confidence', '', 'Secondary GTYPE', 'Status', 'Map (FW)',
 			'Map% (FW)', 'Map (RV)','Map% (RV)', 'BSlippage', 'Somatic Mosaicism', 'Intervening Sequence', 'Confidence',
 			'', 'Exception Raised', 'Homozygous Haplotype', 'Neighbouring Peaks', 'Diminished Peaks', 'Novel Atypical',
 			'Alignment Warning', 'Atypical Alignment Warning', 'CCG Rewritten', 'CCG Zygosity Rewritten',
-			'Peak Inspection Warning', 'SVM Failure', 'Low Distribution Reads', 'Low Peak Reads'
+			'CCT Uncertainty', 'SVM Failure', 'Peak Inspection Warning', 'Low Distribution Reads', 'Low Peak Reads'
 		)
 		with open(self.instance_results, 'w') as outfi: outfi.write(self.header); outfi.close()
 
@@ -470,9 +470,9 @@ class ScaleHD:
 						 [sequencepair_object, 'get_neighbouringpeaks'], [sequencepair_object, 'get_diminishedpeaks'],
 						 [sequencepair_object, 'get_novel_atypical_structure'], [sequencepair_object, 'get_alignmentwarning'],
 						 [sequencepair_object, 'get_atypical_alignmentwarning'], [sequencepair_object, 'get_atypical_ccgrewrite'],
-						 [sequencepair_object, 'get_atypical_zygrewrite'], [sequencepair_object, 'get_peakinspection_warning'],
-						 [sequencepair_object, 'get_svm_failure'], [sequencepair_object, 'get_distribution_readcount_warning'],
-						 [sequencepair_object, 'get_fatalreadallele']]
+						 [sequencepair_object, 'get_atypical_zygrewrite'], [sequencepair_object, 'get_cctuncertainty'],
+						 [sequencepair_object, 'get_peakinspection_warning'], [sequencepair_object, 'get_svm_failure'],
+						 [sequencepair_object, 'get_distribution_readcount_warning'], [sequencepair_object, 'get_fatalreadallele']]
 
 		report_string = call_object_scraper(unparsed_info)
 		report_string += '\n'
