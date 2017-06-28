@@ -215,7 +215,7 @@ class ScanAtypical:
 
 			##
 			## Counts of atypical/typical reads
-			typical_count = 0; atypical_count = 0; reference_atypicals = []; fp_flanks = []; tp_flanks = []
+			typical_count = 0; atypical_count = 0; intervening_population = []; fp_flanks = []; tp_flanks = []
 			ref_cag = []; ref_ccg = []; ref_cct = []
 
 			##
@@ -305,8 +305,9 @@ class ScanAtypical:
 					intervene_string = 'CAACAGCCGCCA'
 				if intervene_string != 'CAACAGCCGCCA':
 					atypical_count += 1
-					reference_atypicals.append(intervene_string)
+					intervening_population.append(intervene_string)
 				else:
+					intervening_population.append(intervene_string)
 					typical_count += 1
 
 			##
@@ -316,14 +317,20 @@ class ScanAtypical:
 			est_cag = Counter(ref_cag).most_common()[0][0]
 			est_ccg = Counter(ref_ccg).most_common()[0][0]
 			est_cct = Counter(ref_cct).most_common()[0][0]
+			## cct fuckery
+			cct_test = Counter(ref_cct).most_common()
+			cct_diff = float(cct_test[0][1])/float(cct_test[1][1])
+			if np.isclose([cct_diff], [2.0], atol=0.3):
+				est_cct = 2
+				self.sequencepair_object.set_cctuncertainty(True)
 
 			##
 			## Determine most frequent intervening sequence
-			atypical_population = Counter(reference_atypicals).most_common()
+			common_intervening = Counter(intervening_population).most_common()
 			fp_flank_population = Counter(fp_flanks).most_common()
 			tp_flank_population = Counter(tp_flanks).most_common()
 			single_counter = 0
-			if len(atypical_population) == 0: atypical_population = [['CAACAGCCGCCA']]
+			if len(common_intervening) == 0: common_intervening = [['CAACAGCCGCCA']]
 			reference_dictionary = {'TotalReads':investigation[1],
 									'TypicalCount': typical_count,
 									'TypicalPcnt': ref_typical,
@@ -335,7 +342,7 @@ class ScanAtypical:
 									'EstimatedCAG': est_cag,
 									'EstimatedCCG': est_ccg,
 									'EstimatedCCT': est_cct,
-									'InterveningSequence': atypical_population[0][0]}
+									'InterveningSequence': common_intervening[0][0]}
 
 			if atypical_count > typical_count:
 				self.atypical_count += 1
@@ -350,34 +357,34 @@ class ScanAtypical:
 			##
 			## If the intervening is longer in #2, assume poor sequencing in #1 and use #2
 			try:
-				if len(atypical_population[0][0]) < len(atypical_population[1][0]):
+				if len(common_intervening[0][0]) < len(common_intervening[1][0]):
 					if reference_dictionary['Status'] == 'Typical':
-						reference_dictionary['InterveningSequence'] = max([atypical_population[0][0],atypical_population[1][0]], key=len)
+						reference_dictionary['InterveningSequence'] = max([common_intervening[0][0],common_intervening[1][0]], key=len)
 			except IndexError:
-				reference_dictionary['InterveningSequence'] = atypical_population[0][0]
+				reference_dictionary['InterveningSequence'] = common_intervening[0][0]
 
 			##
 			## Check for mismatch just before intervening sequence
 			try:
-				top_hit = atypical_population[0][1]; second_hit = atypical_population[1][1]
+				top_hit = common_intervening[0][1]; second_hit = common_intervening[1][1]
 				diff = ((top_hit-second_hit)/top_hit)*100
 				if diff < 30.00:
-					if len(atypical_population[0][0]) == 15:
-						if np.isclose(self.similar('CAG', atypical_population[0][0][0:3]), [0.66], atol=0.1):
+					if len(common_intervening[0][0]) == 15:
+						if np.isclose(self.similar('CAG', common_intervening[0][0][0:3]), [0.66], atol=0.1):
 							reference_dictionary['InterveningSequence'] = 'CAACAGCCGCCA'
 			except IndexError:
 				pass
 
 			##
 			## If all scanned items are only counted once
-			for item in atypical_population:
+			for item in common_intervening:
 				try:
 					if item[1] == 1: single_counter += 1
 				except IndexError:
 					if ref_typical > ref_atypical:
 						reference_dictionary['Status'] = 'Typical'
 						reference_dictionary['InterveningSequence'] = 'CAACAGCCGCCA'
-			if single_counter == len(atypical_population) and reference_dictionary['Status'] == 'Typical':
+			if single_counter == len(common_intervening) and reference_dictionary['Status'] == 'Typical':
 				reference_dictionary['InterveningSequence'] = 'CAACAGCCGCCA'
 
 			##

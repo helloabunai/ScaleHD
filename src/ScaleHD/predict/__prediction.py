@@ -720,7 +720,6 @@ class AlleleGenotyping:
 						self.sequencepair_object.set_fatalreadallele(False)
 				pass_vld = ensure_integrity()
 				return pass_vld
-
 		##
 		## Check for diminished peaks (incase DSP failure / read count is low)
 		## Primary read info
@@ -733,14 +732,16 @@ class AlleleGenotyping:
 		secondary_target = secondary_dist['CCG{}'.format(secondary_allele.get_ccg())]
 		secondary_reads = secondary_target[secondary_allele.get_cag() - 1]
 		secondary_total = sum(secondary_target)
+
 		## Set specifics for zygstate
 		peak_total = sum([primary_reads, secondary_reads]); dist_total = 0
 		if ccg_zygstate == 'HOMO':
 			dist_total = sum([primary_total])
 		if ccg_zygstate == 'HOMO*' or ccg_zygstate == 'HOMO+' or ccg_zygstate == 'HETERO':
 			dist_total = sum([primary_total, secondary_total])
+
 		if not peak_total/dist_total >= 0.65:
-			if np.isclose([peak_total/dist_total], [0.65], atol=0.15):
+			if np.isclose([peak_total/dist_total], [0.65], atol=0.175):
 				pass
 			elif primary_fod_ccg == secondary_fod_ccg and primary_dsp_cag != secondary_dsp_cag:
 				primary_target = distribution_split['CCG{}'.format(primary_allele.get_ccg())]

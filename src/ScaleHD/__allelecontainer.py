@@ -43,6 +43,7 @@ class SequenceSample:
 		self.neighbouringpeaks = False
 		self.diminishedpeaks = False
 		self.ccguncertainty = False
+		self.cctuncertainty = False
 		self.svm_failure = False
 		self.alignmentwarning = False
 		self.atypical_alignmentwarning = False
@@ -97,6 +98,7 @@ class SequenceSample:
 	def set_neighbouringpeaks(self, state): self.neighbouringpeaks = state
 	def set_diminishedpeaks(self, state): self.diminishedpeaks = state
 	def set_ccguncertainty(self, state): self.ccguncertainty = state
+	def set_cctuncertainty(self, state): self.cctuncertainty = state
 	def set_svm_failure(self, state): self.svm_failure = state
 	def set_alignmentwarning(self, state): self.alignmentwarning = state
 	def set_atypical_alignmentwarning(self, state): self.atypical_alignmentwarning = state
@@ -151,6 +153,7 @@ class SequenceSample:
 	def get_neighbouringpeaks(self): return self.neighbouringpeaks
 	def get_diminishedpeaks(self): return self.diminishedpeaks
 	def get_ccguncertainty(self): return self.ccguncertainty
+	def get_cctuncertainty(self): return self.cctuncertainty
 	def get_alignmentwarning(self): return self.alignmentwarning
 	def get_atypical_alignmentwarning(self): return self.atypical_alignmentwarning
 	def get_ccgzygstate(self): return self.ccgzygstate
