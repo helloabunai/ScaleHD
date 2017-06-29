@@ -11,7 +11,7 @@ class SequenceSample:
 		self.sample_bayespath = ''
 		self.enshrine_flag = False
 		self.subsample_flag = False
-		self.boost_flag = False
+		self.broad_flag = False
 		self.group_flag = False
 		self.total_seqreads = 0
 		self.fwalnpcnt = 0.0
@@ -55,6 +55,8 @@ class SequenceSample:
 		self.automatic_DSPsubsample = False
 		self.distribution_readcount_warning = False
 		self.novel_atypical_structure = False
+		self.original_fqcount = 0
+		self.subsampled_fqcount = 0
 
 	##
 	## Setters
@@ -66,7 +68,7 @@ class SequenceSample:
 	def set_bayespath(self, bayespath):	self.sample_bayespath = bayespath
 	def set_enshrineflag(self, flag): self.enshrine_flag = flag
 	def set_subsampleflag(self, flag): self.subsample_flag = flag
-	def set_boostflag(self, flag): self.boost_flag = flag
+	def set_broadflag(self, flag): self.broad_flag = flag
 	def set_groupflag(self, flag): self.group_flag = flag
 	def set_totalseqreads(self, count): self.total_seqreads = count
 	def set_fwalnpcnt(self, pcnt): self.fwalnpcnt = pcnt
@@ -110,6 +112,8 @@ class SequenceSample:
 	def set_automatic_DSPsubsample(self, state): self.automatic_DSPsubsample = state
 	def set_distribution_readcount_warning(self, state): self.distribution_readcount_warning = state
 	def set_novel_atypical_structure(self, state): self.novel_atypical_structure = state
+	def set_original_fqcount(self, count): self.original_fqcount = count
+	def set_subsampled_fqcount(self, count): self.subsampled_fqcount = count
 
 	##
 	## Getters
@@ -121,7 +125,7 @@ class SequenceSample:
 	def get_bayespath(self): return self.sample_bayespath
 	def get_enshrineflag(self): return self.enshrine_flag
 	def get_subsampleflag(self): return self.subsample_flag
-	def get_boostflag(self): return self.boost_flag
+	def get_broadflag(self): return self.broad_flag
 	def get_groupflag(self): return self.group_flag
 	def get_totalseqreads(self): return self.total_seqreads
 	def get_fwalnpcnt(self): return self.fwalnpcnt
@@ -165,6 +169,8 @@ class SequenceSample:
 	def get_automatic_DSPsubsample(self): return self.automatic_DSPsubsample
 	def get_distribution_readcount_warning(self): return self.distribution_readcount_warning
 	def get_novel_atypical_structure(self): return self.novel_atypical_structure
+	def get_original_fqcount(self): return self.original_fqcount
+	def get_subsampled_fqcount(self): return self.subsampled_fqcount
 
 	##
 	## Functions
@@ -240,7 +246,6 @@ class IndividualAllele:
 		self.slippage_overwrite = False
 		self.fatalalignmentwarning = False
 		self.distribution_readcount_warning = False
-
 
 	##
 	## Setters

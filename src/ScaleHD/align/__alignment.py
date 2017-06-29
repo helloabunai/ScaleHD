@@ -81,7 +81,8 @@ class SeqAlign:
 			self.reference_indexes = [sequencepair_object.get_fwidx(), sequencepair_object.get_rvidx()]
 		self.instance_params = instance_params
 		self.enshrine_flag = sequencepair_object.get_enshrineflag()
-		self.subsample_flag = sequencepair_object.get_subsampleflag()
+		self.subsample_flag = 0.0
+		self.broad_flag = sequencepair_object.get_broadflag()
 		self.align_report = []
 		self.alignment_workflow()
 
@@ -108,15 +109,25 @@ class SeqAlign:
 		reverse_reads = ''
 
 		##
-		## Subsample input files if requested by the user
-		if self.subsample_flag:
-			forward_reads = self.subsample_input(self.sequencepair_object.get_fwreads(), 'R1')
-			reverse_reads = self.subsample_input(self.sequencepair_object.get_rvreads(), 'R2')
-			self.sequencepair_object.set_fwreads(forward_reads)
-			self.sequencepair_object.set_rvreads(reverse_reads)
-		if not self.subsample_flag:
+		## Subsample check
+		awk = ['awk', ' {s++}END{print s/4}', self.sequencepair_object.get_fwreads()]
+		awk_process = subprocess.Popen(awk, stdout=subprocess.PIPE)
+		awk_process.wait(); awk_output = int(awk_process.communicate()[0])
+		self.sequencepair_object.set_totalseqreads(awk_output)
+		self.sequencepair_object.set_original_fqcount(awk_output)
+		if not self.broad_flag:
+			if awk_output > 100000: self.subsample_flag = 0.15
+			elif 100000 > awk_output > 50000: self.subsample_flag = 0.4
+			elif 50000 > awk_output > 25000: self.subsample_flag = 0.6
+
+		if self.broad_flag:
 			forward_reads = self.sequencepair_object.get_fwreads()
 			reverse_reads = self.sequencepair_object.get_rvreads()
+			self.sequencepair_object.set_fwreads(forward_reads)
+			self.sequencepair_object.set_rvreads(reverse_reads)
+		elif awk_output > 50000:
+			forward_reads = self.subsample_input(self.sequencepair_object.get_fwreads(), 'R1')
+			reverse_reads = self.subsample_input(self.sequencepair_object.get_rvreads(), 'R2')
 			self.sequencepair_object.set_fwreads(forward_reads)
 			self.sequencepair_object.set_rvreads(reverse_reads)
 

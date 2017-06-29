@@ -37,6 +37,7 @@ class ScanAtypical:
 		self.sequence_path = sequencepair_object.get_alignpath()
 		self.sorted_assembly = sequencepair_object.get_fwassembly()
 		self.instance_params = instance_params
+		self.subsample_flag = sequencepair_object.get_subsampleflag()
 		self.subsample_assembly = None
 		self.subsample_index = None
 		self.assembly_object = None
@@ -97,20 +98,10 @@ class ScanAtypical:
 			'Secondary Original: ', secondary_object.get_originalreference()))
 		report_file.close()
 
-		##
-		## Cleanup any remaining subsampled files
-		## OSError == file doesn't exist
-		## TypeError == subsampling didn't occur
-		for potential_subsample in [self.subsample_assembly, self.subsample_index]:
-			try: os.remove(potential_subsample)
-			except OSError: pass
-			except TypeError: pass
-
 	def process_assembly(self):
 		"""
 		Function which processes the input SAM for atypical scanning.
 		Determine the number of total reads present (for subsampling).
-		If the user specified to use --boost, or there are more than 20k reads present, we subsample.
 		Read file into PySAM object.. process further
 		:return: None
 		"""
@@ -125,12 +116,12 @@ class ScanAtypical:
 		if awk_output > 20000: subsample_float = 0.25
 		elif 20000 > awk_output > 10000: subsample_float = 0.2
 		else: subsample_float = 0.15
-		self.sequencepair_object.set_totalseqreads(awk_output)
+		self.sequencepair_object.set_subsampled_fqcount(awk_output)
 
 		##
 		## Subsample reads
 		## Index the subsampled assembly
-		if self.sequencepair_object.get_boostflag() or awk_output > 30000:
+		if not self.sequencepair_object.get_broadflag():
 			self.sequencepair_object.set_subsampleflag(subsample_float)
 			self.sequencepair_object.set_automatic_DSPsubsample(True)
 			self.subsample_assembly = os.path.join(self.sequence_path,'subsample.sam')
@@ -209,39 +200,21 @@ class ScanAtypical:
 		##
 		## Iterate over top 3 aligned references in this assembly
 		## Fetch the reads aligned to the current reference
-		inv_killswitch = 0
 		for investigation in self.assembly_targets:
-			reference_data = self.assembly_object.fetch(reference=investigation[0])
 
 			##
 			## Counts of atypical/typical reads
 			typical_count = 0; atypical_count = 0; intervening_population = []; fp_flanks = []; tp_flanks = []
 			ref_cag = []; ref_ccg = []; ref_cct = []
 
-			##
-			## Temporary workaround to DSP taking too long (0.01s per read is bad)
-			## If readcount is x, subsample is y. Iterate into randomised subsample list of x(y)
-			## Do not execute if user has boosted.
-			read_count = len([x for x in self.assembly_object.fetch(reference=investigation[0])]); samplesize = None
-			if read_count > 3000: samplesize = 1000
-			elif 1000 < read_count < 3000: samplesize = 1500
-			if 0 < read_count < 1000: samplesize = 1000
-			if not self.sequencepair_object.get_boostflag() and not self.alignment_warning:
-				subsampled_reads = [x for _, x in nlargest(samplesize, ((random.random(), x) for x in reference_data))]
-			else:
-				subsampled_reads = self.assembly_object.fetch(reference=investigation[0])
-
-			inv_killswitch += 1
-			if inv_killswitch > 1 and read_count < 100:
-				self.sequencepair_object.set_fatalreadallele(True)
-			elif inv_killswitch == 1 and read_count < 100:
+			if investigation[1] < 100:
 				self.sequencepair_object.set_fatalreadallele(True)
 				raise Exception('<100 aligned reads. Data un-usable.')
 
 			##
 			## For every read in this reference, get the aligned sequence
 			## Split into triplet sliding window list, remove any triplets that are < 3
-			for read in subsampled_reads:
+			for read in self.assembly_object.fetch(reference=investigation[0]):
 				target_sequence = read.query_alignment_sequence
 				sequence_windows = [target_sequence[i:i + 3] for i in range(0, len(target_sequence), 3)]
 				sequence_windows = [x for x in sequence_windows if len(x)==3]
@@ -305,10 +278,9 @@ class ScanAtypical:
 					intervene_string = 'CAACAGCCGCCA'
 				if intervene_string != 'CAACAGCCGCCA':
 					atypical_count += 1
-					intervening_population.append(intervene_string)
 				else:
-					intervening_population.append(intervene_string)
 					typical_count += 1
+				intervening_population.append(intervene_string)
 
 			##
 			## Calculate the presence of each 'state' of reference
@@ -391,7 +363,7 @@ class ScanAtypical:
 			## Append results to reference label
 			self.atypical_info[investigation[0]] = reference_dictionary
 
-		if self.sequencepair_object.get_boostflag() or self.sequencepair_object.get_subsampleflag() == '0.05**':
+		if not self.sequencepair_object.get_broadflag():
 			os.remove(self.subsample_assembly)
 			os.remove(self.subsample_index)
 
