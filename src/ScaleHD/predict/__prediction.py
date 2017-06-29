@@ -1350,13 +1350,12 @@ class AlleleGenotyping:
 			allele_filestring = '{}{}{}'.format(allele.get_header(),allele.get_allelestatus(), '_AlleleReport.txt')
 			report_path = os.path.join(self.sequencepair_object.get_predictpath(), allele_filestring)
 			allele.set_allelereport(report_path)
-			report_string = '{}{}\n\n{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n\n' \
-							'{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n\n' \
+			report_string = '{}{}\n\n{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}' \
+							'\n\n{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n\n' \
 							'{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}\n{}{}'.format(
 							'Allele Report>> ', self.sequencepair_object.get_label(),
 							'Summary Information>>',
 							'Genotype: ', allele.get_allelegenotype(),
-							'Subsampling %: ', self.sequencepair_object.get_subsampleflag(),
 							'Confidence: ', allele.get_alleleconfidence(),
 							'CCG Uncertain: ', self.sequencepair_object.get_ccguncertainty(),
 							'Structure Status: ', allele.get_allelestatus(),
