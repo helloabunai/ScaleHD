@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.247
+__version__ = 0.248
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -29,7 +29,7 @@ from ..__backend import DataLoader
 from ..__backend import Colour as clr
 
 class AlleleGenotyping:
-	def __init__(self, sequencepair_object, instance_params, training_data, atypical_logic=None):
+	def __init__(self, sequencepair_object, instance_params, training_data, atypical_logic=None, padded_target=None):
 
 		##
 		## Allele objects and instance data
@@ -37,6 +37,7 @@ class AlleleGenotyping:
 		self.instance_params = instance_params
 		self.training_data = training_data
 		self.invalid_data = atypical_logic
+		self.padded_target = padded_target
 		self.allele_report = ''
 		self.warning_triggered = False
 
@@ -58,6 +59,7 @@ class AlleleGenotyping:
 			log.warn('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, '1+ allele(s) failed peak validation. Precision not guaranteed.'))
 			self.warning_triggered = True
 			self.sequencepair_object.set_peakinspection_warning(True)
+		self.n_align_dist()
 		self.render_graphs()
 		self.calculate_score()
 		self.set_report()
@@ -908,6 +910,36 @@ class AlleleGenotyping:
 					logfi.write(inspection_str)
 					logfi.close()
 		return self.pass_vld
+
+	def n_align_dist(self):
+
+		"""
+		Function to align alleles of the current sample to the same n-point as any previous alleles processed
+		in this run. Append the padded distributions to the same CSV file for in-depth somatic mosaicism
+		studies..
+		:return: fuck all
+		"""
+
+		##
+		## For each allele in the sample get the target CCG distribution
+		## Pad it so that N (the determined genotype) is at the same index in the output file
+		## output the padded distribution and close the file
+		for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
+			distribution_split = self.split_cag_target(allele.get_fwarray())
+			target = distribution_split['CCG{}'.format(allele.get_ccg())]
+			fix_target = ','.join(['%.5f' % num for num in target])
+
+			anchor = 203
+			anchor_port = anchor - allele.get_cag()
+			anchor_starboard = anchor_port + 200
+			left_buffer = '-,'*anchor_port
+			right_buffer = '-,'*(403-anchor_starboard)
+			padded_dist = left_buffer+fix_target+right_buffer[:-1]
+			sample_output = '{},{},CCG{},{}\n'.format(self.sequencepair_object.get_label(), allele.get_header(),
+													  allele.get_ccg(), padded_dist)
+
+			with open(self.padded_target, 'a') as distfi: distfi.write(sample_output)
+			distfi.close()
 
 	def render_graphs(self):
 

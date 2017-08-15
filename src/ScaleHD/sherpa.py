@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.247
+__version__ = 0.248
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -14,6 +14,7 @@ import argparse
 import pkg_resources
 import logging as log
 import datetime as dt
+from shutil import copyfile
 from reportlab.pdfgen import canvas
 from multiprocessing import cpu_count
 
@@ -99,9 +100,11 @@ class ScaleHD:
 
 		##
 		## Set up config dictionary of all params.
-		## if -c used, read from XML. Else, use 'defaults' in set_params().
+		## Copy configuration file to instance output folder (for reproducability)
 		script_path = os.path.dirname(__file__)
 		self.configfile = self.args.config[0]
+		instance_configuration = os.path.join(self.instance_rundir, 'UtilisedConfiguration.xml')
+		copyfile(self.configfile, instance_configuration)
 		self.instance_params = ConfigReader(script_path, self.configfile)
 		##
 		## Check libraries for stages specified in config
@@ -115,6 +118,7 @@ class ScaleHD:
 		## Set-up instance wide applicable files
 		self.index_path = ''; self.reference_indexes = []; self.typical_indexes = []
 		self.instance_results = ''; self.instance_matrix = ''; self.instance_graphs = ''
+		self.padded_distributions = ''
 		self.instance_data()
 
 		##
@@ -147,6 +151,7 @@ class ScaleHD:
 		##
 		## Instance results (genotype table)
 		self.instance_results = os.path.join(self.instance_rundir, 'InstanceReport.csv')
+		self.padded_distributions = os.path.join(self.instance_rundir, 'AlignedDistributions.csv')
 		self.header = '{},{},{},{},{},{},{},{},{},{},{},{},' \
 					  '{},{},{},{},{},{},{},{},{},{},{},{},{},' \
 					  '{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
@@ -157,7 +162,9 @@ class ScaleHD:
 			'Alignment Warning', 'Atypical Alignment Warning', 'CCG Rewritten', 'CCG Zygosity Rewritten',
 			'CCT Uncertainty', 'SVM Failure', 'Peak Inspection Warning', 'Low Distribution Reads', 'Low Peak Reads'
 		)
+		padded_header = '{},{},{},{},{},N-VAL\n'.format('Filename','Allele','CCGVal','Dist',' ,'*200)
 		with open(self.instance_results, 'w') as outfi: outfi.write(self.header); outfi.close()
+		with open(self.padded_distributions, 'w') as padfi: padfi.write(padded_header); padfi.close()
 
 		##
 		## Instance matrix (sequence distributions)
@@ -398,7 +405,7 @@ class ScaleHD:
 		genotyping_flag = self.instance_params.config_dict['instance_flags']['@genotype_prediction']
 		if genotyping_flag == 'True':
 			log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Genotyping alleles.. '))
-			sequencepair_object.set_genotypereport(predict.AlleleGenotyping(sequencepair_object, self.instance_params, self.training_data, atypical_logic=invalid_data).get_report())
+			sequencepair_object.set_genotypereport(predict.AlleleGenotyping(sequencepair_object, self.instance_params, self.training_data, atypical_logic=invalid_data, padded_target=self.padded_distributions).get_report())
 			gc.collect()
 			log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
 

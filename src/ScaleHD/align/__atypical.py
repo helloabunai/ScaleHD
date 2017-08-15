@@ -121,7 +121,7 @@ class ScanAtypical:
 		##
 		## Subsample reads
 		## Index the subsampled assembly
-		if not self.sequencepair_object.get_broadflag():
+		if not self.sequencepair_object.get_broadflag() and not self.sequencepair_object.get_avoidfurthersubsample():
 			self.sequencepair_object.set_subsampleflag(subsample_float)
 			self.sequencepair_object.set_automatic_DSPsubsample(True)
 			self.subsample_assembly = os.path.join(self.sequence_path,'subsample.sam')
@@ -363,9 +363,12 @@ class ScanAtypical:
 			## Append results to reference label
 			self.atypical_info[investigation[0]] = reference_dictionary
 
-		if not self.sequencepair_object.get_broadflag():
-			os.remove(self.subsample_assembly)
-			os.remove(self.subsample_index)
+		if not self.sequencepair_object.get_broadflag() or not self.sequencepair_object.get_avoidfurthersubsample():
+			try:
+				os.remove(self.subsample_assembly)
+				os.remove(self.subsample_index)
+			except TypeError:
+				pass
 
 	def get_repeat_tract(self, triplet_input, mask):
 
