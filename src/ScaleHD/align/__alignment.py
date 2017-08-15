@@ -1,5 +1,5 @@
 #/usr/bin/python
-__version__ = 0.247
+__version__ = 0.248
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -95,6 +95,7 @@ class SeqAlign:
 			seqtk_process = subprocess.Popen(['seqtk', 'sample', '-s100', target_file, str(self.subsample_flag)], stdout=target_outfi)
 			seqtk_process.wait(); target_outfi.close()
 			os.remove(target_file)
+			self.sequencepair_object.set_avoidfurthersubsample(True)
 			return target_output
 		else:
 			return target_file

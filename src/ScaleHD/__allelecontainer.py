@@ -13,6 +13,7 @@ class SequenceSample:
 		self.subsample_flag = False
 		self.broad_flag = False
 		self.group_flag = False
+		self.avoid_furthersubsample = False
 		self.total_seqreads = 0
 		self.fwalnpcnt = 0.0
 		self.rvalnpcnt = 0.0
@@ -70,6 +71,7 @@ class SequenceSample:
 	def set_subsampleflag(self, flag): self.subsample_flag = flag
 	def set_broadflag(self, flag): self.broad_flag = flag
 	def set_groupflag(self, flag): self.group_flag = flag
+	def set_avoidfurthersubsample(self, flag): self.avoid_furthersubsample = flag
 	def set_totalseqreads(self, count): self.total_seqreads = count
 	def set_fwalnpcnt(self, pcnt): self.fwalnpcnt = pcnt
 	def set_rvalnpcnt(self, pcnt): self.rvalnpcnt = pcnt
@@ -127,6 +129,7 @@ class SequenceSample:
 	def get_subsampleflag(self): return self.subsample_flag
 	def get_broadflag(self): return self.broad_flag
 	def get_groupflag(self): return self.group_flag
+	def get_avoidfurthersubsample(self): return self.avoid_furthersubsample
 	def get_totalseqreads(self): return self.total_seqreads
 	def get_fwalnpcnt(self): return self.fwalnpcnt
 	def get_rvalnpcnt(self): return self.rvalnpcnt
