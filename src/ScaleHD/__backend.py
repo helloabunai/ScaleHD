@@ -193,6 +193,10 @@ class ConfigReader(object):
 		if not (genotype_flag == 'True' or genotype_flag == 'False'):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Genotype Prediction control flag is not True/False.'))
 			trigger = True
+		snpcall_flag = self.config_dict['instance_flags']['@snp_calling']
+		if not (snpcall_flag == 'True' or snpcall_flag == 'False'):
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: SNP Calling flag is not True/False.'))
+			trigger = True
 
 		##
 		## Trimming flag settings

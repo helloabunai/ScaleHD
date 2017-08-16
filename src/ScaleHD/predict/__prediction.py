@@ -1426,3 +1426,23 @@ class AlleleGenotyping:
 		self.allele_report = [self.sequencepair_object.get_primaryallele().get_allelereport(),
 							  self.sequencepair_object.get_secondaryallele().get_allelereport()]
 		return self.allele_report
+
+class SNPCalling:
+	def __init__(self, sequencepair_object, instance_params):
+		self.sequencepair_object = sequencepair_object
+		self.instance_params = instance_params
+		self.snp_report = ''
+
+		# for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
+		# 	print 'Allele!'
+		# 	print '>!', allele.get_fwidx()
+		# 	print '>', allele.get_fwassembly()
+		# 	print '>!', allele.get_rvidx()
+		# 	print '>', allele.get_rvassembly()
+		# 	print '\n\n'
+
+	def set_report(self, input_report):
+		self.snp_report = input_report
+	def get_report(self):
+		return self.snp_report
+

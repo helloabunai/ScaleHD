@@ -301,17 +301,19 @@ class ScaleHD:
 							allele.set_rvassembly(current_seqpair.get_rvassembly())
 
 					if allele.get_allelestatus() == 'Typical':
+						allele.set_fwidx(current_seqpair.get_fwidx())
 						allele.set_fwdist(current_seqpair.get_fwdist())
-						allele.set_rvdist(current_seqpair.get_rvdist())
 						allele.set_fwassembly(current_seqpair.get_fwassembly())
+						allele.set_rvidx(current_seqpair.get_rvidx())
+						allele.set_rvdist(current_seqpair.get_rvdist())
 						allele.set_rvassembly(current_seqpair.get_rvassembly())
 
 				## tidy up seq files
 				for seqfi in [current_seqpair.get_fwreads(), current_seqpair.get_rvreads()]:
 					os.remove(seqfi)
-				###########################################
-				## Stage five!! Genotype distributions.. ##
-				###########################################
+				#####################################################
+				## Stage five!! Genotype distributions/SNP Calling ##
+				#####################################################
 				try:
 					self.allele_genotyping(current_seqpair, invalid_data)
 				except Exception, e:
@@ -404,11 +406,22 @@ class ScaleHD:
 	def allele_genotyping(self, sequencepair_object, invalid_data):
 
 		genotyping_flag = self.instance_params.config_dict['instance_flags']['@genotype_prediction']
+		snpcall_flag = self.instance_params.config_dict['instance_flags']['@snp_calling']
+
+		## genotyping
 		if genotyping_flag == 'True':
 			log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Genotyping alleles.. '))
 			sequencepair_object.set_genotypereport(predict.AlleleGenotyping(sequencepair_object, self.instance_params, self.training_data, atypical_logic=invalid_data, padded_target=self.padded_distributions).get_report())
-			gc.collect()
-			log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
+
+		## snp calling
+		if snpcall_flag == 'True':
+			log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Calling SNPs.. '))
+			sequencepair_object.set_snpreport(predict.SNPCalling(sequencepair_object, self.instance_params)).get_report()
+
+		## tidy up
+		gc.collect()
+		log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
+
 
 	def bayesian_analyses(self, sequencepair_object):
 

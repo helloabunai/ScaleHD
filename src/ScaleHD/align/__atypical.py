@@ -113,15 +113,16 @@ class ScanAtypical:
 		count_process = subprocess.Popen(['samtools','idxstats', self.sorted_assembly], stdout=subprocess.PIPE)
 		awk_process = subprocess.Popen(awk, stdin=count_process.stdout, stdout=subprocess.PIPE)
 		count_process.wait(); awk_process.wait(); awk_output = int(awk_process.communicate()[0])
-		if awk_output > 20000: subsample_float = 0.25
-		elif 20000 > awk_output > 10000: subsample_float = 0.2
+		if awk_output > 20000: subsample_float = 0.66
+		elif 20000 > awk_output > 10000: subsample_float = 0.33
 		else: subsample_float = 0.15
 		self.sequencepair_object.set_subsampled_fqcount(awk_output)
 
 		##
 		## Subsample reads
 		## Index the subsampled assembly
-		if not self.sequencepair_object.get_broadflag() and not self.sequencepair_object.get_avoidfurthersubsample():
+
+		if not self.sequencepair_object.get_broadflag():
 			self.sequencepair_object.set_subsampleflag(subsample_float)
 			self.sequencepair_object.set_automatic_DSPsubsample(True)
 			self.subsample_assembly = os.path.join(self.sequence_path,'subsample.sam')
@@ -363,7 +364,9 @@ class ScanAtypical:
 			## Append results to reference label
 			self.atypical_info[investigation[0]] = reference_dictionary
 
-		if not self.sequencepair_object.get_broadflag() or not self.sequencepair_object.get_avoidfurthersubsample():
+		## If broadflag = false, we subsampled
+		## remove the subsampled SAM file, retaining only the original
+		if not self.sequencepair_object.get_broadflag():
 			try:
 				os.remove(self.subsample_assembly)
 				os.remove(self.subsample_index)
