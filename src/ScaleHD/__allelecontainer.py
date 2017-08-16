@@ -33,6 +33,7 @@ class SequenceSample:
 		self.align_report = []
 		self.atypical_report = ''
 		self.genotype_report = ''
+		self.snp_report = ''
 
 		self.primary_allele = None
 		self.secondary_allele = None
@@ -91,6 +92,7 @@ class SequenceSample:
 	def set_alignreport(self, report): self.align_report = report
 	def set_atypicalreport(self, report): self.atypical_report = report
 	def set_genotypereport(self, report): self.genotype_report = report
+	def set_snpreport(self, report): self.snp_report = report
 
 	def set_primary_allele(self, alleleobj): self.primary_allele = alleleobj
 	def set_secondary_allele(self, alleleobj): self.secondary_allele = alleleobj
@@ -149,6 +151,7 @@ class SequenceSample:
 	def get_alignreport(self): return self.align_report
 	def get_atypicalreport(self): return self.atypical_report
 	def get_genotypereport(self): return self.genotype_report
+	def get_snpreport(self): return self.snp_report
 
 	def get_primaryallele(self): return self.primary_allele
 	def get_secondaryallele(self): return self.secondary_allele
