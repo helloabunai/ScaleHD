@@ -66,10 +66,13 @@ If you do not have sudo access (to install requisite packages), you should run S
     $ pip install numpy
     ~~~~
 
-3. Install ScaleHD from src (pip coming soon...)
+3. Install ScaleHD from src or PIP
     ~~~~
     $ cd ~/path/to/ScaleHD/src/
     $ python setup.py install
+    ~~~~
+    ~~~~
+    $ pip install ScaleHD
     ~~~~
 
 4. Install required third-party binaries. Please make sure any binaries you do install are included on your $PATH so that they can be found by your system. 
