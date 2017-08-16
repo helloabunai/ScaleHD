@@ -4,32 +4,32 @@ ScaleHD is a package for automating the process of genotyping microsatellite rep
 We utilise machine learning approaches to take into account natural data 'artefacts', such as PCR slippage and somatic
 mosaicism, when processing data. This provides the end-user with a simple to use platform which can robustly predict genotypes from input data.
 
-By default, input is an aligned .sam file (either through stdin, or user specified files/directories); only genotyping is carried out.
-However, if you wish to use ScaleHD as a pipeline for unaligned reads, providing the software with a configuration XML file will allow for
-quality control (trimming, demultiplexing) of raw reads, alignment, and then genotyping.
+By default, input is a pair of unaligned .fastq sequence data -- both forward and reverse reads, per sample. We utilise both forward and reverse
+reads in order to reduce the complex dimensionality issue posed by Huntington Disease's multiple repeat tract genetic structure. Reverse reads allow
+us to determine the current sample's CCG state -- this provides us with a mechanism by which to more easily call the entire genotype. Forward reads
+are utilised in a similar approach, to determine the CAG and intervening structure.
 
-The general overview of the application (assuming use of all stages) is as follows:
-1) Input FastQ files are subsampled, if specified. Reads are then treated for quality (trimming, scoring), given the user's parameters.
-2) FastQC is carried out on the treated files, with reports available in a given sample's output folder.
+The general overview of the application is as follows:
+1) Input FastQ files are subsampled, if an overwhelming number of reads are present. This can be overruled with the -b flag.
+2) Sequence quality control is carried out per the user's instructions. We reccomend triming of any 5-prime spacer+primer combinations, for optimal alignment.
 3) Alignment of these files, to a typical HD structure (CAG_1_1_CCG_2) reference, is carried out.
 4) Assemblies are scanned with Digital Signal Processing to detect any possible atypical structures (e.g. CAG_2_1_CCG_3).
 4.1) If no atypical alleles are detected, proceed as normal.
-4.2) If atypical alleles are detected, a custom tailored reference is generated, and re-alignment to this is carried out.
-5) With the appropriate allele information and sequence assembly(ies) present, samples are genotyped.
+4.2) If atypical alleles are detected, a custom reference is generated, and re-alignment to this is carried out.
+5) With the appropriate allele information and sequence assembly(ies) present, sampled are genotyped.
 6) Output is written for the current sample; the procedure is repeated for the next sample in the queue (if present).
+
 
 What's New
 ==========
-* Added -s/--subsample flag for subsampling of input FastQ sequences (random subsampling based on user-provided float, e.g. 0.2 = 20%)
-* Added -b/--boost flag to increase DSP scanning by subsampling aligned assemblies (generic SAM subsampling given the following rules):
--- *If File_ReadCount > 20000: subsample = 25%.*
--- *Elif 20000 > File_ReadCount > 10000: subsample = 20%*
--- *Else subsample = 10%*
-* Added -g/--groupsam flag, to output all generated alignment files into a dedicated assembly folder; as opposed to sample specific subfolders.
-* Added -j/--jobname flag for customised prefix of root output directories.
-* Added -p/--purgesam flag for removing all reads from an alignment file (generated or specified) which are not uniquely mapped.
-* Restructured the entire alignment/genotyping process to utilise object-based allele structure to allow dynamic per-allele remapping for single atypical alleles.
-* Transitioned from a Bowtie2 wrapper to a BWA-MEM wrapper in -c mode; XML/DTD tags updated to reflect this.
+* Added an n-aligned matrix of repeat-count distributions, on a SHD instance-wide basis.
+* Instances of SHD will output the utilised configuration file with other results.
+* Removed the -b/--boost flag, and made subsampling the default behaviour (given acceptable read-count in raw input data)
+* Added the -b/--broadscope flag, which forces alignment and DSP to be executed on all present reads (i.e. no subsampling).
+* Added the -e/--enshrine flag, which forces SHD to retain all aligned reads which are not uniquely mapped (which are removed by default).
+* Implemented DSP to function within the intervening sequence, rather than utilising a string derision method.
+* Added many report flags for SHD's instance report output -- more on this in the Output section of this readme.
+
 
 Installation Prerequisites
 ==========================
@@ -66,10 +66,13 @@ If you do not have sudo access (to install requisite packages), you should run S
     $ pip install numpy
     ~~~~
 
-3. Install ScaleHD from src (pip coming soon...)
+3. Install ScaleHD from src or PIP
     ~~~~
     $ cd ~/path/to/ScaleHD/src/
     $ python setup.py install
+    ~~~~
+    ~~~~
+    $ pip install ScaleHD
     ~~~~
 
 4. Install required third-party binaries. Please make sure any binaries you do install are included on your $PATH so that they can be found by your system. 
@@ -89,13 +92,15 @@ If you do not have sudo access (to install requisite packages), you should run S
         Generatr (as above)
     ~~~~
 
+5. Check that libxml2-dev and libxslt-dev are installed...
+
 Usage
 =====
 General usage is as follows:
 
-    $ scalehd [-h/--help] [-v] [-c CONFIG] [-t THREADS] [-p] [-g] [-s FLOAT] [-b] [-j "jobname"] [-o OUTPUT]
+    $ scalehd [-h/--help] [-v] [-c CONFIG] [-t THREADS] [-e] [-b] [-g] [-j "jobname"] [-o OUTPUT]
     e.g.
-    $ scalehd -v -c ~/path/to/config.xml -t 12 -p -s 0.5 -j "ExampleJobPrefix" -o ~/path/to/master/output
+    $ scalehd -v -c ~/path/to/config.xml -t 12 -j "ExampleJobPrefix" -o ~/path/to/master/output
 
 ScaleHD flags are:
 
@@ -103,10 +108,9 @@ ScaleHD flags are:
     -v/--verbose:: Enables verbose mode in the terminal (i.e. shows user feedback)
     -c/--config:: Will execute all settings specified in the given ArgumentConfig.xml [filepath].
     -t/--threads:: Number of threads to utilise. Mainly will affect alignment performance [integer].
-    -p/--purgesam:: Enables the purging of reads which are not uniquely mapped to a reference. Optional.
+    -e/--enshrine:: Forces aligned reads which are not uniquely mapped to be retained; default behaviour without this flag removes said reads.
+    -b/--broadscope:: Forces subsampling of raw and aligned reads to be disabled.
     -g/--groupsam:: Groups all aligned assemblies generated into one output folder, with appropriate sample names. If not specified, assemblies will be left in the sample's specific output subfolder.
-    -s/--subsample:: subsamples input FASTQ (unaligned) data by the specified float, as percentage [float].
-    -b/--boost:: generic subsampling of SAM (aligned) data by a percentage, dependant on how many reads aligned.
     -j/--jobname:: Specifies a prefix to use for the root output directory. Optional. If you specify a JobName that already
     exists within your specified -o output folder, ScaleHD will prompt the user to decide if they wish to delete the pre-existing folder and replace.
     -o/--output:: Desired output directory.
@@ -119,6 +123,10 @@ A short note on the requirements of filenames/structure for ScaleHD to function.
     ExampleSampleName_R2.fastq
     
 You must utilise both forward (R1) and reverse (R2) reads, per sample pair. If the respective files do not end in _R1.fastq (.fq) or _R2.fastq (.fq), ScaleHD will not run correctly.
+Since this is a highly HD specific application, we can offer some insight into providing the best approaches for genotyping. Due to the similarity of both repeat tracts in HD (CAG and CCG), which
+are flanking an intervening sequence, that in itself is highly similar to both regions, alignment can be fussy about your input data. Thus, we highly recommend trimming any spacers or primers present
+on the 5Prime end of your reads; this enables reads to start at the same position and provides the aligner with a more discrete boundary between the different HD repeat tracts.
+
 Individual settings for different stages in ScaleHD are set within a configuration XML document. The particular acceptable data types/ranges for each parameter varies. The configuration XML document for ScaleHD settings must also adhere to the following structure:
 
     <config data_dir="/path/to/reads/" forward_reference="/path/to/forward/ref_seq.fa" reverse_reference="/path/to/reverse/ref_seq.fa">
@@ -156,19 +164,24 @@ With each parameter data type/rule being as follows:
 Output
 ======
 A brief overview of flags provided in the output is as follows:
-    
+
     SampleName:: The extracted filename of the sample that was processed.
     Primary/Secondary GTYPE:: Allele genotype in the format CAG_x_y_CCG_z
     Status:: Atypical or Typical structure
     BSlippage:: Slippage ratio of allele's read peak ('N minus 2' to 'N minus 1)', over 'N'.
     Somatic Mosaicism:: Mosaicism ratio of allele's read peak ('N plus 1' to 'N plus 10'), over 'N'
     Confidence:: Confidence in genotype prediction (0-100).
+    Exception Raised:: If, during a particular stage of the pipeline, exceptions caused the processing to fail, this flag will inform the user in which stage it crashed.
     Homozygous Haplotype:: If True, both alleles have an identical genotype.
     Neighbouring Peaks:: If True, both alleles exist within the same CCG distribution, neighbouring each other.
     Diminished Peaks:: If True, an expanded peak has very few reads and was detected independently. Manual inspection recommended.
+    Novel Atypical:: If True, an intervening sequence structure that has not been readily observed before was detected. Manual inspection recommended.
     Alignment Warning:: If True, determining the CCG value(s) returned more peaks than is 'possible'. Manual inspection recommended.
-    CCG Rewritten:: If True, CCG was rewritten from the derived value. (I.E. DSP over-wrote FOD results). Happens in atypical alleles (infrequent), or SVM failure (insanely rare).
-    CCG Zygosity Rewritten:: If True, a sample (aligned to a typical reference) that was heterozygous (CCG), was actually detected to be an atypical homozygous (CCG) sample. SVM derived zygosity overwritten.
-    Peak Inspection Warning:: If True, at least one allele failed inspection on the distribution data was derived from. (i.e. messy data -- infrequent in samples with low total read count).
-    SVM Failure:: If True, SVM CCG zygosity calling was incorrect, as a result of a poor confusion matrix forcing a brute force manual ratio check, which returned a different zygosity state. Manual inspection recommended.
-    Very low reads:: If True, this particular sample has very low (<1000) reads in at least one allele's target CCG distribution.
+    Atypical Alignment Warning:: In the case of atypical re-alignment, particularly awful alignment quality can return more than one peak; which should not happen.
+    CCG Rewritten:: CCG was rewritten from the FOD-derived value -- i.e. DSP overwrote the FOD results.
+    CCG Zygosity Rewritten:: A sample (aligned to a typical reference) that was heterozygous (CCG), was detected to be an atypical homozygous (CCG) sample.
+    CCT Uncertainty:: The most common CCT 'sizes' returned from DSP were too similar in count (e.g. CCT2 == 54%, CCT3 == 46%) to be certain.
+    SVM Failure:: SVM CCG zygosity calling was incorrect, as a result of the resultant confusion matrix providing differing results from a brute force ratio check. Manual inspection highly recommended.
+    Peak Inspection Warning:: At least one allele failed inspection on the repeat-count distribution the genotype(s) was(were) derived from. Common in very low read count samples/poor sequencing.
+    Low Distribution Reads:: A warning which is triggered when at least one allele's repeat count distribution contains an unappealingly low number of reads.
+    Low Peak Reads:: A fatal warning which is triggered when, in a given repeat count distribution, the returned N value contains a very low number of reads. Manual inspection highly recommended.
