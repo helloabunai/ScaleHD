@@ -1,5 +1,5 @@
 #/usr/bin/python
-__version__ = 0.248
+__version__ = 0.249
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -19,7 +19,7 @@ from ..seq_qc.__quality_control import THREADS
 def purge_alignment_map(alignment_outdir, alignment_outfile):
 	purged_assembly = '{}{}'.format(alignment_outdir, '/assembly_unique.bam')
 	purged_file = open(purged_assembly, 'w')
-	view_subprocess = subprocess.Popen(['samtools', 'view', '-b', '-F', '256', '-@', str(THREADS), alignment_outfile], stdout=purged_file)
+	view_subprocess = subprocess.Popen(['samtools', 'view', '-q', '10', '-@', str(THREADS), '-b', alignment_outfile], stdout=purged_file)
 	view_subprocess.wait()
 	purged_file.close()
 	os.remove(alignment_outfile)
@@ -34,9 +34,13 @@ def extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfil
 	sort_subprocess = subprocess.Popen(['samtools', 'sort', '-@', str(THREADS), '-', '-o', sorted_assembly], stdin=view_subprocess.stdout)
 	view_subprocess.wait(); sort_subprocess.wait()
 
+	##
+	## Index the assembly so it is ordered
 	index_subprocess = subprocess.Popen(['samtools', 'index', sorted_assembly], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	index_subprocess.wait()
 
+	##
+	## Create an output txt file, output samtools idxstats to this file
 	raw_repeat_distribution = os.path.join(alignment_outdir, 'RawRepeatDistribution.txt')
 	rrd_file = open(raw_repeat_distribution, 'w')
 	idxstats_subprocess = subprocess.Popen(['samtools', 'idxstats', sorted_assembly], stdout=rrd_file)
@@ -95,7 +99,7 @@ class SeqAlign:
 			seqtk_process = subprocess.Popen(['seqtk', 'sample', '-s100', target_file, str(self.subsample_flag)], stdout=target_outfi)
 			seqtk_process.wait(); target_outfi.close()
 			os.remove(target_file)
-			#self.sequencepair_object.set_avoidfurthersubsample(True)
+			#self.sequencepair_object.set_avoidfurthersubsample(True) -- not required currently
 			return target_output
 		else:
 			return target_file
@@ -232,12 +236,14 @@ class SeqAlign:
 		unpaired_pairing_penalty    :: -U <INT>      :: penalty for unpaired read pair [17]
 		"""
 
+		read_group_header = '@RG\tID:{}\tSM:{}\tPL:{}\tLB:{}'.format('ScaleHD-ALN',self.sequencepair_object.get_label(),
+																	 'ILLUMINA',self.instance_params.config_dict['JobName'])
 		bwa_process = subprocess.Popen(['bwa', 'mem', '-t', str(THREADS), '-k', min_seed_length,
 										'-w', band_width, '-r', seed_length_extension,
 										'-c', skip_seed_with_occurrence, '-D', chain_drop, '-W', seeded_chain_drop,
 										'-A', seq_match_score, '-B', mismatch_penalty, '-O', indel_penalty,
 										'-E', gap_extend_penalty, '-L', prime_clipping_penalty,
-										'-U', unpaired_pairing_penalty, reference_index, target_fqfile],
+										'-U', unpaired_pairing_penalty, '-R', read_group_header, reference_index, target_fqfile],
 									    stdout=aln_outfi, stderr=subprocess.PIPE)
 		bwa_error = bwa_process.communicate()[1]
 		if 'illegal' in bwa_error: raise Exception('Illegal BWA behaviour: {}'.format(bwa_error))
@@ -254,6 +260,7 @@ class SeqAlign:
 		##
 		## If the user specified to maintain the assembly (i.e. not remove non-uniquely mapped reads)
 		## Create the relevant objects without purging (i.e. -e was present at CLI)
+
 		if self.enshrine_flag:
 			csv_path, sorted_assembly = extract_repeat_distributions(self.sample_root, alignment_outdir, aln_outpath)
 			sys.stdout.flush()

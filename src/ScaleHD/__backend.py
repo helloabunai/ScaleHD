@@ -1,5 +1,5 @@
 #/usr/bin/python
-__version__ = 0.248
+__version__ = 0.249
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -525,6 +525,14 @@ def initialise_libraries(instance_params):
 			log.critical('{}{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Missing library: ', library, '. Not installed or not on $PATH'))
 			raise ScaleHDException
 
+	def type_func(alias):
+		alias_subprocess = subprocess.Popen(['type', alias], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		alias_result = alias_subprocess.communicate()
+		alias_subprocess.wait()
+		if 'not found' in alias_result[0]:
+			log.critical('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Missing alias: ', alias, '. Not aliased in .bash_profile!'))
+			raise ScaleHDException
+
 	##
 	## To determine which binaries to check for
 	## AttributeError in the situation where instance_params origin differs
@@ -533,10 +541,12 @@ def initialise_libraries(instance_params):
 		quality_control = instance_params.config_dict['instance_flags']['@quality_control']
 		alignment = instance_params.config_dict['instance_flags']['@sequence_alignment']
 		genotyping = instance_params.config_dict['instance_flags']['@genotype_prediction']
+		snp_calling = instance_params.config_dict['instance_flags']['@snp_calling']
 	except AttributeError:
 		quality_control = instance_params['quality_control']
 		alignment = instance_params['sequence_alignment']
 		genotyping = instance_params['genotype_prediction']
+		snp_calling = instance_params['snp_calling']
 
 	if quality_control == 'True':
 		try:which_func('java')
@@ -557,10 +567,15 @@ def initialise_libraries(instance_params):
 	if genotyping == 'True':
 		try:which_func('samtools')
 		except ScaleHDException: trigger=True
-		try:which_func('R')
-		except ScaleHDException: trigger=True
 		try:which_func('generatr')
 		except ScaleHDException: trigger=True
+		try: which_func('R')
+		except ScaleHDException: trigger=True
+	if snp_calling == 'True':
+		try: type_func('picard')
+		except ScaleHDException: trigger=True
+		try: type_func('gatk')
+		except ScaleHDException: trigger = True
 
 	return trigger
 

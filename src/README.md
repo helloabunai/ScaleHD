@@ -73,7 +73,7 @@ If you do not have sudo access (to install requisite packages), you should run S
     ~~~~
 
 4. Install required third-party binaries. Please make sure any binaries you do install are included on your $PATH so that they can be found by your system. 
-**Please note**, ScaleHD will utilise GNU TYPE to determine if a command is on your $PATH. If either TYPE or a dependency is missing, ScaleHD will inform you and exit.
+**Please note**, ScaleHD will utilise GNU WHICH/TYPE to determine if a command is on your $PATH. If either WHICH/TYPE or a dependency is missing, ScaleHD will inform you and exit.
     ~~~~
     Quality Control:
         Cutadapt
@@ -87,7 +87,13 @@ If you do not have sudo access (to install requisite packages), you should run S
         R        
         Samtools
         Generatr (as above)
+        Picard (alias required*)
+        GATK (alias required*)
     ~~~~
+*aliases are required for certain third party software which are not distributed as installable binaries. An example of an alias would
+look like:
+
+    alias gatk="java -jar /Users/home_dir/Documents/Builds/GenomeAnalysisTK.jar"
 
 5. Check that libxml2-dev and libxslt-dev are installed...
 
@@ -127,7 +133,7 @@ on the 5Prime end of your reads; this enables reads to start at the same positio
 Individual settings for different stages in ScaleHD are set within a configuration XML document. The particular acceptable data types/ranges for each parameter varies. The configuration XML document for ScaleHD settings must also adhere to the following structure:
 
     <config data_dir="/path/to/reads/" forward_reference="/path/to/forward/ref_seq.fa" reverse_reference="/path/to/reverse/ref_seq.fa">
-      <instance_flags quality_control="BOOL" sequence_alignment="BOOL" atypical_realignment="BOOL" genotype_prediction="BOOL"/>
+      <instance_flags quality_control="BOOL" sequence_alignment="BOOL" atypical_realignment="BOOL" genotype_prediction="BOOL", snp_calling="BOOL"/>
       <trim_flags trim_type="x" quality_threshold="x" adapter_flag="x" adapter="x" error_tolerance="x"/>
       <alignment_flags min_seed_length="x" band_width="x" seed_length_extension="x" skip_seed_with_occurrence="x" chain_drop="x" 
       seeded_chain_drop="x" seq_match_score="x" mismatch_penalty="x" indel_penalty="x" gap_extend_penalty="x" prime_clipping_penalty="x" 
@@ -146,6 +152,7 @@ With each parameter data type/rule being as follows:
         sequence_alignment: Boolean, TRUE/FALSE
         atypical_realignment: Boolean, TRUE/FALSE
         genotype_prediction: Boolean, TRUE/FALSE
+        snp_calling: Boolean, TRUE/FALSE
     TRIM
         trim_type: String, "Quality", "Adapter" or "Both"
         quality_threshold: Integer, within the range 0-38
