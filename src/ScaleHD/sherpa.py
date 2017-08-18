@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.248
+__version__ = 0.249
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -107,6 +107,7 @@ class ScaleHD:
 		instance_configuration = os.path.join(self.instance_rundir, 'UtilisedConfiguration.xml')
 		copyfile(self.configfile, instance_configuration)
 		self.instance_params = ConfigReader(script_path, self.configfile)
+		self.instance_params.config_dict['JobName'] = self.args.jobname
 		##
 		## Check libraries for stages specified in config
 		if initialise_libraries(self.instance_params):
@@ -414,9 +415,9 @@ class ScaleHD:
 			sequencepair_object.set_genotypereport(predict.AlleleGenotyping(sequencepair_object, self.instance_params, self.training_data, atypical_logic=invalid_data, padded_target=self.padded_distributions).get_report())
 
 		## snp calling
-		if snpcall_flag == 'True':
-			log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Calling SNPs.. '))
-			sequencepair_object.set_snpreport(predict.SNPCalling(sequencepair_object, self.instance_params)).get_report()
+		#if snpcall_flag == 'True':
+		#	log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Calling SNPs.. '))
+		#	sequencepair_object.set_snpreport(predict.SNPCalling(sequencepair_object, self.instance_params).get_report())
 
 		## tidy up
 		gc.collect()
