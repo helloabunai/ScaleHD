@@ -414,14 +414,13 @@ class ScaleHD:
 			sequencepair_object.set_genotypereport(predict.AlleleGenotyping(sequencepair_object, self.instance_params, self.training_data, atypical_logic=invalid_data, padded_target=self.padded_distributions).get_report())
 
 		## snp calling
-		#if snpcall_flag == 'True':
-		#	log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Calling SNPs.. '))
-		#	sequencepair_object.set_snpreport(predict.SNPCalling(sequencepair_object, self.instance_params).get_report())
+		# if snpcall_flag == 'True':
+		# 	log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Calling SNPs.. '))
+		# 	sequencepair_object.set_snpreport(predict.SNPCalling(sequencepair_object, self.instance_params).get_report())
 
 		## tidy up
 		gc.collect()
 		log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
-
 
 	def bayesian_analyses(self, sequencepair_object):
 

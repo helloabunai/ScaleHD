@@ -19,11 +19,30 @@ from ..seq_qc.__quality_control import THREADS
 def purge_alignment_map(alignment_outdir, alignment_outfile):
 	purged_assembly = '{}{}'.format(alignment_outdir, '/assembly_unique.bam')
 	purged_file = open(purged_assembly, 'w')
-	view_subprocess = subprocess.Popen(['samtools', 'view', '-q', '10', '-@', str(THREADS), '-b', alignment_outfile], stdout=purged_file)
+
+	## Readcount on pre-purged assembly (100% of aligned reads present)
+	prepurge_readcount = subprocess.Popen(['samtools', 'flagstat', alignment_outfile],
+							  stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+	premapped_pcnt = [x for x in (prepurge_readcount[0].split('\n')) if '%' in x]
+	prealn_pcnt = str(premapped_pcnt[0]).split('(')[1].rsplit('%')[0]
+	prealn_count = premapped_pcnt[0].split(' +')[0]; pre_purge = (prealn_count, prealn_pcnt)
+
+	## purge for uniquely mapped reads
+	view_subprocess = subprocess.Popen(['samtools', 'view', '-q', '5', '-b', '-@', str(THREADS), alignment_outfile], stdout=purged_file)
 	view_subprocess.wait()
 	purged_file.close()
+
+	## Readcount on post-purged assembly (100% minus purged% present)
+	postpurge_readcount = subprocess.Popen(['samtools', 'flagstat', purged_assembly],
+							 stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+	postmapped_pcnt = [x for x in (postpurge_readcount[0].split('\n')) if '%' in x]
+	postaln_pcnt = str(postmapped_pcnt[0]).split('(')[1].rsplit('%')[0]
+	postaln_count = postmapped_pcnt[0].split(' +')[0]; post_purge = (postaln_count, postaln_pcnt)
+
+	## both flagstat output for writing to report file
+	flagstat_output = (prepurge_readcount, postpurge_readcount)
 	os.remove(alignment_outfile)
-	return purged_assembly
+	return purged_assembly, flagstat_output, pre_purge, post_purge
 
 def extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfile):
 
@@ -260,33 +279,43 @@ class SeqAlign:
 		##
 		## If the user specified to maintain the assembly (i.e. not remove non-uniquely mapped reads)
 		## Create the relevant objects without purging (i.e. -e was present at CLI)
-
+		flagstat_path = '{}/{}'.format(alignment_outdir, 'AlignmentStats.txt')
 		if self.enshrine_flag:
 			csv_path, sorted_assembly = extract_repeat_distributions(self.sample_root, alignment_outdir, aln_outpath)
 			sys.stdout.flush()
+			## Run samtools flagstat on alignment file
+			## Set allele object's flagstat file variable..
+			flagstat_process = subprocess.Popen(['samtools', 'flagstat', sorted_assembly],
+												stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			flagstat_output = flagstat_process.communicate(); flagstat_process.wait()
+
+			## Write output to file..
+			## Determine % mapped for this assembly
+			with open(flagstat_path, 'w') as outfi:
+				outfi.write(flagstat_output[0])
+				outfi.close()
+			mapped_pcnt = [x for x in (flagstat_output[0].split('\n')) if '%' in x]
+			aln_pcnt = str(mapped_pcnt[0]).split('(')[1].rsplit('%')[0]
+			aln_count = mapped_pcnt[0].split(' +')[0]
+
 		## Otherwise -e wasn't present (default), and we purge all non-uniquely mapped reads
 		else:
-			purged_sam = purge_alignment_map(alignment_outdir, aln_outpath)
+			purged_sam, flagstat_output, pre_purge, post_purge = purge_alignment_map(alignment_outdir, aln_outpath)
 			csv_path, sorted_assembly = extract_repeat_distributions(self.sample_root, alignment_outdir, purged_sam)
 			sys.stdout.flush()
 
-		##
-		## Run samtools flagstat on alignment file
-		## Set allele object's flagstat file variable..
-		flagstat_path = '{}/{}'.format(alignment_outdir, 'AlignmentStats.txt')
-		flagstat_process = subprocess.Popen(['samtools', 'flagstat', sorted_assembly],
-											stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		flagstat_output = flagstat_process.communicate(); flagstat_process.wait()
+			## Write output to file..
+			## Determine % mapped for this assembly
+			with open(flagstat_path, 'w') as outfi:
+				outfi.write('Before purging:\n')
+				outfi.write(flagstat_output[0][0])
+				outfi.write('\nAfter purging:\n')
+				outfi.write(flagstat_output[1][0])
+				outfi.close()
 
-		##
-		## Write output to file..
-		## Determine % mapped for this assembly
-		with open(flagstat_path, 'w') as outfi:
-			outfi.write(flagstat_output[0])
-			outfi.close()
-		mapped_pcnt = [x for x in (flagstat_output[0].split('\n')) if '%' in x]
-		aln_pcnt = str(mapped_pcnt[0]).split('(')[1].rsplit('%')[0]
-		aln_count = mapped_pcnt[0].split(' +')[0]
+			## calculate difference between pre and post purge
+			aln_pcnt =  float(post_purge[0])/float(pre_purge[0])*100
+			aln_count = post_purge[0]
 
 		return csv_path, alignment_report, sorted_assembly, aln_pcnt, aln_count
 
