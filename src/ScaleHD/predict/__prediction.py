@@ -259,7 +259,13 @@ class AlleleGenotyping:
 		## CCG, CAGHet (Hetero, Homo*, Homo+), CAGDim == 1 peak
 		## CAGHom == 2 peaks
 		allele_object.set_cagthreshold(utilised_threshold)
-		if triplet_stage == 'CAGHom': error_boundary = 2
+		if triplet_stage == 'CAGHom':
+			error_boundary = 2
+		elif triplet_stage == 'CCG':
+			if self.zygosity_state == 'HETERO':
+				error_boundary = 2
+			if self.zygosity_state == 'HOMO':
+				error_boundary = 1
 		else: error_boundary = 1
 
 		##
@@ -415,9 +421,28 @@ class AlleleGenotyping:
 							if i != allele_object.get_ccg()-1:
 								self.reverse_aggregate[i] -= removal
 			else:
+				## if the current allele is top2, check difference between top1/top2
+				## if the difference is large, we need to further smooth the distribution for this allele
+				top1 = max(self.reverse_aggregate); top1idx = list(self.reverse_aggregate).index(top1)
+				top2 = max([x for x in self.reverse_aggregate if x != top1])
+				additional_context = 0
+				if top2 == self.reverse_aggregate[allele_object.get_ccg()-1]:
+					differential = (top2/top1)*100
+					if 0 < differential < 50:
+						purge = (self.reverse_aggregate[top1idx]/100)*95
+						self.reverse_aggregate[top1idx] -= purge
+					else:
+						additional_context = 5
+				## the percentage we should remove errorneous reads by
+				## should differ based on the context of n's read count
+				if 0 < self.reverse_aggregate[allele_object.get_ccg()-1] <= 6000: removal_context = 85
+				elif 6000 <= self.reverse_aggregate[allele_object.get_ccg()-1] <= 12000: removal_context = 75
+				else: removal_context = 65
+
+				## actual cleanup stage
 				for i in range(0, len(self.reverse_aggregate)):
 					if i != allele_object.get_ccg()-1:
-						removal = (self.reverse_aggregate[i]/100) * 75
+						removal = (self.reverse_aggregate[i]/100) * removal_context+additional_context
 						self.reverse_aggregate[i] -= removal
 
 			allele_object.set_rvarray(self.reverse_aggregate)
@@ -552,6 +577,7 @@ class AlleleGenotyping:
 				fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, 1, 'CAGHet')
 				while fod_failstate:
 					fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, 1, 'CAGHet', fod_recall=True)
+
 				allele.set_fodcag(cag_indexes)
 
 		########################
@@ -599,6 +625,7 @@ class AlleleGenotyping:
 				fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, distance_threshold, 'CAGHom', est_dist=estimated_distance)
 				while fod_failstate:
 					fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, distance_threshold, 'CAGHom', est_dist=estimated_distance, fod_recall=True)
+
 				allele.set_fodcag(cag_indexes)
 
 		return pass_gtp
@@ -700,17 +727,22 @@ class AlleleGenotyping:
 			secondary_reads = secondary_target[secondary_allele.get_cag()-1]
 			diff = abs(primary_reads-secondary_reads)
 			pcnt = (diff/max([primary_reads, secondary_reads]))
-			##
 			## If read count is so close (and distance is atol=1)
 			## Neighbouring peak...
-			if 0 < pcnt < 20:
+			if 0.0 < pcnt < 0.20:
 				self.sequencepair_object.set_neighbouringpeaks(True)
 				pass_vld = ensure_integrity()
 				return pass_vld
 			elif np.isclose([pcnt], [0.25], atol=0.05):
-				self.sequencepair_object.set_neighbouringpeaks(True)
-				pass_vld = ensure_integrity()
-				return pass_vld
+				if 0.0 < pcnt <= 0.25:
+					self.sequencepair_object.set_neighbouringpeaks(True)
+					pass_vld = ensure_integrity()
+					return pass_vld
+				else:
+					self.sequencepair_object.set_homozygoushaplotype(True)
+					self.sequencepair_object.set_secondary_allele(self.sequencepair_object.get_primaryallele())
+					##no need to call ensure_integrity as secondary allele is a copy of primary object
+					return True
 			elif primary_fod_cag.all() and secondary_fod_cag.all():
 				self.sequencepair_object.set_homozygoushaplotype(True)
 				self.sequencepair_object.set_secondary_allele(self.sequencepair_object.get_primaryallele())
@@ -723,6 +755,7 @@ class AlleleGenotyping:
 						self.sequencepair_object.set_fatalreadallele(False)
 				pass_vld = ensure_integrity()
 				return pass_vld
+
 		##
 		## Check for diminished peaks (incase DSP failure / read count is low)
 		## Primary read info
@@ -743,6 +776,11 @@ class AlleleGenotyping:
 		if ccg_zygstate == 'HOMO*' or ccg_zygstate == 'HOMO+' or ccg_zygstate == 'HETERO':
 			dist_total = sum([primary_total, secondary_total])
 
+		##
+		## In the case where the peak isn't 65% of all current_ccg distribution reads
+		## check that there's no diminished peak (i.e. very small expanded peak)
+		## Except when atypical; due to re-alignment occurring to a specific ref
+		## diminished peaks won't occur
 		if not peak_total/dist_total >= 0.65:
 			if np.isclose([peak_total/dist_total], [0.65], atol=0.175):
 				pass
@@ -1329,7 +1367,7 @@ class AlleleGenotyping:
 					if self.sequencepair_object.get_totalseqreads() > 10000: subsample_penalty = [1.0,1.0,1.0]
 
 					if 0.1 <= self.sequencepair_object.get_subsampleflag() <= 0.3: utilised_subsample_penalty = subsample_penalty[0]
-					if 0.4 <= self.sequencepair_object.get_subsampleflag() <= 0.6: utilised_subsample_penalty = subsample_penalty[1]
+					if 0.3 <= self.sequencepair_object.get_subsampleflag() <= 0.6: utilised_subsample_penalty = subsample_penalty[1]
 					if 0.6 <= self.sequencepair_object.get_subsampleflag() <= 0.9: utilised_subsample_penalty = subsample_penalty[2]
 
 					allele_read_ratio = allele.get_totalreads() / self.sequencepair_object.get_totalseqreads()
