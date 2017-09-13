@@ -186,6 +186,7 @@ A brief overview of flags provided in the output is as follows:
     CCG Zygosity Rewritten:: A sample (aligned to a typical reference) that was heterozygous (CCG), was detected to be an atypical homozygous (CCG) sample.
     CCT Uncertainty:: The most common CCT 'sizes' returned from DSP were too similar in count (e.g. CCT2 == 54%, CCT3 == 46%) to be certain.
     SVM Failure:: SVM CCG zygosity calling was incorrect, as a result of the resultant confusion matrix providing differing results from a brute force ratio check. Manual inspection highly recommended.
+    Differential Confusion:: The allele sorting algorithm is confused between a potential neighbouring peak, and a homozygous haplotype. Manual inspection highly recommended.
     Peak Inspection Warning:: At least one allele failed inspection on the repeat-count distribution the genotype(s) was(were) derived from. Common in very low read count samples/poor sequencing.
     Low Distribution Reads:: A warning which is triggered when at least one allele's repeat count distribution contains an unappealingly low number of reads.
     Low Peak Reads:: A fatal warning which is triggered when, in a given repeat count distribution, the returned N value contains a very low number of reads. Manual inspection highly recommended.
