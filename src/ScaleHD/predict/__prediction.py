@@ -373,7 +373,6 @@ class AlleleGenotyping:
 			if minor == self.reverse_aggregate[allele_object.get_ccg()-1]:
 				skip_flag = True
 				self.sequencepair_object.set_ccguncertainty(True)
-
 			## skip the following block if so
 			if not skip_flag:
 				if abs_ratio < 0.05: pass
