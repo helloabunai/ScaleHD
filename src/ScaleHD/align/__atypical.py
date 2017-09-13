@@ -557,7 +557,11 @@ class ScanAtypical:
 							break
 						else:
 							differential = max(sub_diff, alpha_diff)/min(sub_diff, alpha_diff)
-							if not (primary_allele['Status'] == val[1].get('Status')) and differential > 5:
+							if differential > 5 and not (primary_allele['Status'] == val[1].get('Status')):
+								secondary_allele = sorted_info[1][1]
+								secondary_allele['Reference'] = sorted_info[1][0]
+								break
+							elif 1.5 < differential < 5:
 								secondary_allele = sorted_info[1][1]
 								secondary_allele['Reference'] = sorted_info[1][0]
 								break
@@ -567,6 +571,8 @@ class ScanAtypical:
 									secondary_allele['Reference'] = sorted_info[1][0]
 									break
 								else:
+									if differential > 5:
+										self.sequencepair_object.set_differential_confusion(True)
 									secondary_allele = sorted_info[2][1]
 									secondary_allele['Reference'] = sorted_info[2][0]
 									break
@@ -642,6 +648,7 @@ class ScanAtypical:
 			if temp_curr[0] == temp_curr[1]:
 				if self.sequencepair_object.get_atypical_ccgrewrite():
 					self.sequencepair_object.set_atypical_zygrewrite(True)
+
 
 		return primary_allele, secondary_allele, atypical_count
 
