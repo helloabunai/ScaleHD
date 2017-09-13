@@ -444,6 +444,7 @@ class AlleleGenotyping:
 					if i != allele_object.get_ccg()-1:
 						removal = (self.reverse_aggregate[i]/100) * removal_context+additional_context
 						self.reverse_aggregate[i] -= removal
+						if self.reverse_aggregate[i] < 0: self.reverse_aggregate[i] = 0
 
 			allele_object.set_rvarray(self.reverse_aggregate)
 
@@ -746,6 +747,7 @@ class AlleleGenotyping:
 			elif primary_fod_cag.all() and secondary_fod_cag.all():
 				self.sequencepair_object.set_homozygoushaplotype(True)
 				self.sequencepair_object.set_secondary_allele(self.sequencepair_object.get_primaryallele())
+				##no need to call ensure_integrity as secondary allele is a copy of primary object
 				for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 					if allele.get_peakreads() < 250:
 						allele.set_fatalalignmentwarning(True)
@@ -753,7 +755,7 @@ class AlleleGenotyping:
 					else:
 						allele.set_fatalalignmentwarning(False)
 						self.sequencepair_object.set_fatalreadallele(False)
-				pass_vld = ensure_integrity()
+
 				return pass_vld
 
 		##
@@ -924,7 +926,6 @@ class AlleleGenotyping:
 			allele.set_allelegenotype('{}_{}_{}_{}_{}'.format(allele.get_fodcag(), novel_caacag,
 															  novel_ccgcca, allele.get_fodccg(),
 															  allele.get_cct()))
-
 			##
 			## If failed, write intermediate data to report
 			if not self.pass_vld:
@@ -1397,6 +1398,12 @@ class AlleleGenotyping:
 				if self.sequencepair_object.get_alignmentwarning(): allele_confidence -= 15; penfi.write('{}, {}\n'.format('Low read count alignment warning','-15'))
 				if self.sequencepair_object.get_atypical_alignmentwarning(): allele_confidence -= 50; penfi.write('{}, {}\n'.format('Atypical re-alignment inaccurate','-50'))
 				if allele.get_fatalalignmentwarning(): allele_confidence -= 40; penfi.write('{}, {}\n'.format('Fatal low read count alignment warning','-40'))
+
+				##
+				## Differential Confusion
+				## i.e two peaks nearby, large difference between suspected but unsure whether homo or neighbour
+				if self.sequencepair_object.get_differential_confusion():
+					allele_confidence = 0; penfi.write('{}, {}\n'.format('Differential Confusion', '-100'))
 
 				##
 				## If reflabel CAG and FOD CAG differ.. no confidence

@@ -156,13 +156,14 @@ class ScaleHD:
 		self.padded_distributions = os.path.join(self.instance_rundir, 'AlignedDistributions.csv')
 		self.header = '{},{},{},{},{},{},{},{},{},{},{},{},' \
 					  '{},{},{},{},{},{},{},{},{},{},{},{},{},' \
-					  '{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
+					  '{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
 			'SampleName', '' ,'Primary GTYPE', 'Status', 'Map (FW)', 'Map% (FW)', 'Map (RV)', 'Map% (RV)', 'BSlippage',
 			'Somatic Mosaicism', 'Intervening Sequence', 'Confidence', '', 'Secondary GTYPE', 'Status', 'Map (FW)',
 			'Map% (FW)', 'Map (RV)','Map% (RV)', 'BSlippage', 'Somatic Mosaicism', 'Intervening Sequence', 'Confidence',
 			'', 'Exception Raised', 'Homozygous Haplotype', 'Neighbouring Peaks', 'Diminished Peaks', 'Novel Atypical',
 			'Alignment Warning', 'Atypical Alignment Warning', 'CCG Rewritten', 'CCG Zygosity Rewritten',
-			'CCT Uncertainty', 'SVM Failure', 'Peak Inspection Warning', 'Low Distribution Reads', 'Low Peak Reads'
+			'CCT Uncertainty', 'SVM Failure', 'Differential Confusion', 'Peak Inspection Warning',
+			'Low Distribution Reads', 'Low Peak Reads'
 		)
 		padded_header = '{},{},{},{},{},N-VAL\n'.format('Filename','Allele','CCGVal','Dist',' ,'*200)
 		with open(self.instance_results, 'w') as outfi: outfi.write(self.header); outfi.close()
@@ -483,7 +484,9 @@ class ScaleHD:
 						 [sequencepair_object, 'get_atypical_alignmentwarning'], [sequencepair_object, 'get_atypical_ccgrewrite'],
 						 [sequencepair_object, 'get_atypical_zygrewrite'], [sequencepair_object, 'get_cctuncertainty'],
 						 [sequencepair_object, 'get_peakinspection_warning'], [sequencepair_object, 'get_svm_failure'],
-						 [sequencepair_object, 'get_distribution_readcount_warning'], [sequencepair_object, 'get_fatalreadallele']]
+						 [sequencepair_object, 'get_differential_confusion'],
+						 [sequencepair_object, 'get_distribution_readcount_warning'],
+						 [sequencepair_object, 'get_fatalreadallele']]
 
 		report_string = call_object_scraper(unparsed_info)
 		report_string += '\n'

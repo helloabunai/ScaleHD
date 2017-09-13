@@ -57,6 +57,7 @@ class SequenceSample:
 		self.automatic_DSPsubsample = False
 		self.distribution_readcount_warning = False
 		self.novel_atypical_structure = False
+		self.differential_confusion = False
 		self.original_fqcount = 0
 		self.subsampled_fqcount = 0
 
@@ -116,6 +117,7 @@ class SequenceSample:
 	def set_automatic_DSPsubsample(self, state): self.automatic_DSPsubsample = state
 	def set_distribution_readcount_warning(self, state): self.distribution_readcount_warning = state
 	def set_novel_atypical_structure(self, state): self.novel_atypical_structure = state
+	def set_differential_confusion(self, state): self.differential_confusion = state
 	def set_original_fqcount(self, count): self.original_fqcount = count
 	def set_subsampled_fqcount(self, count): self.subsampled_fqcount = count
 
@@ -175,6 +177,7 @@ class SequenceSample:
 	def get_automatic_DSPsubsample(self): return self.automatic_DSPsubsample
 	def get_distribution_readcount_warning(self): return self.distribution_readcount_warning
 	def get_novel_atypical_structure(self): return self.novel_atypical_structure
+	def get_differential_confusion(self): return self.differential_confusion
 	def get_original_fqcount(self): return self.original_fqcount
 	def get_subsampled_fqcount(self): return self.subsampled_fqcount
 
