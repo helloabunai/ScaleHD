@@ -219,7 +219,6 @@ class ScanAtypical:
 			typical_count = 0; atypical_count = 0; intervening_population = []; fp_flanks = []; tp_flanks = []
 			ref_cag = []; ref_ccg = []; ref_cct = []
 
-
 			##
 			## For every read in this reference, get the aligned sequence
 			## Split into triplet sliding window list, remove any triplets that are < 3
@@ -300,7 +299,8 @@ class ScanAtypical:
 			est_cct = Counter(ref_cct).most_common()[0][0]
 			## cct fuckery
 			cct_test = Counter(ref_cct).most_common()
-			cct_diff = float(cct_test[0][1])/float(cct_test[1][1])
+			try: cct_diff = float(cct_test[0][1])/float(cct_test[1][1])
+			except IndexError: cct_diff = 0
 			if np.isclose([cct_diff], [2.0], atol=0.3):
 				est_cct = 2
 				self.sequencepair_object.set_cctuncertainty(True)
@@ -311,6 +311,11 @@ class ScanAtypical:
 			fp_flank_population = Counter(fp_flanks).most_common()
 			tp_flank_population = Counter(tp_flanks).most_common()
 			single_counter = 0
+
+			typical_tenpcnt = (typical_count/100)*5
+			if np.isclose([typical_count], [atypical_count], atol=typical_tenpcnt):
+				raise Exception('Allele(s) nearing 50/50 split atypical/typical read count.')
+
 			if len(common_intervening) == 0: common_intervening = [['CAACAGCCGCCA']]
 			reference_dictionary = {'TotalReads':investigation[1],
 									'TypicalCount': typical_count,
