@@ -926,7 +926,6 @@ class AlleleGenotyping:
 			allele.set_allelegenotype('{}_{}_{}_{}_{}'.format(allele.get_fodcag(), novel_caacag,
 															  novel_ccgcca, allele.get_fodccg(),
 															  allele.get_cct()))
-
 			##
 			## Check DSP generated allele label vs FOD results
 			if int(allele.get_reflabel().split('_')[3]) != int(allele.get_fodccg()):
