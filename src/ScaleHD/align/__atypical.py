@@ -5,12 +5,10 @@ import os
 import re
 import regex
 import pysam
-import random
 import difflib
 import subprocess
 import numpy as np
 import logging as log
-from heapq import nlargest
 from operator import itemgetter
 from collections import Counter
 from ..__backend import Colour as clr
@@ -113,15 +111,16 @@ class ScanAtypical:
 		count_process = subprocess.Popen(['samtools','idxstats', self.sorted_assembly], stdout=subprocess.PIPE)
 		awk_process = subprocess.Popen(awk, stdin=count_process.stdout, stdout=subprocess.PIPE)
 		count_process.wait(); awk_process.wait(); awk_output = int(awk_process.communicate()[0])
-		if awk_output > 20000: subsample_float = 0.66
-		elif 20000 > awk_output > 10000: subsample_float = 0.33
-		else: subsample_float = 0.15
+		if awk_output > 20000: subsample_float = 0.075
+		elif 20000 > awk_output > 15000: subsample_float = 0.175
+		elif 15000 > awk_output > 10000: subsample_float = 0.200
+		elif 10000 > awk_output > 5000: subsample_float = 0.225
+		else: subsample_float = 0.500
 		self.sequencepair_object.set_subsampled_fqcount(awk_output)
 
 		##
 		## Subsample reads
 		## Index the subsampled assembly
-
 		if not self.sequencepair_object.get_broadflag():
 			self.sequencepair_object.set_subsampleflag(subsample_float)
 			self.sequencepair_object.set_automatic_DSPsubsample(True)
@@ -199,6 +198,18 @@ class ScanAtypical:
 		"""
 
 		##
+		## Check read count per ref
+		if self.assembly_targets[0][1] < 200:
+			self.sequencepair_object.set_fatalreadallele(True)
+			raise Exception('<200 aligned reads in Allele #1. Data un-usable.')
+		if self.assembly_targets[1][1] < 100:
+			self.sequencepair_object.set_fatalreadallele(True)
+			raise Exception('<100 aligned reads in Allele #2. Data un-usable.')
+		if self.assembly_targets[2][1] < 50:
+			self.sequencepair_object.set_fatalreadallele(True)
+			raise Exception('<50 aligned reads in Allele #3. Data un-usable.')
+
+		##
 		## Iterate over top 3 aligned references in this assembly
 		## Fetch the reads aligned to the current reference
 		for investigation in self.assembly_targets:
@@ -208,9 +219,6 @@ class ScanAtypical:
 			typical_count = 0; atypical_count = 0; intervening_population = []; fp_flanks = []; tp_flanks = []
 			ref_cag = []; ref_ccg = []; ref_cct = []
 
-			if investigation[1] < 100:
-				self.sequencepair_object.set_fatalreadallele(True)
-				raise Exception('<100 aligned reads. Data un-usable.')
 
 			##
 			## For every read in this reference, get the aligned sequence
@@ -561,7 +569,7 @@ class ScanAtypical:
 								secondary_allele = sorted_info[1][1]
 								secondary_allele['Reference'] = sorted_info[1][0]
 								break
-							elif 1.5 < differential < 5:
+							elif 1.5 < differential < 7.5:
 								secondary_allele = sorted_info[1][1]
 								secondary_allele['Reference'] = sorted_info[1][0]
 								break
@@ -571,11 +579,17 @@ class ScanAtypical:
 									secondary_allele['Reference'] = sorted_info[1][0]
 									break
 								else:
-									if differential > 5:
+									top1_top2_diff = primary_allele['TotalReads'] - sorted_info[1][1]['TotalReads']
+									top2_top3_diff = sorted_info[1][1]['TotalReads'] - sorted_info[2][1]['TotalReads']
+									if top2_top3_diff > top1_top2_diff:
+										secondary_allele = sorted_info[1][1]
+										secondary_allele['Reference'] = sorted_info[1][0]
+										break
+									else:
 										self.sequencepair_object.set_differential_confusion(True)
-									secondary_allele = sorted_info[2][1]
-									secondary_allele['Reference'] = sorted_info[2][0]
-									break
+										secondary_allele = sorted_info[2][1]
+										secondary_allele['Reference'] = sorted_info[2][0]
+										break
 					elif top2_top3_dist >= 2:
 						if not top1_top3_dist == 1:
 							secondary_allele = sorted_info[2][1]
@@ -648,7 +662,6 @@ class ScanAtypical:
 			if temp_curr[0] == temp_curr[1]:
 				if self.sequencepair_object.get_atypical_ccgrewrite():
 					self.sequencepair_object.set_atypical_zygrewrite(True)
-
 
 		return primary_allele, secondary_allele, atypical_count
 
