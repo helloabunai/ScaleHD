@@ -117,7 +117,6 @@ class ScanAtypical:
 		elif 10000 > awk_output > 5000: subsample_float = 0.225
 		else: subsample_float = 0.500
 		self.sequencepair_object.set_subsampled_fqcount(awk_output)
-
 		##
 		## Subsample reads
 		## Index the subsampled assembly

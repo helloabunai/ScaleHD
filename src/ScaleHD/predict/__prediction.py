@@ -574,6 +574,7 @@ class AlleleGenotyping:
 						if i != allele.get_cag() - 1:
 							removal = (target_distro[i] / 100) * 85
 							target_distro[i] -= removal
+				allele.set_totalreads(sum(target_distro))
 				allele.set_cagthreshold(0.50)
 				fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, 1, 'CAGHet')
 				while fod_failstate:
@@ -618,11 +619,14 @@ class AlleleGenotyping:
 
 			##
 			## Process each allele, getting the specific CCG distribution
+			## Re-set read count for the allele, due to subsampling
 			for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
 
+				allele.set_totalreads(sum(target_distro))
 				allele.set_cagthreshold(0.50)
+
 				fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, distance_threshold, 'CAGHom', est_dist=estimated_distance)
 				while fod_failstate:
 					fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, distance_threshold, 'CAGHom', est_dist=estimated_distance, fod_recall=True)
@@ -1324,7 +1328,6 @@ class AlleleGenotyping:
 				##
 				## Peak Interpolation
 				if allele.get_interpolation_warning():
-					allele_confidence -= 5; penfi.write('{}, {}\n'.format('Peak Interpolation warning','-5'))
 					if 2.00 > allele.get_interpdistance() > 0.00:
 						allele_confidence -= 10; penfi.write('{}, {}\n'.format('Peak Interpolation distance','-10'))
 
@@ -1381,9 +1384,15 @@ class AlleleGenotyping:
 					if 5000 <= self.sequencepair_object.get_totalseqreads() <= 10000: subsample_penalty = [0.75,0.85,0.95]
 					if self.sequencepair_object.get_totalseqreads() > 10000: subsample_penalty = [1.0,1.0,1.0]
 
-					if 0.1 <= self.sequencepair_object.get_subsampleflag() <= 0.3: utilised_subsample_penalty = subsample_penalty[0]
-					if 0.3 <= self.sequencepair_object.get_subsampleflag() <= 0.6: utilised_subsample_penalty = subsample_penalty[1]
-					if 0.6 <= self.sequencepair_object.get_subsampleflag() <= 0.9: utilised_subsample_penalty = subsample_penalty[2]
+					if 0.1 <= self.sequencepair_object.get_subsampleflag() <= 0.3:
+						utilised_subsample_penalty = subsample_penalty[0]
+					elif 0.3 <= self.sequencepair_object.get_subsampleflag() <= 0.6:
+						utilised_subsample_penalty = subsample_penalty[1]
+					elif 0.6 <= self.sequencepair_object.get_subsampleflag() <= 0.9:
+						utilised_subsample_penalty = subsample_penalty[2]
+					else:
+						utilised_subsample_penalty = 1
+
 
 					allele_read_ratio = allele.get_totalreads() / self.sequencepair_object.get_totalseqreads()
 					if np.isclose([allele_read_ratio],[0.05],atol=0.05): context_penalty = 30
@@ -1393,13 +1402,15 @@ class AlleleGenotyping:
 					if np.isclose([allele_read_ratio],[0.45],atol=0.05): context_penalty = 10
 					if np.isclose([allele_read_ratio],[0.55],atol=0.05): context_penalty = 5
 
+
 					##
 					## Due to the nature of neighbour/homozygous peaks, don't cound surrounding reads...
 					if self.sequencepair_object.get_neighbouringpeaks() or self.sequencepair_object.get_homozygoushaplotype():
-						context_penalty = 0
+						pass
+					else:
+						allele_confidence = allele_confidence * utilised_subsample_penalty
+						allele_confidence -= context_penalty
 
-					allele_confidence = allele_confidence * utilised_subsample_penalty
-					allele_confidence -= context_penalty
 					penfi.write('{}, *{}\n'.format('Subsample demultiplier', utilised_subsample_penalty))
 					penfi.write('{}, -{}\n'.format('Read Ratio Context', context_penalty))
 
@@ -1529,15 +1540,11 @@ class SNPCalling:
 												  'OUTPUT={}'.format(dict_path)],
 												 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			picard_log = picard_subprocess.communicate(); picard_subprocess.wait()
-			#print '>> picard log: ', picard_log
-
 			## utilised HaplotypeCaller in GATK to determine variants
 			desired_output = os.path.join(predpath, '{}_variants.vcf'.format(header))
 			gatk_subprocess = subprocess.Popen(['gatk', '-R', fw_idx, '-T', 'HaplotypeCaller', '-I', fw_assembly
 												, '-o', desired_output], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			gatk_log = gatk_subprocess.communicate(); gatk_subprocess.wait()
-			#print '>> gatk log: ', gatk_log
-
 	def set_report(self, input_report):
 		self.snp_report = input_report
 	def get_report(self):
