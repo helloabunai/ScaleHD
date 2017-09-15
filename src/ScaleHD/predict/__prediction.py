@@ -735,7 +735,7 @@ class AlleleGenotyping:
 				pass_vld = ensure_integrity()
 				return pass_vld
 			elif np.isclose([pcnt], [0.25], atol=0.05):
-				if 0.0 < pcnt <= 0.25:
+				if 0.0 < pcnt <= 0.30:
 					self.sequencepair_object.set_neighbouringpeaks(True)
 					pass_vld = ensure_integrity()
 					return pass_vld
@@ -1392,6 +1392,11 @@ class AlleleGenotyping:
 					if np.isclose([allele_read_ratio],[0.35],atol=0.05): context_penalty = 15
 					if np.isclose([allele_read_ratio],[0.45],atol=0.05): context_penalty = 10
 					if np.isclose([allele_read_ratio],[0.55],atol=0.05): context_penalty = 5
+
+					##
+					## Due to the nature of neighbour/homozygous peaks, don't cound surrounding reads...
+					if self.sequencepair_object.get_neighbouringpeaks() or self.sequencepair_object.get_homozygoushaplotype():
+						context_penalty = 0
 
 					allele_confidence = allele_confidence * utilised_subsample_penalty
 					allele_confidence -= context_penalty

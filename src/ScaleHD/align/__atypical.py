@@ -206,8 +206,11 @@ class ScanAtypical:
 			self.sequencepair_object.set_fatalreadallele(True)
 			raise Exception('<100 aligned reads in Allele #2. Data un-usable.')
 		if self.assembly_targets[2][1] < 50:
-			self.sequencepair_object.set_fatalreadallele(True)
-			raise Exception('<50 aligned reads in Allele #3. Data un-usable.')
+			if np.isclose([self.assembly_targets[2][1]],[50],atol=5):
+				pass
+			else:
+				self.sequencepair_object.set_fatalreadallele(True)
+				raise Exception('<50 aligned reads in Allele #3. Data un-usable.')
 
 		##
 		## Iterate over top 3 aligned references in this assembly
