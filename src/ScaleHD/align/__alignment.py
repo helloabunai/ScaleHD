@@ -142,9 +142,9 @@ class SeqAlign:
 
 		self.subsample_flag = 1.0
 		if not self.broad_flag:
-			if awk_output > 100000: self.subsample_flag = 0.15
-			elif 100000 > awk_output > 50000: self.subsample_flag = 0.4
-			elif 50000 > awk_output > 25000: self.subsample_flag = 0.6
+			if awk_output > 100000: self.subsample_flag = 0.25
+			elif 100000 > awk_output > 50000: self.subsample_flag = 0.6
+			elif 50000 > awk_output > 25000: self.subsample_flag = 0.7
 
 		forward_reads = self.subsample_input(self.sequencepair_object.get_fwreads(), 'R1')
 		reverse_reads = self.subsample_input(self.sequencepair_object.get_rvreads(), 'R2')
