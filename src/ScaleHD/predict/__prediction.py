@@ -316,7 +316,7 @@ class AlleleGenotyping:
 
 			##
 			## Distribution ead count / Peak read count
-			if allele_object.get_totalreads() < 1000:
+			if allele_object.get_totalreads() < 750:
 				allele_object.set_distribution_readcount_warning(True)
 				self.sequencepair_object.set_distribution_readcount_warning(True)
 
@@ -435,9 +435,12 @@ class AlleleGenotyping:
 						additional_context = 5
 				## the percentage we should remove errorneous reads by
 				## should differ based on the context of n's read count
-				if 0 < self.reverse_aggregate[allele_object.get_ccg()-1] <= 6000: removal_context = 85
-				elif 6000 <= self.reverse_aggregate[allele_object.get_ccg()-1] <= 12000: removal_context = 75
-				else: removal_context = 65
+				if 0 < self.reverse_aggregate[allele_object.get_ccg()-1] <= 6000:
+					removal_context = 65
+				elif 6000 <= self.reverse_aggregate[allele_object.get_ccg()-1] <= 12000:
+					removal_context = 75
+				else:
+					removal_context = 85
 
 				## actual cleanup stage
 				for i in range(0, len(self.reverse_aggregate)):
