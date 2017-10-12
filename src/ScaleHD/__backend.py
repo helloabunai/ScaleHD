@@ -516,15 +516,8 @@ def initialise_libraries(instance_params):
 
 	##
 	## Subfunction for recycling code
-	## Calls UNIX which for checking binaries present
-	def which_func(library):
-		library_subprocess = subprocess.Popen(['which', library], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		library_directory = library_subprocess.communicate()
-		library_subprocess.wait()
-		if not library in library_directory[0]:
-			log.critical('{}{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Missing library: ', library, '. Not installed or not on $PATH'))
-			raise ScaleHDException
-
+	## Calls UNIX type for checking binaries present
+	## Changed from WHICH as apparently type functions over different shells/config files
 	def type_func(alias):
 		alias_subprocess = subprocess.Popen(['type', alias], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		alias_result = alias_subprocess.communicate()
@@ -549,27 +542,27 @@ def initialise_libraries(instance_params):
 		snp_calling = instance_params['snp_calling']
 
 	if quality_control == 'True':
-		try:which_func('java')
+		try:type_func('java')
 		except ScaleHDException: trigger=True
-		try:which_func('fastqc')
+		try:type_func('fastqc')
 		except ScaleHDException: trigger=True
-		try:which_func('cutadapt')
+		try:type_func('cutadapt')
 		except ScaleHDException: trigger=True
 	if alignment == 'True':
-		try:which_func('seqtk')
+		try:type_func('seqtk')
 		except ScaleHDException: trigger=True
-		try:which_func('bwa')
+		try:type_func('bwa')
 		except ScaleHDException: trigger=True
-		try:which_func('samtools')
+		try:type_func('samtools')
 		except ScaleHDException: trigger=True
-		try:which_func('generatr')
+		try:type_func('generatr')
 		except ScaleHDException: trigger=True
 	if genotyping == 'True':
-		try:which_func('samtools')
+		try:type_func('samtools')
 		except ScaleHDException: trigger=True
-		try:which_func('generatr')
+		try:type_func('generatr')
 		except ScaleHDException: trigger=True
-		try: which_func('R')
+		try: type_func('R')
 		except ScaleHDException: trigger=True
 	if snp_calling == 'True':
 		try: type_func('picard')
@@ -620,7 +613,7 @@ def sanitise_outputs(jobname, output_argument):
 		if not os.path.exists(output_root):
 			log.info('{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Creating output root... '))
 			mkdir_p(output_root)
-		run_dir = output_root + 'ScaleHDRun_' + today
+		run_dir = os.path.join(output_root, 'ScaleHDRun_'+today)
 		log.info('{}{}{}{}'.format(Colour.bold, 'shd__ ', Colour.end, 'Creating instance run directory.. '))
 		mkdir_p(run_dir)
 
