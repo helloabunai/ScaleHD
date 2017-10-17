@@ -20,9 +20,6 @@ def purge_alignment_map(alignment_outdir, alignment_outfile):
 	purged_assembly = '{}{}'.format(alignment_outdir, '/assembly_unique.bam')
 	purged_file = open(purged_assembly, 'w')
 
-	if not os.path.exists('/Users/alastairm/Desktop/raw_output.sam'):
-		shutil.copyfile(alignment_outfile, '/Users/alastairm/Desktop/raw_output.sam')
-
 	## Readcount on pre-purged assembly (100% of aligned reads present)
 	prepurge_readcount = subprocess.Popen(['samtools', 'flagstat', alignment_outfile],
 							  stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
@@ -31,7 +28,6 @@ def purge_alignment_map(alignment_outdir, alignment_outfile):
 	prealn_count = premapped_pcnt[0].split(' +')[0]; pre_purge = (prealn_count, prealn_pcnt)
 
 	## purge for uniquely mapped reads
-	##TODO determine -q threshold for 505-707 fix
 	view_subprocess = subprocess.Popen(['samtools', 'view', '-q', '1', '-b', '-@', str(THREADS), alignment_outfile], stdout=purged_file)
 	view_subprocess.wait()
 	purged_file.close()

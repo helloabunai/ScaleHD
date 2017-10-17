@@ -276,13 +276,13 @@ class ScaleHD:
 				for allele in [current_seqpair.get_primaryallele(), current_seqpair.get_secondaryallele()]:
 					if allele.get_allelestatus() == 'Atypical':
 						if realign_flag == 'True':
-							#try:
-							self.sequence_realignment(current_seqpair, allele)
-							#except Exception, e:
-								# current_seqpair.set_exceptionraised('SeqRE-ALN')
-								# self.append_report(current_seqpair)
-								# log.info('{}{}{}{}{}: {}'.format(clr.red,'shd__ ',clr.end,'Realignment failure on ',seqpair_lbl,str(e)))
-								# continue
+							try:
+								self.sequence_realignment(current_seqpair, allele)
+							except Exception, e:
+								current_seqpair.set_exceptionraised('SeqRE-ALN')
+								self.append_report(current_seqpair)
+								log.info('{}{}{}{}{}: {}'.format(clr.red,'shd__ ',clr.end,'Realignment failure on ',seqpair_lbl,str(e)))
+								continue
 						else:
 							log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Atypical realignment not selected. Brute-force genotyping on inaccurate data.'))
 							invalid_data = True
