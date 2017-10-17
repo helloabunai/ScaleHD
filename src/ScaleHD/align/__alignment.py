@@ -20,6 +20,9 @@ def purge_alignment_map(alignment_outdir, alignment_outfile):
 	purged_assembly = '{}{}'.format(alignment_outdir, '/assembly_unique.bam')
 	purged_file = open(purged_assembly, 'w')
 
+	if not os.path.exists('/Users/alastairm/Desktop/raw_output.sam'):
+		shutil.copyfile(alignment_outfile, '/Users/alastairm/Desktop/raw_output.sam')
+
 	## Readcount on pre-purged assembly (100% of aligned reads present)
 	prepurge_readcount = subprocess.Popen(['samtools', 'flagstat', alignment_outfile],
 							  stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
@@ -28,7 +31,8 @@ def purge_alignment_map(alignment_outdir, alignment_outfile):
 	prealn_count = premapped_pcnt[0].split(' +')[0]; pre_purge = (prealn_count, prealn_pcnt)
 
 	## purge for uniquely mapped reads
-	view_subprocess = subprocess.Popen(['samtools', 'view', '-q', '5', '-b', '-@', str(THREADS), alignment_outfile], stdout=purged_file)
+	##TODO determine -q threshold for 505-707 fix
+	view_subprocess = subprocess.Popen(['samtools', 'view', '-q', '1', '-b', '-@', str(THREADS), alignment_outfile], stdout=purged_file)
 	view_subprocess.wait()
 	purged_file.close()
 
@@ -117,7 +121,6 @@ class SeqAlign:
 			target_outfi = open(target_output, 'w')
 			seqtk_process = subprocess.Popen(['seqtk', 'sample', '-s100', target_file, str(self.subsample_flag)], stdout=target_outfi)
 			seqtk_process.wait(); target_outfi.close()
-			os.remove(target_file)
 			#self.sequencepair_object.set_avoidfurthersubsample(True) -- not required currently
 			return target_output
 		else:
@@ -129,8 +132,7 @@ class SeqAlign:
 		## Get forward/reverse references/indexes
 		forward_index = self.reference_indexes[0]
 		reverse_index = self.reference_indexes[1]
-		forward_reads = ''
-		reverse_reads = ''
+		forward_reads = ''; reverse_reads = ''
 
 		##
 		## Subsample check
@@ -146,8 +148,13 @@ class SeqAlign:
 			elif 100000 > awk_output > 50000: self.subsample_flag = 0.4
 			elif 50000 > awk_output > 25000: self.subsample_flag = 0.6
 
-		forward_reads = self.subsample_input(self.sequencepair_object.get_fwreads(), 'R1')
-		reverse_reads = self.subsample_input(self.sequencepair_object.get_rvreads(), 'R2')
+		if not self.broad_flag:
+			forward_reads = self.subsample_input(self.sequencepair_object.get_fwreads(), 'R1')
+			reverse_reads = self.subsample_input(self.sequencepair_object.get_rvreads(), 'R2')
+		else:
+			forward_reads = self.sequencepair_object.get_fwreads()
+			reverse_reads = self.sequencepair_object.get_rvreads()
+
 		self.sequencepair_object.set_fwreads(forward_reads)
 		self.sequencepair_object.set_rvreads(reverse_reads)
 
@@ -207,6 +214,15 @@ class SeqAlign:
 			self.individual_allele.set_fwalncount(fwmapped_count)
 			self.individual_allele.set_rvalncount(rvmapped_count)
 
+		##
+		## Remove subsampled FQ files..
+		if not self.broad_flag:
+			if not self.individual_allele:
+				pass
+			else:
+				os.remove(forward_reads)
+				os.remove(reverse_reads)
+
 	def execute_alignment(self, reference_index, target_fqfile, feedback_string, io_index, typical_flag):
 
 		##
@@ -264,6 +280,7 @@ class SeqAlign:
 										'-E', gap_extend_penalty, '-L', prime_clipping_penalty,
 										'-U', unpaired_pairing_penalty, '-R', read_group_header, reference_index, target_fqfile],
 									    stdout=aln_outfi, stderr=subprocess.PIPE)
+
 		bwa_error = bwa_process.communicate()[1]
 		if 'illegal' in bwa_error: raise Exception('Illegal BWA behaviour: {}'.format(bwa_error))
 		bwa_process.wait()

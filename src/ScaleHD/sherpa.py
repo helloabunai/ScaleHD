@@ -276,13 +276,13 @@ class ScaleHD:
 				for allele in [current_seqpair.get_primaryallele(), current_seqpair.get_secondaryallele()]:
 					if allele.get_allelestatus() == 'Atypical':
 						if realign_flag == 'True':
-							try:
-								self.sequence_realignment(current_seqpair, allele)
-							except Exception, e:
-								current_seqpair.set_exceptionraised('SeqRE-ALN')
-								self.append_report(current_seqpair)
-								log.info('{}{}{}{}{}: {}'.format(clr.red,'shd__ ',clr.end,'Realignment failure on ',seqpair_lbl,str(e)))
-								continue
+							#try:
+							self.sequence_realignment(current_seqpair, allele)
+							#except Exception, e:
+								# current_seqpair.set_exceptionraised('SeqRE-ALN')
+								# self.append_report(current_seqpair)
+								# log.info('{}{}{}{}{}: {}'.format(clr.red,'shd__ ',clr.end,'Realignment failure on ',seqpair_lbl,str(e)))
+								# continue
 						else:
 							log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Atypical realignment not selected. Brute-force genotyping on inaccurate data.'))
 							invalid_data = True
@@ -299,9 +299,10 @@ class ScaleHD:
 						allele.set_rvdist(current_seqpair.get_rvdist())
 						allele.set_rvassembly(current_seqpair.get_rvassembly())
 
-				## tidy up seq files
-				for seqfi in [current_seqpair.get_fwreads(), current_seqpair.get_rvreads()]:
-					os.remove(seqfi)
+				## tidy up seq files (only if trimming was carried out, otherwise it deletes raw input)
+				if not self.instance_params.config_dict['instance_flags']['@quality_control']:
+					for seqfi in [current_seqpair.get_fwreads(), current_seqpair.get_rvreads()]:
+						os.remove(seqfi)
 				#####################################################
 				## Stage five!! Genotype distributions/SNP Calling ##
 				#####################################################
