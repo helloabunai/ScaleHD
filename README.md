@@ -47,7 +47,7 @@ If you do not have sudo access (to install requisite packages), you should run S
     $ make install
     ~~~~
 
-0. (Optional 2 - no sudo) Bash profile edit.. in your ~/.bash_profile file
+0. (Optional 2 - no sudo) Bash profile edit.. in your ~/.bash_profile file (or custom shell rc file)
     ~~~~
     $ export PATH=/your/custom/installation/path/bin:$PATH
     $ export LD_LIBRARY_PATH=/your/custom/installation/path/lib:$LD_LIBRARY_PATH
