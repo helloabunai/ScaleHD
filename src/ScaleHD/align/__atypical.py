@@ -14,8 +14,6 @@ from collections import Counter
 from ..__backend import Colour as clr
 from ..__allelecontainer import IndividualAllele
 
-import shutil
-
 class ScanAtypical:
 	def __init__(self, sequencepair_object, instance_params):
 		"""

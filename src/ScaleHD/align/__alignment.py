@@ -210,15 +210,6 @@ class SeqAlign:
 			self.individual_allele.set_fwalncount(fwmapped_count)
 			self.individual_allele.set_rvalncount(rvmapped_count)
 
-		##
-		## Remove subsampled FQ files..
-		if not self.broad_flag:
-			if not self.individual_allele:
-				pass
-			else:
-				os.remove(forward_reads)
-				os.remove(reverse_reads)
-
 	def execute_alignment(self, reference_index, target_fqfile, feedback_string, io_index, typical_flag):
 
 		##

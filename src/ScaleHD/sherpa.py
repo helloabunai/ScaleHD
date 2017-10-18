@@ -300,9 +300,13 @@ class ScaleHD:
 						allele.set_rvassembly(current_seqpair.get_rvassembly())
 
 				## tidy up seq files (only if trimming was carried out, otherwise it deletes raw input)
-				if not self.instance_params.config_dict['instance_flags']['@quality_control']:
+				if self.instance_params.config_dict['instance_flags']['@quality_control']:
 					for seqfi in [current_seqpair.get_fwreads(), current_seqpair.get_rvreads()]:
-						os.remove(seqfi)
+						if '_SUB_R' in seqfi:
+							try:
+								os.remove(seqfi)
+							except OSError:
+								pass
 				#####################################################
 				## Stage five!! Genotype distributions/SNP Calling ##
 				#####################################################
