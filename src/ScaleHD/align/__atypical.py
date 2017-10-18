@@ -546,6 +546,15 @@ class ScanAtypical:
 									else:
 										secondary_allele = primary_allele.copy()
 										break
+								elif np.isclose([sub_drop],[0.05],atol=0.03):
+									if top2_ccg == top3_ccg:
+										if np.isclose([top2_cag],[top3_cag], atol=2):
+											secondary_allele = sorted_info[1][1]
+											secondary_allele['Reference'] = sorted_info[1][0]
+											break
+									else:
+										secondary_allele = primary_allele.copy()
+										break
 								else:
 									secondary_allele = primary_allele.copy()
 									break
