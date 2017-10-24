@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.250
+__version__ = 0.251
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
