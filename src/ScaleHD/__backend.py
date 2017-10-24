@@ -440,7 +440,7 @@ def extract_data(input_data_directory):
 
 	return True
 
-def sequence_pairings(data_path, instance_rundir, workflow_type):
+def sequence_pairings(data_path, instance_rundir):
 
 	##
 	## Get input files from data path
@@ -475,18 +475,16 @@ def sequence_pairings(data_path, instance_rundir, workflow_type):
 			log.error('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'I/O: Reverse input file does not end in _R2. ', reverse_data))
 			sys.exit(2)
 
-		if workflow_type == 'sequence':
-
-			##
-			## Make Stage outputs for use in everywhere else in pipeline
-			sample_root = '_'.join(forward_data_name.split('_')[:-1])
-			instance_path = os.path.join(instance_rundir, 'SequenceMaps')
-			seq_qc_path = os.path.join(instance_rundir, sample_root, 'SeqQC')
-			align_path = os.path.join(instance_rundir, sample_root, 'Align')
-			predict_path = os.path.join(instance_rundir, sample_root, 'Predict')
-			bayes_path = os.path.join(instance_rundir, sample_root, 'Bayes')
-			file_pair[sample_root] = [forward_data, reverse_data, instance_path, seq_qc_path, align_path, predict_path, bayes_path]
-			sequence_pairs.append(file_pair)
+		##
+		## Make Stage outputs for use in everywhere else in pipeline
+		sample_root = '_'.join(forward_data_name.split('_')[:-1])
+		instance_path = os.path.join(instance_rundir)
+		seq_qc_path = os.path.join(instance_rundir, sample_root, 'SeqQC')
+		align_path = os.path.join(instance_rundir, sample_root, 'Align')
+		predict_path = os.path.join(instance_rundir, sample_root, 'Predict')
+		bayes_path = os.path.join(instance_rundir, sample_root, 'Bayes')
+		file_pair[sample_root] = [forward_data, reverse_data, instance_path, seq_qc_path, align_path, predict_path, bayes_path]
+		sequence_pairs.append(file_pair)
 
 	return sequence_pairs
 
