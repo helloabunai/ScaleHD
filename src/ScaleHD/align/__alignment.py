@@ -270,6 +270,7 @@ class SeqAlign:
 
 		bwa_error = bwa_process.communicate()[1]
 		if 'illegal' in bwa_error: raise Exception('Illegal BWA behaviour: {}'.format(bwa_error))
+		if '[E::' in bwa_error: raise Exception('Illegal BWA behaviour: {}'.format(bwa_error))
 		bwa_process.wait()
 		aln_outfi.close()
 
