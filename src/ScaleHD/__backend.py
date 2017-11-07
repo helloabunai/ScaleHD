@@ -519,10 +519,12 @@ def initialise_libraries(instance_params):
 	def type_func(alias):
 		alias_subprocess = subprocess.Popen(['type', alias], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		alias_result = alias_subprocess.communicate()
+		print '>> ', alias, ' - ', alias_result
 		alias_subprocess.wait()
-		if 'not found' in alias_result[0]:
-			log.critical('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Missing alias: ', alias, '. Not aliased in .bash_profile!'))
-			raise ScaleHDException
+		if alias_result[0] == '':
+			if 'not found' in alias_result[1]:
+				log.critical('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Missing alias: ', alias, '. Not aliased in .bash_profile!'))
+				raise ScaleHDException
 
 	##
 	## To determine which binaries to check for
