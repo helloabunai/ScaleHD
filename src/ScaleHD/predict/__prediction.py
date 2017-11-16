@@ -13,6 +13,7 @@ import warnings
 import peakutils
 import matplotlib
 import subprocess
+import collections
 import numpy as np
 import logging as log
 matplotlib.use('Agg')
@@ -212,7 +213,7 @@ class AlleleGenotyping:
 		"""
 
 		cag_split = [input_distribution[i:i + 200] for i in xrange(0, len(input_distribution), 200)]
-		distribution_dict = {}
+		distribution_dict = collections.OrderedDict()
 		for i in range(0, len(cag_split)):
 			distribution_dict['CCG' + str(i + 1)] = cag_split[i]
 
@@ -385,14 +386,61 @@ class AlleleGenotyping:
 								allele_object.set_ccgval(int(fod_peak))
 
 			##
+			## Clean up distribution for erroneous peaks
+			## In the case of atypical alleles, unexpected peaks may exist in aggregates
+			if self.zygosity_state == 'HOMO' or self.zygosity_state == 'HOMO*' or self.zygosity_state == 'HOMO+':
+				for i in range(0, len(self.reverse_aggregate)):
+					if np.isclose([i], [allele_object.get_ccg() - 1], atol=3):
+						if np.isclose([self.reverse_aggregate[i]], [self.reverse_aggregate[allele_object.get_ccg() - 1]],
+									  atol=((self.reverse_aggregate[allele_object.get_ccg() - 1])/100) * 45):
+							removal = (self.reverse_aggregate[i]/100) * 77.5
+							if i != allele_object.get_ccg()-1:
+								self.reverse_aggregate[i] -= removal
+			else:
+				## if the current allele is top2, check difference between top1/top2
+				## if the difference is large, we need to further smooth the distribution for this allele
+				top1 = max(self.reverse_aggregate); top1idx = list(self.reverse_aggregate).index(top1)
+				top2 = max([x for x in self.reverse_aggregate if x != top1])
+				additional_context = 0
+
+				if top2 == self.reverse_aggregate[allele_object.get_ccg()-1]:
+					differential = (top2/top1)*100
+					if 0 < differential < 50:
+						purge = (self.reverse_aggregate[top1idx]/100)*95
+						self.reverse_aggregate[top1idx] -= purge
+					else:
+						additional_context = 5
+				## the percentage we should remove errorneous reads by
+				## should differ based on the context of n's read count
+				if 0 < self.reverse_aggregate[allele_object.get_ccg()-1] <= 6000:
+					removal_context = 75
+				elif 6000 <= self.reverse_aggregate[allele_object.get_ccg()-1] <= 12000:
+					removal_context = 85
+				else:
+					removal_context = 95
+
+				## actual cleanup stage
+				for i in range(0, len(self.reverse_aggregate)):
+					if i != allele_object.get_ccg()-1:
+						removal = (self.reverse_aggregate[i]/100) * removal_context+additional_context
+						self.reverse_aggregate[i] -= removal
+						if self.reverse_aggregate[i] < 0: self.reverse_aggregate[i] = 0
+
+
+			##
 			## Check SVM didn't fail...
-			if 1 < abs(majidx-minidx) < 10:
+			## (refresh variables for specific distribution)
+			indv_major = max(self.reverse_aggregate)
+			indv_minor = max(n for n in self.reverse_aggregate if n != major)
+			indv_majidx = int(np.where(self.reverse_aggregate == indv_major)[0][0])
+			indv_minidx = int(np.where(self.reverse_aggregate == indv_minor)[0][0])
+			if 1 < abs(indv_majidx-indv_minidx) < 10:
 				peak_count = 0
 				if abs_ratio < 0.05:
 					pass
 				## otherwise, perhaps SVM was wrong and missed a peak
 				else:
-					for peak in [majidx, minidx]:
+					for peak in [indv_majidx, indv_minidx]:
 						pmo = self.reverse_aggregate[peak-1]; ppo = self.reverse_aggregate[peak+1]
 						pmo_ratio = pmo/self.reverse_aggregate[peak]
 						ppo_ratio = ppo/self.reverse_aggregate[peak]
@@ -409,46 +457,7 @@ class AlleleGenotyping:
 							self.zygosity_state = 'HETERO'
 							self.sequencepair_object.set_svm_failure(True)
 
-			##
-			## Clean up distribution for erroneous peaks
-			## In the case of atypical alleles, unexpected peaks may exist in aggregates
-			if self.zygosity_state == 'HOMO' or self.zygosity_state == 'HOMO*' or self.zygosity_state == 'HOMO+':
-				for i in range(0, len(self.reverse_aggregate)):
-					if np.isclose([i], [allele_object.get_ccg() - 1], atol=2):
-						if np.isclose([self.reverse_aggregate[i]], [self.reverse_aggregate[allele_object.get_ccg() - 1]],
-									  atol=((self.reverse_aggregate[allele_object.get_ccg() - 1])/100) * 45):
-							removal = (self.reverse_aggregate[i]/100) * 57.5
-							if i != allele_object.get_ccg()-1:
-								self.reverse_aggregate[i] -= removal
-			else:
-				## if the current allele is top2, check difference between top1/top2
-				## if the difference is large, we need to further smooth the distribution for this allele
-				top1 = max(self.reverse_aggregate); top1idx = list(self.reverse_aggregate).index(top1)
-				top2 = max([x for x in self.reverse_aggregate if x != top1])
-				additional_context = 0
-				if top2 == self.reverse_aggregate[allele_object.get_ccg()-1]:
-					differential = (top2/top1)*100
-					if 0 < differential < 50:
-						purge = (self.reverse_aggregate[top1idx]/100)*95
-						self.reverse_aggregate[top1idx] -= purge
-					else:
-						additional_context = 5
-				## the percentage we should remove errorneous reads by
-				## should differ based on the context of n's read count
-				if 0 < self.reverse_aggregate[allele_object.get_ccg()-1] <= 6000:
-					removal_context = 65
-				elif 6000 <= self.reverse_aggregate[allele_object.get_ccg()-1] <= 12000:
-					removal_context = 75
-				else:
-					removal_context = 85
-
-				## actual cleanup stage
-				for i in range(0, len(self.reverse_aggregate)):
-					if i != allele_object.get_ccg()-1:
-						removal = (self.reverse_aggregate[i]/100) * removal_context+additional_context
-						self.reverse_aggregate[i] -= removal
-						if self.reverse_aggregate[i] < 0: self.reverse_aggregate[i] = 0
-
+			## set distribution
 			allele_object.set_rvarray(self.reverse_aggregate)
 
 			#################################
@@ -565,6 +574,21 @@ class AlleleGenotyping:
 			if self.zygosity_state == 'HOMO*':
 				pass
 
+		##
+		## If we have an atypical allele in this sample, the remaining typical allele distribution may be skewed
+		## e.g. something aligning to CAG_1_1_7_2 would have aligned to CAG_1_0_9_2
+		## where a typical distribution would originally be CCG homozygous, the CAG_1_0_9_2 reads are still
+		## assigned within the typical distribution... clean these up so genotyping isn't misassociating data
+		if self.sequencepair_object.get_atypicalcount() == 1:
+			for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
+				if allele.get_allelestatus() == 'Typical':
+					distribution_split = self.split_cag_target(allele.get_fwarray())
+					target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
+					for i in range(0, len(target_distro)):
+						if i != allele.get_cag() - 1:
+							removal = (target_distro[i] / 100) * 85
+							target_distro[i] -= removal
+
 		##########################
 		## Heterozygous for CCG ##
 		##########################
@@ -572,6 +596,7 @@ class AlleleGenotyping:
 			for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
+
 				if self.zygosity_state == 'HOMO+':
 					for i in range(0, len(target_distro)):
 						if i != allele.get_cag() - 1:
@@ -583,7 +608,10 @@ class AlleleGenotyping:
 				while fod_failstate:
 					fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, 1, 'CAGHet', fod_recall=True)
 
-				allele.set_fodcag(cag_indexes)
+				if type(cag_indexes) == np.ndarray:
+					allele.set_fodcag(cag_indexes.flat[0])
+				else:
+					allele.set_fodcag(cag_indexes)
 
 		########################
 		## Homozygous for CCG ##
@@ -695,11 +723,17 @@ class AlleleGenotyping:
 		## Primary Allele
 		primary_dsp_ccg = primary_allele.get_ccg(); primary_fod_ccg = primary_allele.get_fodccg()
 		primary_dsp_cag = primary_allele.get_cag(); primary_fod_cag = primary_allele.get_fodcag()
+		primary_peakreads = (self.split_cag_target(primary_allele.get_fwarray())['CCG{}'.format(primary_dsp_ccg)])[
+			primary_dsp_cag-1]
+		primary_allele.set_peakreads(primary_peakreads)
 
 		##
 		## Secondary Allele
 		secondary_dsp_ccg = secondary_allele.get_ccg(); secondary_fod_ccg = secondary_allele.get_fodccg()
 		secondary_dsp_cag = secondary_allele.get_cag(); secondary_fod_cag = secondary_allele.get_fodcag()
+		secondary_peakreads = (self.split_cag_target(secondary_allele.get_fwarray())['CCG{}'.format(secondary_dsp_ccg)])[
+			secondary_dsp_cag - 1]
+		secondary_allele.set_peakreads(secondary_peakreads)
 
 		##
 		## Double check fod peaks
@@ -708,6 +742,11 @@ class AlleleGenotyping:
 			fod = input_list[0]
 			dsp = input_list[1]
 			allele = input_list[2]
+
+			if type(fod) is np.ndarray:
+				fod = input_list[0].tolist()
+			elif type(fod) is not list:
+				fod = [input_list[0]]
 
 			for i in range(0, len(fod)):
 				if np.isclose([fod[i]], [dsp], atol=1.0):
@@ -762,7 +801,26 @@ class AlleleGenotyping:
 					else:
 						allele.set_fatalalignmentwarning(False)
 						self.sequencepair_object.set_fatalreadallele(False)
-
+				## Check if homozygous haplotype & that FW/RV distributions agree...
+				if self.sequencepair_object.get_homozygoushaplotype():
+					np.set_printoptions(threshold=np.nan)
+					inferred_fwarray = []
+					## infer CCG from fw dist (sum x200)
+					for contig, distribution in distribution_split.iteritems():
+						inferred_fwarray.append(sum(distribution))
+					## get values for 'peaks'
+					inferred_fwarray = np.asarray(inferred_fwarray)
+					fwidx = int(np.where(inferred_fwarray == max(inferred_fwarray))[0][0])
+					rvidx = int(np.where(primary_allele.get_rvarray() == max(primary_allele.get_rvarray()))[0][0])
+					## compare against FOD
+					fwpeak = peakutils.indexes(inferred_fwarray, thres=0.15, min_dist=1)
+					rvpeak = peakutils.indexes(primary_allele.get_rvarray(), thres=0.15, min_dist=1)
+					## suspected peak match, inspect for further noise
+					if fwidx == rvidx:
+						if len(rvpeak) > len(fwpeak):
+							self.sequencepair_object.set_ccguncertainty(True)
+						if len(fwpeak) > len(rvpeak):
+							self.sequencepair_object.set_ccguncertainty(True)
 				return pass_vld
 
 		##
@@ -825,7 +883,6 @@ class AlleleGenotyping:
 			## Here we set the peak reads for this allele (i.e. number of reads aligned to N)
 			## In the case of WOEFUL atypical re-alignments, sometimes more than one 'peak' is found
 			## Hence we detect for that, raise an exception as this allele is un-genotype-able
-			allele.set_peakreads(target[allele.get_fodcag()-1])
 			try:
 				if allele.get_peakreads() < 250:
 					allele.set_fatalalignmentwarning(True)
@@ -1293,18 +1350,18 @@ class AlleleGenotyping:
 				if self.sequencepair_object.get_recallcount() == 7: allele_confidence -= 25; penfi.write('{}, {}\n'.format('Recall Count','-25'))
 				if 7 > self.sequencepair_object.get_recallcount() > 4: allele_confidence -= 15; penfi.write('{}, {}\n'.format('Recall Count','-15'))
 				if 4 > self.sequencepair_object.get_recallcount() > 0: allele_confidence -= 5; penfi.write('{}, {}\n'.format('Recall Count', '-5'))
-				else: allele_confidence += 10; penfi.write('{}, {}\n'.format('Recall Count', '+10'))
+				else: allele_confidence += 0; penfi.write('{}, {}\n'.format('Recall Count', '+0'))
 
 				if self.sequencepair_object.get_homozygoushaplotype():
 					allele_confidence -= 15; penfi.write('{}, {}\n'.format('Homozygous Haplotype','-15'))
 				elif self.sequencepair_object.get_neighbouringpeaks():
 					allele_confidence -= 25; penfi.write('{}, {}\n'.format('Neighbouring Peaks', '-25'))
-				else: allele_confidence += 15; penfi.write('{}, {}\n'.format('Normal Data','+15'))
+				else: allele_confidence += 0; penfi.write('{}, {}\n'.format('Normal Data','+0'))
 
 				if self.sequencepair_object.get_diminishedpeaks():
-					allele_confidence -= 15; penfi.write('{}, {}\n'.format('Diminished Peaks','-15'))
+					allele_confidence -= 10; penfi.write('{}, {}\n'.format('Diminished Peaks','-10'))
 				if allele.get_fodoverwrite():
-					allele_confidence -= 15; penfi.write('{}, {}\n'.format('Differential Overwrite','-15'))
+					allele_confidence -= 1; penfi.write('{}, {}\n'.format('Differential Overwrite','-1'))
 
 				##
 				## Allele based genotyping flags
@@ -1312,43 +1369,37 @@ class AlleleGenotyping:
 				if allele.get_allelestatus() == 'Atypical':
 					allele_confidence -= 5; penfi.write('{}, {}\n'.format('Atypical Allele','-5'))
 					if np.isclose([float(allele.get_atypicalpcnt())],[50.00],atol=5.00):
-						allele_confidence -= 20; penfi.write('{}, {}\n'.format('Atypical reads (50%)','-20'))
+						allele_confidence -= 30; penfi.write('{}, {}\n'.format('Atypical reads (50%)','-30'))
 					if np.isclose([float(allele.get_atypicalpcnt())],[80.00],atol=20.00):
 						allele_confidence += 15; penfi.write('{}, {}\n'.format('Atypical reads (80%>)','+15'))
 				if allele.get_allelestatus() == 'Typical':
-					allele_confidence += 5; penfi.write('{}, {}\n'.format('Typical Allele', '+5'))
+					allele_confidence += 1; penfi.write('{}, {}\n'.format('Typical Allele', '+1'))
 					if np.isclose([float(allele.get_typicalpcnt())],[50.00],atol=5.00):
-						allele_confidence -= 20; penfi.write('{}, {}\n'.format('Typical reads (50%)','-20'))
+						allele_confidence -= 30; penfi.write('{}, {}\n'.format('Typical reads (50%)','-30'))
 					if np.isclose([float(allele.get_typicalpcnt())],[80.00],atol=15.00):
-						allele_confidence += 15; penfi.write('{}, {}\n'.format('Typical reads (80%>)','+15'))
+						allele_confidence += 2; penfi.write('{}, {}\n'.format('Typical reads (80%>)','+2'))
 
 				##
 				## Total reads in sample..
-				if allele.get_totalreads() > 10000:	allele_confidence += 10; penfi.write('{}, {}\n'.format('High total read count', '+10'))
+				if allele.get_totalreads() > 10000:	allele_confidence += 5; penfi.write('{}, {}\n'.format('High total read count', '+5'))
 				elif allele.get_totalreads() < 1000: allele_confidence -= 15; penfi.write('{}, {}\n'.format('Low total read count', '-15'))
-				else: allele_confidence += 5; penfi.write('{}, {}\n'.format('Normal total read count','+5'))
-
-				##
-				## Peak Interpolation
-				if allele.get_interpolation_warning():
-					if 2.00 > allele.get_interpdistance() > 0.00:
-						allele_confidence -= 10; penfi.write('{}, {}\n'.format('Peak Interpolation distance','-10'))
+				else: allele_confidence += 1; penfi.write('{}, {}\n'.format('Normal total read count','+1'))
 
 				##
 				## Variance of distribution utilised
-				if allele.get_vicinityreads()*100 > 85.00: allele_confidence += 5; penfi.write('{}, {}\n'.format('Reads near peak','+5'))
+				if allele.get_vicinityreads()*100 > 85.00: allele_confidence += 1; penfi.write('{}, {}\n'.format('Reads near peak','+1'))
 				elif 84.99 > allele.get_vicinityreads()*100 > 65.00: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Reads near peak','-10'))
 				elif 64.99 > allele.get_vicinityreads()*100 > 45.00: allele_confidence -= 15; penfi.write('{}, {}\n'.format('Reads near peak','-15'))
 				elif 44.99 > allele.get_vicinityreads()*100 > 00.00: allele_confidence -= 20; penfi.write('{}, {}\n'.format('Reads near peak','-20'))
 
 				##
 				## Backwards slippage ratio ([N-2:N-1]/N]
-				if 0.00 < allele.get_backwardsslippage() < 0.10: allele_confidence += 10; penfi.write('{}, {}\n'.format('Backwards slippage','+10'))
-				elif 0.10 < allele.get_backwardsslippage() < 0.25: allele_confidence += 5; penfi.write('{}, {}\n'.format('Backwards slippage','+5'))
+				if 0.00 < allele.get_backwardsslippage() < 0.10: allele_confidence += 5; penfi.write('{}, {}\n'.format('Backwards slippage','+5'))
+				elif 0.10 < allele.get_backwardsslippage() < 0.25: allele_confidence += 1; penfi.write('{}, {}\n'.format('Backwards slippage','+1'))
 				elif allele.get_backwardsslippage() > 0.25: allele_confidence -= 1; penfi.write('{}, {}\n'.format('Backwards slippage','-1'))
-				elif allele.get_backwardsslippage() > 0.45: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Backwards slippage','-10'))
-				elif allele.get_backwardsslippage() > 0.65: allele_confidence -= 15; penfi.write('{}, {}\n'.format('Backwards slippage','-15'))
-				elif 0.65 < allele.get_backwardsslippage() < 1.00: allele_confidence -= 20; penfi.write('{}, {}\n'.format('Backwards slippage','-20'))
+				elif allele.get_backwardsslippage() > 0.45: allele_confidence -= 5; penfi.write('{}, {}\n'.format('Backwards slippage','-5'))
+				elif allele.get_backwardsslippage() > 0.65: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Backwards slippage','-10'))
+				elif 0.65 < allele.get_backwardsslippage() < 1.00: allele_confidence -= 25; penfi.write('{}, {}\n'.format('Backwards slippage','-25'))
 				if allele.get_slippageoverwrite(): allele_confidence -= 25; penfi.write('{}, {}\n'.format('Slippage overwrite','-25'))
 
 				##
@@ -1367,12 +1418,12 @@ class AlleleGenotyping:
 					if contig != 0.5:
 						if 0.5 > contig > 0.3: allele_confidence -= 5; penfi.write('{}, {}\n'.format('Peak calling threshold','-5'))
 						if 0.3 > contig > 0.0: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Peak calling threshold','-10'))
-					else: allele_confidence += 10; penfi.write('{}, {}\n'.format('Peak calling threshold','+10'))
+					else: allele_confidence += 1; penfi.write('{}, {}\n'.format('Peak calling threshold','+1'))
 
 				##
 				## Peak dropoff warnings
 				for peak_position_error in [allele.get_nminuswarninglevel(), allele.get_npluswarninglevel()]:
-					if peak_position_error == 0: allele_confidence += 10; penfi.write('{}, {}\n'.format('Surrounding read ratio','+10'))
+					if peak_position_error == 0: allele_confidence += 5; penfi.write('{}, {}\n'.format('Surrounding read ratio','+5'))
 					elif peak_position_error == 1: allele_confidence -= 5; penfi.write('{}, {}\n'.format('Surrounding read ratio', '-5'))
 					elif 2 >= peak_position_error > 1: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Surrounding read ratio','-10'))
 					elif peak_position_error >= 5: allele_confidence -= 25; penfi.write('{}, {}\n'.format('Surrounding read ratio','-25'))
@@ -1396,15 +1447,13 @@ class AlleleGenotyping:
 					else:
 						utilised_subsample_penalty = 1
 
-
 					allele_read_ratio = allele.get_totalreads() / self.sequencepair_object.get_totalseqreads()
-					if np.isclose([allele_read_ratio],[0.05],atol=0.05): context_penalty = 30
-					if np.isclose([allele_read_ratio],[0.15],atol=0.05): context_penalty = 25
-					if np.isclose([allele_read_ratio],[0.25],atol=0.05): context_penalty = 20
-					if np.isclose([allele_read_ratio],[0.35],atol=0.05): context_penalty = 15
-					if np.isclose([allele_read_ratio],[0.45],atol=0.05): context_penalty = 10
-					if np.isclose([allele_read_ratio],[0.55],atol=0.05): context_penalty = 5
-
+					if np.isclose([allele_read_ratio],[0.05],atol=0.05): context_penalty = 15
+					if np.isclose([allele_read_ratio],[0.15],atol=0.05): context_penalty = 10
+					if np.isclose([allele_read_ratio],[0.25],atol=0.05): context_penalty = 10
+					if np.isclose([allele_read_ratio],[0.35],atol=0.05): context_penalty = 5
+					if np.isclose([allele_read_ratio],[0.45],atol=0.05): context_penalty = 5
+					if np.isclose([allele_read_ratio],[0.55],atol=0.05): context_penalty = 1
 
 					##
 					## Due to the nature of neighbour/homozygous peaks, don't cound surrounding reads...
@@ -1420,17 +1469,17 @@ class AlleleGenotyping:
 				##
 				## Mapping percentage
 				for map_pcnt in [allele.get_fwalnpcnt(), allele.get_rvalnpcnt()]:
-					if map_pcnt > 90: allele_confidence += 25; penfi.write('{}, {}\n'.format('Mapping percentage', '+25'))
-					elif 85 < map_pcnt < 90: allele_confidence += 10; penfi.write('{}, {}\n'.format('Mapping percentage', '+10'))
-					else: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Mapping percentage', '-10'))
+					if map_pcnt > 90: allele_confidence += 2; penfi.write('{}, {}\n'.format('Mapping percentage', '+2'))
+					elif 85 < map_pcnt < 90: allele_confidence += 1; penfi.write('{}, {}\n'.format('Mapping percentage', '+1'))
+					else: allele_confidence -= 2; penfi.write('{}, {}\n'.format('Mapping percentage', '-2'))
 
 				##
 				## Warning penalty.. if triggered, no confidence
 				if self.warning_triggered: allele_confidence -= 20; penfi.write('{}, {}\n'.format('Peak Inspection warning triggered','-20'))
-				if self.sequencepair_object.get_ccguncertainty(): allele_confidence -= 10; penfi.write('{}, {}\n'.format('CCG Uncertainty','-10'))
+				if self.sequencepair_object.get_ccguncertainty(): allele_confidence -= 30; penfi.write('{}, {}\n'.format('CCG Uncertainty','-30'))
 				if self.sequencepair_object.get_alignmentwarning(): allele_confidence -= 15; penfi.write('{}, {}\n'.format('Low read count alignment warning','-15'))
 				if self.sequencepair_object.get_atypical_alignmentwarning(): allele_confidence -= 50; penfi.write('{}, {}\n'.format('Atypical re-alignment inaccurate','-50'))
-				if allele.get_fatalalignmentwarning(): allele_confidence -= 40; penfi.write('{}, {}\n'.format('Fatal low read count alignment warning','-40'))
+				if allele.get_fatalalignmentwarning(): allele_confidence -= 25; penfi.write('{}, {}\n'.format('Fatal low read count alignment warning','-25'))
 
 				##
 				## Differential Confusion

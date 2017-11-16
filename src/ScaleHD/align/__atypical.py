@@ -638,12 +638,12 @@ class ScanAtypical:
 				if sorted_info[1][1]['EstimatedCAG'] > 30:
 					secondary_allele = sorted_info[1][1]
 					secondary_allele['Reference'] = sorted_info[1][0]
-				if sorted_info[2][1]['EstimatedCAG'] > 30:
+				elif sorted_info[2][1]['EstimatedCAG'] > 30:
 					secondary_allele = sorted_info[2][1]
 					secondary_allele['Reference'] = sorted_info[2][0]
 				if alpha_drop >= 0.65 and beta_drop >= 0.80:
-					secondary_allele = primary_allele
-				if beta_drop >= 0.20:
+					secondary_allele = primary_allele.copy()
+				elif beta_drop >= 0.20:
 					secondary_allele = sorted_info[1][1]
 					secondary_allele['Reference'] = sorted_info[1][0]
 
