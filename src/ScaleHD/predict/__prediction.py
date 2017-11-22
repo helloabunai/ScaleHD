@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.251
+__version__ = 0.252
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -352,6 +352,7 @@ class AlleleGenotyping:
 					self.reverse_aggregate = self.distribution_collapse(self.reverse_distribution)
 			self.zygosity_state = self.predict_zygstate()
 
+
 			##
 			## Allele read peak (dsp error)
 			major = max(self.reverse_aggregate)
@@ -396,13 +397,16 @@ class AlleleGenotyping:
 							removal = (self.reverse_aggregate[i]/100) * 77.5
 							if i != allele_object.get_ccg()-1:
 								self.reverse_aggregate[i] -= removal
+						else:
+							removal = (self.reverse_aggregate[i] / 100) * 77.5
+							if i != allele_object.get_ccg() - 1:
+								self.reverse_aggregate[i] -= removal
 			else:
 				## if the current allele is top2, check difference between top1/top2
 				## if the difference is large, we need to further smooth the distribution for this allele
 				top1 = max(self.reverse_aggregate); top1idx = list(self.reverse_aggregate).index(top1)
 				top2 = max([x for x in self.reverse_aggregate if x != top1])
 				additional_context = 0
-
 				if top2 == self.reverse_aggregate[allele_object.get_ccg()-1]:
 					differential = (top2/top1)*100
 					if 0 < differential < 50:
@@ -513,7 +517,6 @@ class AlleleGenotyping:
 			fod_failstate, ccg_indexes = self.peak_detection(allele, allele.get_rvarray(), 1, 'CCG')
 			while fod_failstate:
 				fod_failstate, ccg_indexes = self.peak_detection(allele, allele.get_rvarray(), 1, 'CCG', fod_recall=True)
-
 			if len(ccg_indexes) == 0:
 				raise Exception('CCG Peak un-callable; cannot process.')
 			if allele.get_ccg() in ccg_indexes:
@@ -530,6 +533,7 @@ class AlleleGenotyping:
 			local_zygstate = 'HOMO'
 		if not ccg_values[0] == ccg_values[1]:
 			local_zygstate = 'HETERO'
+
 
 		##
 		## If the sample's total read count is so low that we cannot trust results
@@ -612,6 +616,7 @@ class AlleleGenotyping:
 					allele.set_fodcag(cag_indexes.flat[0])
 				else:
 					allele.set_fodcag(cag_indexes)
+
 
 		########################
 		## Homozygous for CCG ##
@@ -734,6 +739,7 @@ class AlleleGenotyping:
 		secondary_peakreads = (self.split_cag_target(secondary_allele.get_fwarray())['CCG{}'.format(secondary_dsp_ccg)])[
 			secondary_dsp_cag - 1]
 		secondary_allele.set_peakreads(secondary_peakreads)
+
 
 		##
 		## Double check fod peaks
