@@ -7,15 +7,20 @@ blah blah
 Version 2.5.2 at the mOmeNT
 
 The documentation for this software is organised into the relevant sections.
-* :ref:`noteworthy-features`
-* :ref:`prerequisites-and-assumptions`
-* :ref:`using-pipeline`
-* :ref:`understanding-output`
+
+ * :ref:`noteworthy-features`
+
+ * :ref:`prerequisites-and-assumptions`
+
+ * :ref:`using-pipeline`
+
+ * :ref:`understanding-output`
+
 
 If you want to contact me, I can be reached at alastair.maxwell@glasgow.ac.uk
 University of Glasgow
 CHDI
-haha?
+haha? aaaa
 
 .. _noteworthy-features:
 
