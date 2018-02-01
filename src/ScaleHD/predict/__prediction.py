@@ -47,6 +47,7 @@ class AlleleGenotyping:
 		## Constructs that will be updated with each allele process
 		self.classifier, self.encoder = self.build_zygosity_model()
 		self.allele_flags = {}; self.forward_distribution = None; self.reverse_distribution = None
+		self.primary_original = None; self.secondary_original = None
 		self.forward_aggregate = None; self.reverse_aggregate = None
 		self.expected_zygstate = None; self.zygosity_state = None
 		self.pass_vld = True; self.ccg_sum = []
@@ -579,6 +580,15 @@ class AlleleGenotyping:
 				pass
 
 		##
+		## Assign distro originals
+		primary_dist = self.sequencepair_object.get_primaryallele().get_fwarray().copy()
+		primary_split = self.split_cag_target(primary_dist)
+		self.primary_original = primary_split['CCG{}'.format(self.sequencepair_object.get_primaryallele().get_ccg())]
+		secondary_dist = self.sequencepair_object.get_secondaryallele().get_fwarray().copy()
+		secondary_split = self.split_cag_target(secondary_dist)
+		self.secondary_original = secondary_split['CCG{}'.format(self.sequencepair_object.get_secondaryallele().get_ccg())]
+
+		##
 		## If we have an atypical allele in this sample, the remaining typical allele distribution may be skewed
 		## e.g. something aligning to CAG_1_1_7_2 would have aligned to CAG_1_0_9_2
 		## where a typical distribution would originally be CCG homozygous, the CAG_1_0_9_2 reads are still
@@ -606,6 +616,7 @@ class AlleleGenotyping:
 						if i != allele.get_cag() - 1:
 							removal = (target_distro[i] / 100) * 85
 							target_distro[i] -= removal
+
 				allele.set_totalreads(sum(target_distro))
 				allele.set_cagthreshold(0.50)
 				fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, 1, 'CAGHet')
@@ -616,7 +627,6 @@ class AlleleGenotyping:
 					allele.set_fodcag(cag_indexes.flat[0])
 				else:
 					allele.set_fodcag(cag_indexes)
-
 
 		########################
 		## Homozygous for CCG ##
@@ -983,8 +993,11 @@ class AlleleGenotyping:
 			## Somatic mosaicism
 			## Gather from N+1:N+10, sum and ratio:N
 			npo = allele.get_cag(); npt = allele.get_cag()+10
-			somatic_ratio = (sum(target[npo:npt]))/target[allele.get_cag()-1]
+			if allele.get_header() == 'PRI': dist = self.primary_original
+			if allele.get_header() == 'SEC': dist = self.secondary_original
+			somatic_ratio = (sum(dist[npo:npt]))/dist[allele.get_cag()-1]
 			allele.set_somaticmosaicism(somatic_ratio)
+			print somatic_ratio
 
 			##
 			## If we get here; alleles are valid
@@ -1049,8 +1062,8 @@ class AlleleGenotyping:
 		## Pad it so that N (the determined genotype) is at the same index in the output file
 		## output the padded distribution and close the file
 		for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
-			distribution_split = self.split_cag_target(allele.get_fwarray())
-			target = distribution_split['CCG{}'.format(allele.get_ccg())]
+			if allele.get_header() == 'PRI': target = self.primary_original
+			if allele.get_header() == 'SEC': target = self.secondary_original
 			fix_target = ','.join(['%.5f' % num for num in target])
 
 			anchor = 203
@@ -1059,6 +1072,9 @@ class AlleleGenotyping:
 			left_buffer = '-,'*anchor_port
 			right_buffer = '-,'*(403-anchor_starboard)
 			padded_dist = left_buffer+fix_target+right_buffer[:-1]
+
+			###
+			### distribution fixed but csv writing incorrect list still
 			sample_output = '{},{},CCG{},{}\n'.format(self.sequencepair_object.get_label(), allele.get_header(),
 													  allele.get_ccg(), padded_dist)
 

@@ -231,6 +231,8 @@ class IndividualAllele:
 		self.reverse_distribution = []
 		self.forward_array = []
 		self.reverse_array = []
+		self.forward_array_original = []
+		self.reverse_array_original = []
 		self.ccg_peak_threshold = 0.0
 		self.cag_peak_threshold = 0.0
 
@@ -295,6 +297,8 @@ class IndividualAllele:
 	def set_rvdist(self, dist): self.reverse_distribution = dist
 	def set_fwarray(self, array): self.forward_array = array
 	def set_rvarray(self, array): self.reverse_array = array
+	def set_fwarray_orig(self, array): self.forward_array_original = array
+	def set_rvarray_orig(self, array): self.reverse_array_original = array
 	def set_ccgthreshold(self, threshold): self.ccg_peak_threshold = threshold
 	def set_cagthreshold(self, threshold): self.cag_peak_threshold = threshold
 
@@ -359,6 +363,8 @@ class IndividualAllele:
 	def get_rvdist(self): return self.reverse_distribution
 	def get_fwarray(self): return self.forward_array
 	def get_rvarray(self): return self.reverse_array
+	def get_fwarray_orig(self): return self.forward_array_original
+	def get_rvarray_orig(self): return self.reverse_array_original
 	def get_ccgthreshold(self): return self.ccg_peak_threshold
 	def get_cagthreshold(self): return self.cag_peak_threshold
 

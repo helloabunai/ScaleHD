@@ -485,6 +485,9 @@ class ScanAtypical:
 		sorted_info = sorted(self.atypical_info.iteritems(), key=lambda (x, y): y['TotalReads'], reverse=True)
 		if len(sorted_info) != 3: raise IndexError('< 3 references in sorted top; alignment failure?')
 
+		for item in sorted_info:
+			print item, '\n'
+
 		##
 		## Check % dropoff in read count between #2 and #3
 		alpha_diff = float(abs(sorted_info[0][1]['TotalReads'] - sorted_info[1][1]['TotalReads']))
@@ -666,6 +669,9 @@ class ScanAtypical:
 		for allele in [primary_allele, secondary_allele]:
 			orig_ccg = allele['OriginalReference'].split('_')[3]
 			curr_ccg = allele['EstimatedCCG']
+			## if original ref sect isn't string
+			if not type(orig_ccg) == int:
+				orig_ccg = int(filter(str.isdigit, orig_ccg))
 			temp_zyg.append(orig_ccg); temp_curr.append(curr_ccg)
 			if allele['Status'] == 'Atypical':
 				if int(orig_ccg) != int(curr_ccg):
