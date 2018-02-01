@@ -45,7 +45,7 @@ Development is undertaken at the University of Glasgow, Scotland, and is funded 
 
 .. toctree::
    :maxdepth: 2
-   :caption: Using the pipeline
+   :caption: Using the Pipeline
 
    ProvidingInput
    LiteralUsage
@@ -55,7 +55,7 @@ Development is undertaken at the University of Glasgow, Scotland, and is funded 
 
 .. toctree::
    :maxdepth: 2
-   :caption: Understanding Output
+   :caption: Understanding ScaleHD Output
 
    OutputHierarchy
    Definitions
