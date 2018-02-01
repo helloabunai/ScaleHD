@@ -1,46 +1,57 @@
-ScaleHD
-===================================
+ScaleHD - Automated Huntington Disease genotyping pipeline
+========================
+
+`ScaleHD`_ intro spiel
+The code is open source, and `available on GitHub`_.
+blah blah
+
+The documentation for this software is organised into the relevant sections.
+* :ref:`noteworthy-features`
+* :ref:`prerequisites-and-assumptions`
+* :ref:`using-pipeline`
+* :ref:`understanding-output`
+
+If you want to contact me, I can be reached at alastair.maxwell@glasgow.ac.uk
+University of Glasgow
+CHDI
+haha?
+
+.. _noteworthy-features:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Noteworthy Features
 
-Features
---------
+   Overview
+   SeqQC
+   Alignment
+   AutomatedGenotyping
 
-- Be awesome
-- Make things faster
-
-Installation
-------------
-
-Install $project by running:
-
-    install project
-
-Contribute
-----------
-
-- Issue Tracker: github.com/$project/$project/issues
-- Source Code: github.com/$project/$project
-
-Support
--------
-
-If you are having issues, please let us know.
-We have a mailing list located at: project@google-groups.com
-
-License
--------
-
-The project is licensed under the BSD license.
-
-
-Indices and tables
-==================
+.. _prerequisites-and-assumptions:
 
 .. toctree::
    :maxdepth: 2
-   :caption: test
+   :caption: Prerequisites and Assumptions
 
-   seq_qc
+   RequiredPackages
+   HardwareRequirements
+   DataAssumptions
+
+.. _using-pipeline:
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Using the pipeline
+
+   ProvidingInput
+   LiteralUsage
+   MonitoringPerformance
+
+.. _understanding-output:
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Understanding Output
+
+   OutputHierarchy
+   Definitions
