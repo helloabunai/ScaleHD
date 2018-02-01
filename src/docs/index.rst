@@ -39,7 +39,8 @@ The project is licensed under the BSD license.
 Indices and tables
 ==================
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-* :doc:`sect_seqqc`
+.. toctree::
+   :maxdepth: 2
+   :caption: test
+
+   sect_seqqc
