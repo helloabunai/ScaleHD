@@ -43,4 +43,4 @@ Indices and tables
    :maxdepth: 2
    :caption: test
 
-   sect_seqqc
+   seq_qc
