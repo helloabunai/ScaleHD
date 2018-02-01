@@ -18,7 +18,7 @@ The documentation for this software is organised into the relevant sections.
 
 If you want to contact me, I can be reached at alastair.maxwell@glasgow.ac.uk.
 
-Development is undertaken at the University of Glasgow, Scotland, and is funded by the Cure Huntington Disease Foundation (CHDI): www.chdifoundation.org
+Development is undertaken at the University of Glasgow, Scotland, and is funded by the Cure Huntington Disease Foundation (CHDI): http://www.chdifoundation.org/
 
 .. _noteworthy-features:
 

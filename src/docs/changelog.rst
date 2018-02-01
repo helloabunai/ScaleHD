@@ -1,4 +1,6 @@
-Changelog
+.. _sect_changelog:
+
+ChangeLog
 =========
 
 As this software is in continual development, changes will be listed here.
