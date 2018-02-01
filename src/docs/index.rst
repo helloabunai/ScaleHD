@@ -4,6 +4,7 @@ ScaleHD - Automated Huntington Disease genotyping pipeline
 `ScaleHD`_ intro spiel
 The code is open source, and `available on GitHub`_.
 blah blah
+Version 2.5.2 at the mOmeNT
 
 The documentation for this software is organised into the relevant sections.
 * :ref:`noteworthy-features`
@@ -55,3 +56,7 @@ haha?
 
    OutputHierarchy
    Definitions
+
+For information on recent changes to ScaleHD, please check out the developer changelog.
+
+ChangeLog
