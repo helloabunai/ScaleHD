@@ -18,7 +18,10 @@ The documentation for this software is organised into the relevant sections.
 
 Info
 ----
-If you want to contact me, I can be reached at alastair.maxwell@glasgow.ac.uk. The codebase for ScaleHD is open source, and is available on Github at http://www.github.com/helloabunai/ScaleHD/. The project page on the Python package index is at https://pypi.python.org/pypi/ScaleHD. You can follow me on twitter at https://twitter.com/helloabunai, although I am incredibly unprofessional.
+ * If you want to contact me, I can be reached at alastair.maxwell@glasgow.ac.uk.
+ * The codebase for ScaleHD is open source, and is available on Github at http://www.github.com/helloabunai/ScaleHD/.
+ * The project page on the Python package index is at https://pypi.python.org/pypi/ScaleHD.
+ * You can follow me on twitter at https://twitter.com/helloabunai, although I am incredibly unprofessional.
 
 Development is undertaken at the University of Glasgow, Scotland, and is funded by the Cure Huntington Disease Foundation (CHDI): http://www.chdifoundation.org/
 
