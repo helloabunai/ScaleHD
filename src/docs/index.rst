@@ -66,8 +66,8 @@ Development is undertaken at the University of Glasgow, Scotland, and is funded 
    :maxdepth: 2
    :caption: Developer Documentation
 
-   ChangeLog
-
+   VersionChangelog
+   PlannedFeatures
 
 
 

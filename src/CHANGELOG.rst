@@ -1,3 +1,5 @@
+.. _sect_changelog:
+
 Version 2.5.2
 -------------
 

@@ -1,7 +1,7 @@
-.. _sect_changelog:
+.. _sect_versionchangelog:
 
-ChangeLog
-=========
+Version ChangeLog
+=================
 
 As this software is in continual development, changes will be listed here.
 Typically a new release will consist of a collection of minor bugfixes, but occasionally we have to release major overhauls
