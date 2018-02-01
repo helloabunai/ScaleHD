@@ -1,14 +1,9 @@
-$project
-========
+ScaleHD
+===================================
 
-$project will solve your problem of where to start with documentation,
-by providing a basic explanation of how to do it easily.
-
-Look how easy it is to use:
-
-    import project
-    # Get your stuff done
-    project.do_stuff()
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
 
 Features
 --------
@@ -40,14 +35,6 @@ License
 
 The project is licensed under the BSD license.
 
-Welcome to ScaleHD's documentation!
-===================================
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-
 
 Indices and tables
 ==================
@@ -55,3 +42,4 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+* :ref:`seq_qc`
