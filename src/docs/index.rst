@@ -4,18 +4,14 @@ ScaleHD - Automated Huntington Disease genotyping pipeline
 `ScaleHD`_ intro spiel
 The code is open source, and `available on GitHub`_.
 blah blah
-Version 2.5.2 at the mOmeNT
+Version 2.5.2 at the mOmeNT, for more info, check :ref:`developer-documentation`.
 
 The documentation for this software is organised into the relevant sections.
 
  * :ref:`noteworthy-features`
-
  * :ref:`prerequisites-and-assumptions`
-
  * :ref:`using-pipeline`
-
  * :ref:`understanding-output`
-
 
 If you want to contact me, I can be reached at alastair.maxwell@glasgow.ac.uk
 University of Glasgow
@@ -62,6 +58,9 @@ haha? aaaa
    OutputHierarchy
    Definitions
 
-For information on recent changes to ScaleHD, please check out the developer changelog.
+.. _developer-documentation
+.. toctree::
+   :maxdepth: 2
+   :caption: Developer Documentation
 
-ChangeLog
+   ChangeLog
