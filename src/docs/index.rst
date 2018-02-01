@@ -60,7 +60,7 @@ Development is undertaken at the University of Glasgow, Scotland, and is funded 
    OutputHierarchy
    Definitions
 
-.. _developer-documentation
+.. _developer-documentation:
 
 .. toctree::
    :maxdepth: 2
@@ -69,9 +69,4 @@ Development is undertaken at the University of Glasgow, Scotland, and is funded 
    VersionChangelog
    PlannedFeatures
 
-
-
-
-
-
-ass ass ass
+Thanks for using ScaleHD.
