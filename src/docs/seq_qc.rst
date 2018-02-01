@@ -1,3 +1,5 @@
+.. _sect_seqqc:
+
 Sequence Quality Control (SeqQC)
 ================================
 

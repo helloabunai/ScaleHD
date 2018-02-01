@@ -42,4 +42,4 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-* :ref:`seq_qc`
+* :doc:`sect_seqqc`
