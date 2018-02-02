@@ -74,7 +74,7 @@ If you're new to UNIX, bioinformatics, or command line interfaces in general, th
 
 The initial requirement is to install PIP. PIP is a Python package manager, which allows you to install software from the Python package index, over the internet, without being required to get dependencies manually. Your computer system may already have PIP installed, but incase it doesn't, we will install it here. You need to download the Python script get-pip.py from https://bootstrap.pypa.io/get-pip.py. Once you have this downloaded, we need to run it to install PIP.
 
-The next step is to open a terminal. Press ⌘+Space to open spotlight search, and type "Terminal". Open this app and you will be presented with a command line interface. Your terminal may vary in appearance, but that doesn't matter.
+The next step is to open a terminal. Press ⌘+Space to open spotlight search (on OS X, obviously), and type "Terminal". Open this app and you will be presented with a command line interface. Your terminal may vary in appearance, but that doesn't matter. On Ubuntu, the default terminal app is also called "Terminal".
 
 .. warning::
     PIP requires Python to function. If you are working on OS X or any modern version of Ubuntu, you already have Python 2.7 installed, and do not need to do anything else. If you lack access to Python 2.7, contact your system administrator to get it installed, or see https://www.python.org/downloads/release/python-2713/.
@@ -99,7 +99,7 @@ This will install PIP onto your system, allowing you to install ScaleHD and any 
 This will install all python dependencies for you. Depending on your user privilege level, you may want to prefix the above command with 'sudo', which will run the command at an administrator level. If you are unsure, talk to your system administrator. Now that ScaleHD and it's dependencies have been installed, we need to install the required third-party binaries which are not available for installation from PIP.
 
 .. warning::
-    For all the following third party binaries, ScaleHD attempts to detect binaries with a lower case filename. If your binary files are called something else, ScaleHD will be unable to locate them on your $PATH. Please ensure that your binaries are all respectively named 'java', 'fastqc', 'seqtk', 'bwa', 'samtools', 'r'. ScaleHD also requires aliases for 'picard' and 'gatk', which we will cover in their respective sub-sections.
+    For all the following third party binaries, ScaleHD attempts to detect binaries with a lower case filename. If your binary files are called something else, ScaleHD will be unable to locate them on your $PATH. Please ensure that your binaries are all respectively named 'fastqc', 'seqtk', 'bwa', 'samtools' and 'r'. ScaleHD also requires aliases for 'picard' and 'gatk', which we will cover in their respective sub-sections.
 
 Java (1.8.0_20)
 ~~~~~~~~~~~~~~~
