@@ -12,7 +12,7 @@ Currently, we are on Version 0.252. While the base algorithm has been implemente
 The documentation for this software is organised into the relevant sections.
 
  * :ref:`noteworthy-features`
- * :ref:`prerequisites-and-assumptions`
+ * :ref:`prerequisites-and-installation`
  * :ref:`using-pipeline`
  * :ref:`understanding-output`
 
@@ -36,11 +36,11 @@ Development is undertaken at the University of Glasgow, Scotland, and is funded 
    Alignment
    AutomatedGenotyping
 
-.. _prerequisites-and-assumptions:
+.. _prerequisites-and-installation:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Prerequisites, Assumptions and Installation
+   :caption: Prerequisites and Installation
 
    RequiredPackages
    HardwareRequirements
