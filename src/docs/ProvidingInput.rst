@@ -43,7 +43,7 @@ Here is an example configuration file:
   <prediction_flags plot_graphs="True"/>
   </config>
 
-Within the **<config>** branch, there are three attributes to which the user must assign a value. *data_dir* must point to your input folder, consisting of an even number of input data files (see: :ref:`sect_dataassume`). *forward_reference* points to a *.fasta reference file, for which alignment is carried out on forward reads (see: :ref:forward_reference). *reverse_reference* points to a *.fasta reference file, for reverse alignment (see: :ref:reverse_reference).
+Within the **<config>** branch, there are three attributes to which the user must assign a value. *data_dir* must point to your input folder, consisting of an even number of input data files (see: :ref:`sect_dataassume`). *forward_reference* points to a *.fasta reference file, for which alignment is carried out on forward reads (see: :ref:`forward_reference`). *reverse_reference* points to a *.fasta reference file, for reverse alignment (see: :ref:`reverse_reference`).
 
 **<instance_flags>** determines which stage(s) of ScaleHD that the user wishes to run. These are all simple True/False boolean options, where 'False' means a stage will not be processed. Currently, snp_calling is still in development and testing, and as such does not execute regardless of which boolean you input here. Other stages all function as expected.
 
