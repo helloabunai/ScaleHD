@@ -53,7 +53,7 @@ As I have developed the software on OS X, and most of the end-users in our lab w
 .. _quick-install:
 
 Quick Instructions 
--------- 
+------------------
 
 If you know your way around a terminal, these instructions are for you.
 
@@ -68,7 +68,7 @@ This will install all python dependencies for you. Depending on your user privil
 .. _detailed-install:
 
 Detailed Instructions 
--------- 
+---------------------
 
 If you're new to UNIX, bioinformatics, or command line interfaces in general, these instructions are for you. We will install ScaleHD from a completely clean install, step-by-step. This means, we assume your UNIX operating system has no dependencies installed at all, and requires everything installed from scratch. We assume absolutely zero knowledge of any techniques required to install and use ScaleHD, so it will be very in-depth. Let's begin!
 
