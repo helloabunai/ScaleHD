@@ -76,13 +76,13 @@ The next step is to open a terminal. Press ⌘+Space to open spotlight search, a
 .. note::
     Throughout these instructions, we will refer to a "builds" directory, where we will be installing third party binaries. In our examples, we have used the folder path '/Users/alastairm/Documents/Builds', wherein will be subfolders for each binary. How you allocate your binaries is up to you, but this tutorial will follow this builds directory format.
 
-.. image:: img/install-term.jpg
+.. image:: img/install-term.png
 
 Now we run our downloaded script to install PIP. Assuming that your script is in your user Downloads folder (/Users/user-name-here/Downloads/), we will execute the following command:
 
 ::
 
-  python get-pip.py
+  python ~/Downloads/get-pip.py
 
 This will install PIP onto your system, allowing you to install ScaleHD and any Python-based dependencies with no effort at all. In order to do that, in the same terminal, issue a new command:
 
@@ -124,7 +124,7 @@ We are going to edit a text file in our terminal. Here, the program 'nano' is us
 
 This will open a screen, similar to this (but your file will be blank):
 
-.. image:: img/edit-bashprofile.jpg
+.. image:: img/edit-bashprofile.png
 
 Adding things to your $PATH is as simple as typing the following:
 
