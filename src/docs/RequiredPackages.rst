@@ -209,6 +209,12 @@ GATK is also a Java archive, and not a UNIX binary. Download GATK from https://s
 
 Again, replacing the literal directory with your own Builds path. Once you've done this, you have successfully installed all required packages for ScaleHD to function!
 
+Virtual Environments
+~~~~~~~~~~~~~~~~~~~~
+
+Virtual Environments allow a Python user to create a separate terminal environment, which is separate from the 'main' environment of the operating system, but acts in an identical manner. This allows you to create an environment for a specific purpose, e.g. installing specific versions of packages that you did not wish to overwrite in your 'main' environment. This is useful if you have certain Python packages installed for other projects, which require a different version than that of ScaleHD.
+
+To read up on Virtual Environments, we recommend reading this tutorial: http://docs.python-guide.org/en/latest/dev/virtualenvs/.
 
 
 
