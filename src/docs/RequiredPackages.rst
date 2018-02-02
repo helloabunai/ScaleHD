@@ -93,7 +93,7 @@ This will install PIP onto your system, allowing you to install ScaleHD and any 
 This will install all python dependencies for you. Depending on your user privilege level, you may want to prefix the above command with 'sudo', which will run the command at an administrator level. If you are unsure, talk to your system administrator. Now that ScaleHD and it's dependencies have been installed, we need to install the required third-party binaries which are not available for installation from PIP.
 
 .. warning::
-    For all the following third party binaries, ScaleHD attempts to detect binaries with a lower case filename. If your binary files are called something else, ScaleHD will be unable to locate them on your $PATH. Please ensure that your binaries are all respectively named java', 'fastqc', 'seqtk', 'bwa', 'samtools', 'r'. ScaleHD also requires aliases for 'picard' and 'gatk', which we will cover in their respective sub-sections.
+    For all the following third party binaries, ScaleHD attempts to detect binaries with a lower case filename. If your binary files are called something else, ScaleHD will be unable to locate them on your $PATH. Please ensure that your binaries are all respectively named 'java', 'fastqc', 'seqtk', 'bwa', 'samtools', 'r'. ScaleHD also requires aliases for 'picard' and 'gatk', which we will cover in their respective sub-sections.
 
 Java (1.8.0_20)
 ~~~~~~~~~~~~~~~
