@@ -223,3 +223,39 @@ Virtual Environments
 Virtual Environments allow a Python user to create a separate terminal environment, which is separate from the 'main' environment of the operating system, but acts in an identical manner. This allows you to create an environment for a specific purpose, e.g. installing specific versions of packages that you did not wish to overwrite in your 'main' environment. This is useful if you have certain Python packages installed for other projects, which require a different version than that of ScaleHD.
 
 To read up on Virtual Environments, we recommend reading this tutorial: http://docs.python-guide.org/en/latest/dev/virtualenvs/.
+
+Common Issues
+~~~~~~~~~~~~~
+
+When colleagues were testing the software, these were the most common issues encountered when installing and/or running ScaleHD. If you're having trouble installing ScaleHD, hopefully an answer to your issue will be here.
+
+ * LibXML headers missing
+
+For this issue, you are missing the libxml2-dev and libxslt-dev libraries from your system. These packages should be installed as part of lxml, which is included in the setup script for ScaleHD, and should have been installed automatically. However, you can check if you are missing this package by opening a terminal, launching the Python interpreter (run the command 'python'), and then trying the command 'import lxml'. If this fails, then you know the package did not install properly, for whatever reason. 
+
+To remedy this, you can install lxml 'manually' from pip:
+
+::
+
+ STATIC_DEPS=true sudo pip install lxml
+
+This command will require an internet connection, as it will download the sources for each developer library and build them for you, hopefully resolving any issues you have with lxml.
+
+ * LibXML parsing error stack
+
+As of the time of writing, there is no functionality within ScaleHD to check the structural integrity of your XML configuration files used, outside of the validity of provided attribute flags. If you have malformed XML, such as misplaced tags, ScaleHD will not launch and you will be greeted with a debug stack from lxml failing to parse invalid XML. Please check your XML and try running ScaleHD again.
+
+ * SciPy stack errors
+
+Sometimes the SciPy stack installs incorrectly from PIP, or fails quietly (i.e. the install failed, but claimed it was successful). If this is the case for you, we recommend installing the SciPy stack at a user level.
+
+::
+
+  pip install --user numpy scipy cython matplotlib
+
+If this still refuses to work, you can look into installing these dependencies via Homebrew (see: https://brew.sh/).
+
+::
+
+  brew tap homebrew/science && brew install python numpy scipy matplotlib
+
