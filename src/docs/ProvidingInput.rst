@@ -43,7 +43,7 @@ Here is an example configuration file:
   <prediction_flags plot_graphs="True"/>
   </config>
 
-Within the **<config>** branch, there are three attributes to which the user must assign a value. *data_dir* must point to your input folder, consisting of an even number of input data files (see: :ref:`sect_dataassume`). *forward_reference* points to a *.fasta reference file, for which alignment is carried out on forward reads (see: :ref:`forward_reference`). *reverse_reference* points to a *.fasta reference file, for reverse alignment (see: :ref:`reverse_reference`).
+Within the **<config>** branch, there are three attributes to which the user must assign a value. *data_dir* must point to your input folder, consisting of an even number of input data files (see: :ref:`sect_dataassume`). *forward_reference* points to a *.fasta reference file, for which alignment is carried out on forward reads. *reverse_reference* points to a *.fasta reference file, for reverse alignment.
 
 **<instance_flags>** determines which stage(s) of ScaleHD that the user wishes to run. These are all simple True/False boolean options, where 'False' means a stage will not be processed. Currently, snp_calling is still in development and testing, and as such does not execute regardless of which boolean you input here. Other stages all function as expected.
 
@@ -73,7 +73,7 @@ Within the **<config>** branch, there are three attributes to which the user mus
 +---------------------------+------------------+
 | mismatch_penalty          | -B <INT>         |
 +---------------------------+------------------+
-| indel_penalty             | -O [INT, INT]    | 
+| indel_penalty             | -O [INT, INT]    |
 +---------------------------+------------------+
 | gap_extend_penalty        | -E [INT, INT]    |
 +----------------------------------------------+
@@ -82,7 +82,7 @@ Within the **<config>** branch, there are three attributes to which the user mus
 | unpaired_pairing_penalty  | -U <INT>         |
 +----------------------------------------------+
 
-**<prediction_flags>** is a remnant of previous development implementations, where we utilised different statistical approaches to genotyping and the end-user was expected to modify the parameters of a predictive model for improved accuracy. However, we have radically changed our design approach in this implementation of the pipeline and there is only one flag remaining, which decides whether you want graphs to be rendered or not. However, this has not been re-implemented within this approach to ScaleHD and as a result, doesn't do anything if you choose 'False'. ¯\_(ツ)_/¯.
+**<prediction_flags>** is a remnant of previous development implementations, where we utilised different statistical approaches to genotyping and the end-user was expected to modify the parameters of a predictive model for improved accuracy. However, we have radically changed our design approach in this implementation of the pipeline and there is only one flag remaining, which decides whether you want graphs to be rendered or not. However, this has not been re-implemented within this approach to ScaleHD and as a result, doesn't do anything if you choose 'False'. ¯\\_(ツ)_/¯.
 
 
 
