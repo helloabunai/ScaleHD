@@ -22,6 +22,7 @@ Info
  * The codebase for ScaleHD is open source, and is available on Github at http://www.github.com/helloabunai/ScaleHD/.
  * The project page on the Python package index is at https://pypi.python.org/pypi/ScaleHD.
  * You can follow me on twitter at https://twitter.com/helloabunai, although I am incredibly unprofessional.
+ * If you use ScaleHD, please cite ((unpublished at the moment -- writing paper)).
 
 Development is undertaken at the University of Glasgow, Scotland, and is funded by the Cure Huntington Disease Foundation (CHDI): http://www.chdifoundation.org/
 
@@ -74,4 +75,3 @@ Development is undertaken at the University of Glasgow, Scotland, and is funded 
    VersionChangelog
    PlannedFeatures
 
-If you use ScaleHD, please cite ((unpublished at the moment -- writing paper)). Thanks for using ScaleHD.

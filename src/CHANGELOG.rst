@@ -1,6 +1,6 @@
 .. _sect_changelog:
 
-Version 2.5.2
+Version 0.252
 -------------
 
  * Modified the N-Aligned distribution logic to utilise pre-smoothing data distribution as opposed to post-smoothing.
@@ -9,7 +9,7 @@ Version 2.5.2
  * Fixed the algorithm which calculates Somatic Mosaicism for each allele (i.e. no longer reading from incorrect attributes).
  * Some other stuff that I forgot.
 
-Version 2.5.1
+Version 0.251
 -------------
 
  * Removed the redundant workflow codebase for Assembly processing (i.e. using BAM as input; feature not required/desired anymore).
@@ -17,7 +17,7 @@ Version 2.5.1
  * Scope fix for instances that do not use SeqQC.
  * Alternative shell pathing check for requisite binaries fix (e.g. using zsh instead of bash)
 
-Version 2.5.0
+Version 0.250
 -------------
 
  * CCG distribution cleanup threshold tweaks

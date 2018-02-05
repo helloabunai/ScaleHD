@@ -21,6 +21,17 @@ In addition to the file name, ScaleHD expects any input folder to contain an eve
 
 No other files will be considered valid. If there is a non-even number of input files present (i.e. not every sample has two files, R1 and R2), ScaleHD will not run.
 
+Multiplexed Data
+~~~~~~~~~~~~~~~~
+
+If your sequence data originates from a samplelibrary combined with other non-Huntington Disease data, then your data will need to be de-multiplexed before it can be used within ScaleHD. In order to demultiplex data, we typically use Cutadapt (http://cutadapt.readthedocs.io/en/stable/) to select only reads with a spacer sequence, specific to our HD samples. Due to colleague unfamiliarity with Bash scripting, it was easier to write a simple python wrapper to run Cutadapt in batch mode, for particular barcodes which our lab uses. See BatchAdapt at https://github.com/helloabunai/Batchadapt. Documentation for this small wrapper is in progress at the time of writing, so a simple instruction set is as follows:
+
+ * Clone the Github repository
+ * Run the setup script in a terminal: python setup.py install
+ * Run "Batchadapt --help" to see all input options
+
+More detailed explanation of the demultiplexing process is a work in progress and will be updated here when complete.
+
 Reference Libraries
 ~~~~~~~~~~~~~~~~~~~
 

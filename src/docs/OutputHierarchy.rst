@@ -3,4 +3,4 @@
 Output Hierarchy
 ================================
 
-haha todo
+Here we describe an example output of ScaleHD...
