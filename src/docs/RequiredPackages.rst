@@ -78,7 +78,7 @@ Before we install anything related to ScaleHD, it is worth mentioning that if yo
 
   xcode-select --install
 
-And press 'Install'. This will download a ~130MB package and install it for you.
+And press 'Install'. This will download a ~130MB package and install it for you. You need not do this on Ubuntu as Canonical have the sense to include a C++ compiler and package manager with their operating system, whereas Apple do not.
 
 The next step is to install PIP. PIP is a Python package manager, which allows you to install software from the Python package index, over the internet, without being required to get dependencies manually. Your computer system may already have PIP installed, but incase it doesn't, we will install it here. You need to download the Python script get-pip.py from https://bootstrap.pypa.io/get-pip.py. Once you have this downloaded, we need to run it to install PIP.
 
@@ -198,7 +198,7 @@ R is a statistical scripting environment with a powerful array of analysis packa
 Picard (2.10.10)
 ~~~~~~~~~~~~~~~~
 
-Picard is not a UNIX binary, and as such we need to do something slightly different to enable it for ScaleHD. Download the JAR release of Picard from https://broadinstitute.github.io/picard/. A JAR file is a package containing all code/images/resources into one file for distribution -- it's a java binary, essentially. Since we cannot add a JAR to our $PATH, we need to make an alias. In our bash_profile file, we add the following line:
+Picard is not a UNIX binary, and as such we need to do something slightly different to enable it for ScaleHD. Download the JAR release of Picard from https://broadinstitute.github.io/picard/. A JAR file is a package containing all code/images/resources into one file for distribution -- it's a java executable, essentially. Since we cannot add a JAR to our $PATH, we need to make an alias. In our bash_profile file, we add the following line:
 
 ::
 
