@@ -82,7 +82,7 @@ And press 'Install'. This will download a ~130MB package and install it for you.
 
 The next step is to install PIP. PIP is a Python package manager, which allows you to install software from the Python package index, over the internet, without being required to get dependencies manually. Your computer system may already have PIP installed, but incase it doesn't, we will install it here. You need to download the Python script get-pip.py from https://bootstrap.pypa.io/get-pip.py. Once you have this downloaded, we need to run it to install PIP.
 
-The next step is to open a terminal. Press ⌘+Space to open spotlight search (on OS X, obviously), and type "Terminal". Open this app and you will be presented with a command line interface. Your terminal may vary in appearance, but that doesn't matter. On Ubuntu, the default terminal app is also called "Terminal".
+The next step is to run the script. Go back to your terminal which you opened previously, and prepare to enter a new command.
 
 .. warning::
     PIP requires Python to function. If you are working on OS X or any modern version of Ubuntu, you already have Python 2.7 installed, and do not need to do anything else. If you lack access to Python 2.7, contact your system administrator to get it installed, or see https://www.python.org/downloads/release/python-2713/.
@@ -98,7 +98,7 @@ Now we run our downloaded script to install PIP. Assuming that your script is in
 
   python ~/Downloads/get-pip.py
 
-This will install PIP onto your system, allowing you to install ScaleHD and any Python-based dependencies with no effort at all. In order to do that, in the same terminal, issue a new command:
+The specific command you need to run will depend on the location that you chose to download get-pip.py. Regardless, This will install PIP onto your system, allowing you to install ScaleHD and any Python-based dependencies with no effort at all. In order to do that, in the same terminal, issue a new command:
 
 ::
 
