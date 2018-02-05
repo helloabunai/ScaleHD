@@ -53,7 +53,7 @@ As I have developed the software on OS X, and most of the end-users in our lab w
 .. _quick-install:
 
 Quick Instructions 
-------------------
+~~~~~~~~~~~~~~~~~~
 
 If you know your way around a terminal, these instructions are for you.
 
@@ -68,11 +68,19 @@ This will install all python dependencies for you. Depending on your user privil
 .. _detailed-install:
 
 Detailed Instructions 
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 If you're new to UNIX, bioinformatics, or command line interfaces in general, these instructions are for you. We will install ScaleHD from a completely clean install, step-by-step. This means, we assume your UNIX operating system has no dependencies installed at all, and requires everything installed from scratch. We assume absolutely zero knowledge of any techniques required to install and use ScaleHD, so it will be very in-depth. Let's begin!
 
-The initial requirement is to install PIP. PIP is a Python package manager, which allows you to install software from the Python package index, over the internet, without being required to get dependencies manually. Your computer system may already have PIP installed, but incase it doesn't, we will install it here. You need to download the Python script get-pip.py from https://bootstrap.pypa.io/get-pip.py. Once you have this downloaded, we need to run it to install PIP.
+Before we install anything related to ScaleHD, it is worth mentioning that if you are also working on OS X, you will be required to install command line tools to make the remaining installation procedure possible. To do this, open a terminal. Press ⌘+Space to open spotlight search, and type "Terminal". In this prompt, type the command:
+
+::
+
+  xcode-select --install
+
+And press 'Install'. This will download a ~130MB package and install it for you.
+
+The next step is to install PIP. PIP is a Python package manager, which allows you to install software from the Python package index, over the internet, without being required to get dependencies manually. Your computer system may already have PIP installed, but incase it doesn't, we will install it here. You need to download the Python script get-pip.py from https://bootstrap.pypa.io/get-pip.py. Once you have this downloaded, we need to run it to install PIP.
 
 The next step is to open a terminal. Press ⌘+Space to open spotlight search (on OS X, obviously), and type "Terminal". Open this app and you will be presented with a command line interface. Your terminal may vary in appearance, but that doesn't matter. On Ubuntu, the default terminal app is also called "Terminal".
 
@@ -215,33 +223,3 @@ Virtual Environments
 Virtual Environments allow a Python user to create a separate terminal environment, which is separate from the 'main' environment of the operating system, but acts in an identical manner. This allows you to create an environment for a specific purpose, e.g. installing specific versions of packages that you did not wish to overwrite in your 'main' environment. This is useful if you have certain Python packages installed for other projects, which require a different version than that of ScaleHD.
 
 To read up on Virtual Environments, we recommend reading this tutorial: http://docs.python-guide.org/en/latest/dev/virtualenvs/.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
