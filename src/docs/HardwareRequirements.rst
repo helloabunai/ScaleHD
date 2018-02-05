@@ -27,7 +27,7 @@ For an example of ScaleHD's genotyping performance on my development machine, he
 
  * 816 input files, totalling 15GB
  * Utilising all 12 threads
- * Maximum RAM usage at 
+ * Maximum RAM usage at ~17GB
  * A total processing time of 27 hours
  * An average sample processing time of 7 minutes
  * The longest sample processing time being 13 minutes
