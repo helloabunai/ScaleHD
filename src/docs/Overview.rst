@@ -9,5 +9,4 @@ It is designed with UNIX systems in mind, so there is unfortunately no Windows s
 
 A broad overview of the pipeline stages can be viewed here:
 
-~lol need to make figure that goes here~
-
+.. image:: img/pipeline-workflow.png
