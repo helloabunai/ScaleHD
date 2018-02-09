@@ -13,6 +13,6 @@ The purpose of this, is to reduce the complexity of genotyping a repeat disease 
 
 For example, we have an unknown sample and need to genotype from scratch. From our reverse alignment, we receive data which is of much better quality towards the end of the Huntington Disease repeat tract(s) - the CCG region. From here, we can better derive a precise distribution of CCG reads, allowing us to confidently determine CCG values. In this case, we have determined 7 and 10 from the reverse alignment, a CCG-heterozygous sample. Now that we know the sample is heterozygous, this simplifies the work required to determine CAG values for each allele; we know to expect only one 'CAG peak' within each CCG distribution. This is better represented in the visual workflow, seen here:
 
-~ lol make the figure ~ 
+.. image:: img/genotype-workflow.png
 
 Once alignment is complete, we move onto the genotyping stage.
