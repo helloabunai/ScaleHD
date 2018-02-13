@@ -58,10 +58,7 @@ The significance levels are as follows:
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
 | Low Peak Reads             | Major        | In a given allele's read distribution, the n value contains a very low number** of reads. Genotyping is hard, here.    |
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
-``
-*n denotes the number of reads for the modal allele
-**very low reads is defined as an n value containing <=200 reads
-``
+``*n denotes the number of reads for the modal allele; **very low reads is defined as an n value containing <=200 reads``
 
 Confidence Calculation
 ~~~~~~~~~~~~~~~~~~~~~~

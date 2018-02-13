@@ -19,3 +19,9 @@ InstanceGraphs is a series of graphs rendered for each sample. These graphs plot
 InstanceReport is the 'main' report output from ScaleHD, and displays allele genotypes and relevant statistics, data characteristics and errors (where applicable). A detailed explanation of what each of the attributes/flags in this file explains, please see :ref:`sect_definitions`.
 
 UtilisedConfiguration is a literal copy of the ScaleHD configuration file specified as input by the user when the job was launched.
+
+In addition to this, each stage of the ScaleHD pipeline will have a respective output folder with relevent data within:
+
+ * SeqQC -- containing FastQC reports and any trimming reports
+ * Align -- containing aligned reads (in *.SAM format), an alignment report and alignment statistics. These files are present for both FW and RV data.
+ * Predict -- containing a genotype graph PDF, reports on each allele's genotype (and associated flags), as well as a penalties log for each allele (stating what was deducted from each allele during confidence calculation).

@@ -3,14 +3,14 @@
 Automated Genotyping (Gtype)
 ================================
 
-The genotyping procedure of ScaleHD has three stages. The results from each stage are utilised in step with one another to act as a double-confirmation of the data. The first stage involves Digital Signal Processing (DSP). This stage's main function is to determine the structure of the *HTT* CAG/CCG repeat tracts. As seen in the figure below, a typical structure consists of a CAG tract, an intervening sequence, a CCG tract and a CCT tract (``Pêcheux et al. 1995``). In 95% of samples, the structure of the intervening sequence is one CAACAG hexamer, and one CCGCCA hexamer. This 'typical' structure is represented as: CAG_1_1_CCG_CCT. Example allele structures can be seen below.
+The genotyping procedure of ScaleHD has three stages. The results from each stage are utilised in step with one another to act as a double-confirmation of the data. The first stage involves Digital Signal Processing (DSP). This stage's main function is to determine the structure of the *HTT* CAG/CCG repeat tracts. As seen in the figure below, a typical structure consists of a CAG tract, an intervening sequence, a CCG tract and a CCT tract ``(Pêcheux et al. 1995)``. In 95% of samples, the structure of the intervening sequence is one CAACAG hexamer, and one CCGCCA hexamer. This 'typical' structure is represented as: CAG_1_1_CCG_CCT. Example allele structures can be seen below.
 
 .. image:: img/allele-structure.png
-``A) A standard *HTT* sample structure, nominally described as 'typical'.``
-``B) An example of a common atypical structure with an additional CAACAG in the intervening sequence.``
-``C) A futher example of a common atypical structure, with a missing CCGCCA``
+``A) A standard *HTT* sample structure, nominally described as 'typical'.
+B) An example of a common atypical structure with an additional CAACAG in the intervening sequence.
+C) A futher example of a common atypical structure, with a missing CCGCCA``
 
-However, in ~5% of samples, the structure differs (``Yu et al. 2000``). These 'atypical' samples, have an intervening sequence which is different from the normally observed one. These can vary in literal size, but an example of one atypical allele would be represented as: CAG_2_1_CCG_CCT. This is important as, due to the string-similarity of the hexamers in the intervening sequence, an atypical allele can be incorrectly assigned to a typical reference with a larger CCG. For example, a sample with the genotype CAG_1_1_9_CCT (A) would be the exact same length as CAG_2_1_7_CCT (B):
+However, in ~5% of samples, the structure differs ``(Yu et al. 2000)``. These 'atypical' samples, have an intervening sequence which is different from the normally observed one. These can vary in literal size, but an example of one atypical allele would be represented as: CAG_2_1_CCG_CCT. This is important as, due to the string-similarity of the hexamers in the intervening sequence, an atypical allele can be incorrectly assigned to a typical reference with a larger CCG. For example, a sample with the genotype CAG_1_1_9_CCT (A) would be the exact same length as CAG_2_1_7_CCT (B):
 
 .. image:: img/atypical-typical-lengths.png
 
