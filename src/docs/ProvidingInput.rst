@@ -30,7 +30,7 @@ ScaleHD is a Command Line Interface (CLI) based application, and users will inte
 Configuration File
 ~~~~~~~~~~~~~~~~~~
 
-ScaleHD's main arguments, rather than filling out cumbersome details on a command line (where editing can be frustrating), instead uses an XML document. This allow allows for an easy mechanism by which to reproduce results of a processing job -- if you use the same configuration file, you can guarantee that data produced at the end will be identical.
+ScaleHD's main arguments, rather than filling out cumbersome details on a command line (where editing can be frustrating), instead uses an XML document. This allows for an easy mechanism by which to reproduce results of a processing job -- if you use the same configuration file, you can guarantee that data produced at the end will be identical.
 
 Here is an example configuration file:
 

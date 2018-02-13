@@ -8,9 +8,9 @@ Within the instance-wide output table produced by ScaleHD, there are many flags 
 The significance levels are as follows:
 
  * N/A -- This means the flag contains discrete information and does not need to be interpreted in regards to genotyping quality.
- * Dependent -- This flag may be significant, depending on other flags. For example, a high level of somatic mosaicism may be an indicator of poor genotyping quality when the CAG repeat tract size is within a normal range (i.e. not an expanded allele).
+ * Dependent -- This flag may be significant, depending on other flags. For example, a high level of somatic mosaicism may be an indicator of poor genotyping quality when the CAG repeat tract size is within the non HD-causing allele size range.
  * Minor -- This entity is of minor significance and in the vast majority of samples will not be a deterministic factor for genotyping quality.
- * Moderate -- This entity is of moderate significance. It is unlikely to render a sample's genotype invalid on it's own, but may contribute to inaccurate genotyping.
+ * Moderate -- This entity is of moderate significance. It is unlikely to render a sample's genotype invalid on its own but may contribute to inaccurate genotyping.
  * Major -- This entity is of major significance and is strongly associated with genotyping quality. If any major informative flags are raised, it is recommended to manually inspect this sample.
 
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
@@ -22,9 +22,9 @@ The significance levels are as follows:
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
 | Status                     | Dependant    | Whether the structure of the intervening sequence is typical (1_1) or atypical (anything else).                        |
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
-| BSlippage                  | Dependent    | The amount of backwards slippage, relative to each allele's peak. Calculated as [(n-1 to n-5) / n].                    |
+| BSlippage                  | Dependent    | The amount of backwards slippage, relative to each allele's peak. Calculated as [(n-1 to n-5) / n].*                   |
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
-| Somatic Mosaicism          | Dependent    | The amount of somatic mosaicism, relative to each allele's peak. Calculated as [(n+1 to n+10) / n].                    |
+| Somatic Mosaicism          | Dependent    | The amount of somatic mosaicism, relative to each allele's peak. Calculated as [(n+1 to n+10) / n].*                   |
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
 | Confidence                 | Major        | The percentage confidence in a genotype call. See the confidence calculation subsection for info.                      |
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
@@ -34,7 +34,7 @@ The significance levels are as follows:
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
 | Neighbouring Peaks         | Moderate     | Two alleles exist within the same CCG dimension, with CAG values being separated by 1 value.                           |
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
-| Diminished Peaks           | Moderate     | One peak in a CCG-homozygous sample is a large expansion with a relatively miniscule read count.                       |
+| Diminished Peaks           | Moderate     | One peak in a CCG-homozygous sample is a large expansion with a relatively minuscule read count.                       |
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
 | Novel Atypical             | Major        | An allele with an atypical intervening sequence, different to that of the commonly observed atypical structures.       |
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
@@ -54,10 +54,14 @@ The significance levels are as follows:
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
 | Peak Inspection Warning    | Minor        | At least one allele failed minimum read-count distribution threshold inspection. Common in "bad" sequencing data.      |
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
-| Low Distribution Reads     | Dependent    | At least one allele's read distribution contains a noteworthly low number of reads.                                    |
+| Low Distribution Reads     | Dependent    | At least one allele's CAG read distribution (FW-200 length) contains a noteworthly low number of reads.                |
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
-| Low Peak Reads             | Major        | In a given allele's read distribution, the N value contains a very low number of reads. Genotyping is difficult, here. |
+| Low Peak Reads             | Major        | In a given allele's read distribution, the n value contains a very low number** of reads. Genotyping is hard, here.    |
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
+``
+*n denotes the number of reads for the modal allele
+**very low reads is defined as an n value containing <=200 reads
+``
 
 Confidence Calculation
 ~~~~~~~~~~~~~~~~~~~~~~

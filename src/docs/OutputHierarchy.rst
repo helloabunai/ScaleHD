@@ -3,7 +3,7 @@
 Output Hierarchy
 ================================
 
-ScaleHD's output is fairly straight forward. For each job that you run, there will be one master output folder containing all data produced by the pipeline. If the user specified a '-j' argument in the command line interface, the output folder will be named as such; if not, the folder will be named ScaleHD-DateTime.
+ScaleHD's output is fairly straightforward. For each job that you run, there will be one master output folder containing all data produced by the pipeline. If the user specified a '-j' argument in the command line interface, the output folder will be named as such; if not, the folder will be named ScaleHD-DateTime.
 
 Within the master folder, there will be a few instance-wide report files:
 

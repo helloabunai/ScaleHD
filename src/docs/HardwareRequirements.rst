@@ -3,7 +3,7 @@
 Hardware requirements/recommendations
 ================================
 
-ScaleHD uses technologies such as Sequence Alignment to automatically genotype HD samples. Such processes can be quite intensive on your computer, but hardware requirements are not extraordinary for any software in the same field.
+ScaleHD uses technologies such as Sequence Alignment to automatically genotype HD samples. Such processes can be quite intensive on your computer, but hardware requirements are not extraordinary compared with similar software in the same field.
 
 The pipeline has been developed on a Late 2013 Mac Pro, which has the following hardware:
 

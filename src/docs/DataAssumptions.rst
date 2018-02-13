@@ -24,7 +24,12 @@ No other files will be considered valid. If there is a non-even number of input 
 Multiplexed Data
 ~~~~~~~~~~~~~~~~
 
-If your sequence data originates from a samplelibrary combined with other non-Huntington Disease data, then your data will need to be de-multiplexed before it can be used within ScaleHD. In order to demultiplex data, we typically use Cutadapt (http://cutadapt.readthedocs.io/en/stable/) to select only reads with a spacer sequence, specific to our HD samples. Due to colleague unfamiliarity with Bash scripting, it was easier to write a simple python wrapper to run Cutadapt in batch mode, for particular barcodes which our lab uses. See BatchAdapt at https://github.com/helloabunai/Batchadapt. Documentation for this small wrapper is in progress at the time of writing, so a simple instruction set is as follows:
+If your sequence data originates from a samplelibrary combined with other non-*HTT* data, then your data will need to be de-multiplexed before it can be used within ScaleHD. In order to demultiplex data, we typically use Cutadapt (http://cutadapt.readthedocs.io/en/stable/) to select *HTT* reads only on the basis of the presence of the PCR primer binding site in the reads. Even for non-multiplexed data (*HTT* only data) it is useful to use Cutadapt to collect reads that start with the PCR primer binding site. There are two benefits in doing this:
+
+ * Removing the reads that, for some reason, would not start with a PCR primer binding site.
+ * Trimming all the reads at the same position within the PCR primer binding site. This allows processing of reads which start at the same position, and also allows for trimming of the hetereogeneity spacer we often use for sequencing library preparation.
+
+Due to colleague unfamiliarity with Bash scripting, it was easier to write a simple python wrapper to run Cutadapt in batch mode, for particular barcodes which our lab uses. See BatchAdapt at https://github.com/helloabunai/Batchadapt. Documentation for this small wrapper is in progress at the time of writing, so a simple instruction set is as follows:
 
  * Clone the Github repository
  * Run the setup script in a terminal: python setup.py install
@@ -38,7 +43,7 @@ Reference Libraries
 Due to the multiple reference design approach to determining legitimate alleles that ScaleHD uses, the pipeline expects an input reference library to conform to a certain standard.
 
 .. _forward-reference:
-For the *forward* reference library, there must be a total dimensional value of 4000 references within the library; CAG1-200 with CCG1-20. Each individual reference sequence label must also conform to a naming standard. For example, a reference sequence of CAG 17, CCG 6, must be labelled as:
+For the *forward* reference library, there must be a total dimensional value of 4000 references within the library; CAG1-200 with CCG1-20. Each individual reference sequence label must also conform to a naming standard. For example, a reference sequence with CAG 17 and CCG 6 (i.e. CAG17_CCACAG1_CCGCCA1_CCG6_CCT2) must be labelled as:
 
 ::
 
