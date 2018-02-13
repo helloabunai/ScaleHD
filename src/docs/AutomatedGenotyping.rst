@@ -18,7 +18,7 @@ Thus, the DSP module will scan each read in an aligned assembly (aligned to a ty
 
 For each tract in *HTT* data (CAG, CCG, CCT), masks of every possible string rotation (e.g. CAG -> AGC -> GCA) are read across each read, in a sliding window. This is done, as not every read in an assembly will be the exact same length and may not start at the exact same position -- this results occasionally in certain repeat tracts 'starting' on an offset base position, by one or two bases. In order to successfully identify *all* repeat tracts in *all* reads, these rotations are required. This mechanism produces a 'staggered assembly', which can be seen in the figure below.
 
-.. image:: img/dsp-staggering.png
+.. image:: img/staggered-amplitude.png
 
 Once we have identified where each repeat tract lies within a read, we can easily derive the literal string value of the intervening sequence -- the information between the end of the CAG tract and the start of the CCG tract. However, with absurdly low rates, we have observed novel insertion mutations within the actual intervening sequence itself. As a result, the DSP module was extended to then scan the intervening sequence itself instead of naïvely extracting information in a position-based way.
 
