@@ -10,7 +10,7 @@ The genotyping procedure of ScaleHD has three stages. The results from each stag
 ``B) An example of a common atypical structure with an additional CAACAG in the intervening sequence.``
 ``C) A futher example of a common atypical structure, with a missing CCGCCA``
 
-However, in ~5% of samples, the structure differs. These 'atypical' samples, have an intervening sequence which is different from the normally observed one. These can vary in literal size, but an example of one atypical allele would be represented as: CAG_2_1_CCG_CCT. This is important as, due to the string-similarity of the hexamers in the intervening sequence, an atypical allele can be incorrectly assigned to a typical reference with a larger CCG. For example, a sample with the genotype CAG_2_1_7_CCT (A) would be the exact same length as CAG_1_1_9_CCT (B):
+However, in ~5% of samples, the structure differs. These 'atypical' samples, have an intervening sequence which is different from the normally observed one. These can vary in literal size, but an example of one atypical allele would be represented as: CAG_2_1_CCG_CCT. This is important as, due to the string-similarity of the hexamers in the intervening sequence, an atypical allele can be incorrectly assigned to a typical reference with a larger CCG. For example, a sample with the genotype CAG_1_1_9_CCT (A) would be the exact same length as CAG_2_1_7_CCT (B):
 
 .. image:: img/atypical-typical-lengths.png
 
