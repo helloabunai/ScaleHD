@@ -8,7 +8,6 @@ class SequenceSample:
 		self.sample_qcpath = ''
 		self.sample_alignpath = ''
 		self.sample_predictpath = ''
-		self.sample_bayespath = ''
 		self.enshrine_flag = False
 		self.subsample_flag = False
 		self.broad_flag = False
@@ -19,6 +18,8 @@ class SequenceSample:
 		self.rvalnpcnt = 0.0
 		self.fwalncount = 0
 		self.rvalncount = 0
+		self.fwalnrmvd = 0
+		self.rvalnrmvd = 0
 
 		self.forward_index = ''
 		self.reverse_index = ''
@@ -68,7 +69,6 @@ class SequenceSample:
 	def set_qcpath(self, qcpath): self.sample_qcpath = qcpath
 	def set_alignpath(self, alignpath):	self.sample_alignpath = alignpath
 	def set_predictpath(self, predictpath):	self.sample_predictpath = predictpath
-	def set_bayespath(self, bayespath):	self.sample_bayespath = bayespath
 	def set_enshrineflag(self, flag): self.enshrine_flag = flag
 	def set_subsampleflag(self, flag): self.subsample_flag = flag
 	def set_broadflag(self, flag): self.broad_flag = flag
@@ -79,6 +79,8 @@ class SequenceSample:
 	def set_rvalnpcnt(self, pcnt): self.rvalnpcnt = pcnt
 	def set_fwalncount(self, count): self.fwalncount = count
 	def set_rvalncount(self, count): self.rvalncount = count
+	def set_fwalnrmvd(self, count): self.fwalnrmvd = count
+	def set_rvalnrmvd(self, count): self.rvalnrmvd = count
 
 	def set_fwidx(self, idx): self.forward_index = idx
 	def set_rvidx(self, idx): self.reverse_index = idx
@@ -128,7 +130,6 @@ class SequenceSample:
 	def get_qcpath(self): return self.sample_qcpath
 	def get_alignpath(self): return self.sample_alignpath
 	def get_predictpath(self): return self.sample_predictpath
-	def get_bayespath(self): return self.sample_bayespath
 	def get_enshrineflag(self): return self.enshrine_flag
 	def get_subsampleflag(self): return self.subsample_flag
 	def get_broadflag(self): return self.broad_flag
@@ -139,6 +140,8 @@ class SequenceSample:
 	def get_rvalnpcnt(self): return self.rvalnpcnt
 	def get_fwalncount(self): return self.fwalncount
 	def get_rvalncount(self): return self.rvalncount
+	def get_fwalnrmvd(self): return self.fwalnrmvd
+	def get_rvalnrmvd(self): return self.rvalnrmvd
 
 	def get_fwidx(self): return self.forward_index
 	def get_rvidx(self): return self.reverse_index
@@ -185,7 +188,7 @@ class SequenceSample:
 	## Functions
 	def generate_sampletree(self):
 
-		for path in [self.sample_qcpath, self.sample_alignpath, self.sample_predictpath, self.sample_bayespath]:
+		for path in [self.sample_qcpath, self.sample_alignpath, self.sample_predictpath]:
 			try:
 				os.makedirs(path)
 			except OSError as exc:
@@ -222,6 +225,8 @@ class IndividualAllele:
 		self.rvalnpcnt = 0.0
 		self.fwalncount = 0
 		self.rvalncount = 0
+		self.fwalnrmvd = 0
+		self.rvalnrmvd = 0
 
 		self.forward_index = ''
 		self.reverse_index = ''
@@ -288,6 +293,8 @@ class IndividualAllele:
 	def set_rvalnpcnt(self, pcnt): self.rvalnpcnt = pcnt
 	def set_fwalncount(self, count): self.fwalncount = count
 	def set_rvalncount(self, count): self.rvalncount = count
+	def set_fwalnrmvd(self, count): self.fwalnrmvd = count
+	def set_rvalnrmvd(self, count): self.rvalnrmvd = count
 
 	def set_fwidx(self, idx): self.forward_index = idx
 	def set_rvidx(self, idx): self.reverse_index = idx
@@ -354,6 +361,8 @@ class IndividualAllele:
 	def get_rvalnpcnt(self): return self.rvalnpcnt
 	def get_fwalncount(self): return self.fwalncount
 	def get_rvalncount(self): return self.rvalncount
+	def get_fwalnrmvd(self): return self.fwalnrmvd
+	def get_rvalnrmvd(self): return self.rvalnrmvd
 
 	def get_fwidx(self): return self.forward_index
 	def get_rvidx(self): return self.reverse_index

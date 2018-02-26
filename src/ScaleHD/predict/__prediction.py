@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.252
+__version__ = 0.253
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -12,13 +12,12 @@ import PyPDF2
 import warnings
 import peakutils
 import matplotlib
-import subprocess
 import collections
 import numpy as np
-import logging as log
 matplotlib.use('Agg')
+import logging as log
+import seaborn as sns
 from sklearn import svm
-import prettyplotlib as ppl
 import matplotlib.pyplot as plt
 from sklearn import preprocessing
 from reportlab.pdfgen import canvas
@@ -112,8 +111,12 @@ class AlleleGenotyping:
 		reverse_reshape = preprocessing.normalize(np.float64(self.reverse_aggregate.reshape(1, -1)))
 
 		##
-		## Predict the zygstate of these reshapen, noramlised 20D CCG arrays using SVM object earlier
+		## Predict the zygstate of these reshapen, normalised 20D CCG arrays using SVM object earlier
 		## Results from self.classifier are #encoded; so convert with our self.encoder.inverse_transform
+		## Depreciation warning started appearing on perfectly valid label arrays..
+		## TODO investigate in future
+		import warnings
+		warnings.filterwarnings("ignore", category=DeprecationWarning)
 		forward_zygstate = str(self.encoder.inverse_transform(self.classifier.predict(forward_reshape)))
 		reverse_zygstate = str(self.encoder.inverse_transform(self.classifier.predict(reverse_reshape)))
 
@@ -306,8 +309,10 @@ class AlleleGenotyping:
 			if not allele_object.get_fwalnpcnt() and not allele_object.get_rvalnpcnt():
 				allele_object.set_fwalnpcnt(self.sequencepair_object.get_fwalnpcnt())
 				allele_object.set_fwalncount(self.sequencepair_object.get_fwalncount())
+				allele_object.set_fwalnrmvd(self.sequencepair_object.get_fwalnrmvd())
 				allele_object.set_rvalnpcnt(self.sequencepair_object.get_rvalnpcnt())
 				allele_object.set_rvalncount(self.sequencepair_object.get_rvalncount())
+				allele_object.set_rvalnrmvd(self.sequencepair_object.get_rvalnrmvd())
 
 			##
 			## Unlabelled distributions
@@ -997,7 +1002,6 @@ class AlleleGenotyping:
 			if allele.get_header() == 'SEC': dist = self.secondary_original
 			somatic_ratio = (sum(dist[npo:npt]))/dist[allele.get_cag()-1]
 			allele.set_somaticmosaicism(somatic_ratio)
-			print somatic_ratio
 
 			##
 			## If we get here; alleles are valid
@@ -1084,7 +1088,7 @@ class AlleleGenotyping:
 	def render_graphs(self):
 
 		##
-		## Data for graph rendering (prevents frequent calls/messy code [[lol]])
+		## Data for graph rendering (prevents frequent calls/messy code [[lol irony]])
 		pri_fodccg = self.sequencepair_object.get_primaryallele().get_fodccg()-1
 		sec_fodccg = self.sequencepair_object.get_secondaryallele().get_fodccg()-1
 		pri_fodcag = self.sequencepair_object.get_primaryallele().get_fodcag()-1
@@ -1095,14 +1099,27 @@ class AlleleGenotyping:
 		predpath = self.sequencepair_object.get_predictpath()
 
 		def graph_subfunction(x, y, axis_labels, xticks, peak_index, predict_path, file_handle, prefix='', graph_type=None, neg_anchor=False):
+
+			#seaborn palette
+			sns.set(style='darkgrid')
+
 			x = np.linspace(x[0],x[1],x[2])
-			plt.figure(figsize=(10, 6)); plt.title(prefix+self.sequencepair_object.get_label())
+			fig, ax = plt.subplots(figsize=(10, 6)); plt.title(prefix+self.sequencepair_object.get_label())
 			plt.xlabel(axis_labels[0]); plt.ylabel(axis_labels[1])
 			if graph_type == 'bar':
+				## ticker forced to integers (instead of floats)
+				from matplotlib.ticker import FuncFormatter
+				## format xtick labels correctly (CCG vs CAG distributions)
 				if neg_anchor: xtickslabel = xticks[2]
-				else: xtickslabel = [str(i-1) for i in xticks[2]]
-				ppl.bar(x, y, grid='y', annotate=True, xticklabels=xtickslabel)
-				plt.xticks(size=8)
+				else: xtickslabel = [i-1 for i in xticks[2]]
+				## plot bar data, remove x labels
+				sns.barplot(x,y); plt.xticks([])
+				## re-add x labels above respective bar plots
+				for p, dat in zip(ax.patches, xtickslabel):
+					ax.text(p.get_x() + p.get_width() / 2., p.get_height()+25, dat, ha="center", fontsize=9)
+
+				## ticker forced to integers (instead of floats)
+				plt.gca().xaxis.set_major_formatter(FuncFormatter(lambda x, _: int(x)))
 			else:
 				plt.xticks(np.arange(xticks[0][0], xticks[0][1], xticks[0][2]), xticks[2])
 				plt.xlim(xticks[1][0], xticks[1][1])
@@ -1577,49 +1594,3 @@ class AlleleGenotyping:
 							  self.sequencepair_object.get_secondaryallele().get_allelereport()]
 		return self.allele_report
 
-class SNPCalling:
-	def __init__(self, sequencepair_object, instance_params):
-		self.sequencepair_object = sequencepair_object
-		self.instance_params = instance_params
-		self.snp_report = ''
-		self.call_variants()
-
-		# samtools faidx <reference>
-		# picard CreateSequenceDictioanry REFERENCE=<reference> OUTPUT=<reference.dict>
-		# samtools index <assembly> <assembly.bam.bai>
-		# gatk -R 4k-HD-INTER.fa -T HaplotypeCaller -I assembly_sorted.bam -o variants.vcf
-
-	def call_variants(self):
-
-		"""
-		Simple workflow function which calls various third party tools in order to call SNPs within the alignment
-		which we created earlier on within the pipeline.
-		:return: fuck all
-		"""
-
-		for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
-
-			fw_idx = allele.get_fwidx(); fw_assembly = allele.get_fwassembly()
-			header = allele.get_header(); predpath = self.sequencepair_object.get_predictpath()
-
-			## non bwa-mem index of reference
-			faidx_subprocess = subprocess.Popen(['samtools', 'faidx', fw_idx],
-												stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-			faidx_subprocess.wait()
-
-			## create a sequence dictionary for use in GATK
-			dict_path = '/'.join(fw_idx.split('/')[:-1]) + '.dict'
-			picard_subprocess = subprocess.Popen(['picard', 'CreateSequenceDictionary',
-												  'REFERENCE={}'.format(fw_idx),
-												  'OUTPUT={}'.format(dict_path)],
-												 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-			picard_log = picard_subprocess.communicate(); picard_subprocess.wait()
-			## utilised HaplotypeCaller in GATK to determine variants
-			desired_output = os.path.join(predpath, '{}_variants.vcf'.format(header))
-			gatk_subprocess = subprocess.Popen(['gatk', '-R', fw_idx, '-T', 'HaplotypeCaller', '-I', fw_assembly
-												, '-o', desired_output], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-			gatk_log = gatk_subprocess.communicate(); gatk_subprocess.wait()
-	def set_report(self, input_report):
-		self.snp_report = input_report
-	def get_report(self):
-		return self.snp_report

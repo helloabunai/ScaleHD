@@ -1,5 +1,5 @@
 #/usr/bin/python
-__version__ = 0.252
+__version__ = 0.253
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -158,8 +158,8 @@ class SeqAlign:
 		## Align the two FastQ files in the pair
 		if self.individual_allele is not None: typical_flag = 'atypical'
 		else: typical_flag = 'typical'
-		forward_distribution, forward_report, forward_assembly, fwmapped_pcnt, fwmapped_count = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1',typical_flag)
-		reverse_distribution, reverse_report, reverse_assembly, rvmapped_pcnt, rvmapped_count = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2',typical_flag)
+		forward_distribution, forward_report, forward_assembly, fwmapped_pcnt, fwmapped_count, fwremoved_count = self.execute_alignment(forward_index,forward_reads,'Aligning forward reads..','R1',typical_flag)
+		reverse_distribution, reverse_report, reverse_assembly, rvmapped_pcnt, rvmapped_count, rvremoved_count = self.execute_alignment(reverse_index,reverse_reads,'Aligning reverse reads..','R2',typical_flag)
 		self.align_report.append(forward_report); self.align_report.append(reverse_report)
 
 		##
@@ -200,6 +200,8 @@ class SeqAlign:
 			self.sequencepair_object.set_rvalnpcnt(rvmapped_pcnt)
 			self.sequencepair_object.set_fwalncount(fwmapped_count)
 			self.sequencepair_object.set_rvalncount(rvmapped_count)
+			self.sequencepair_object.set_fwalnrmvd(fwremoved_count)
+			self.sequencepair_object.set_rvalnrmvd(rvremoved_count)
 		else:
 			self.individual_allele.set_fwdist(forward_distribution)
 			self.individual_allele.set_rvdist(reverse_distribution)
@@ -209,6 +211,8 @@ class SeqAlign:
 			self.individual_allele.set_rvalnpcnt(rvmapped_pcnt)
 			self.individual_allele.set_fwalncount(fwmapped_count)
 			self.individual_allele.set_rvalncount(rvmapped_count)
+			self.individual_allele.set_fwalnrmvd(fwremoved_count)
+			self.individual_allele.set_rvalnrmvd(rvremoved_count)
 
 	def execute_alignment(self, reference_index, target_fqfile, feedback_string, io_index, typical_flag):
 
@@ -302,6 +306,7 @@ class SeqAlign:
 			mapped_pcnt = [x for x in (flagstat_output[0].split('\n')) if '%' in x]
 			aln_pcnt = str(mapped_pcnt[0]).split('(')[1].rsplit('%')[0]
 			aln_count = mapped_pcnt[0].split(' +')[0]
+			removed_reads = 0
 
 		## Otherwise -e wasn't present (default), and we purge all non-uniquely mapped reads
 		else:
@@ -321,8 +326,9 @@ class SeqAlign:
 			## calculate difference between pre and post purge
 			aln_pcnt =  float(post_purge[0])/float(pre_purge[0])*100
 			aln_count = post_purge[0]
+			removed_reads = int(pre_purge[0]) - int(post_purge[0])
 
-		return csv_path, alignment_report, sorted_assembly, aln_pcnt, aln_count
+		return csv_path, alignment_report, sorted_assembly, aln_pcnt, aln_count, removed_reads
 
 	def get_alignreport(self):
 		return self.align_report

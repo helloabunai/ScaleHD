@@ -1,5 +1,15 @@
 .. _sect_changelog:
 
+Version 0.253
+-------------
+
+ * Removed Rpy2 and R-interface codebase in preparation for switching bayesian confirmation model to a native python library.
+ * Added additional flag for ScaleHD output, describing how many reads that mapped to multiple references were removed (if enabled by the user).
+ * Switched output rendering pipeline from Prettyplotlib to Seaborn (PPL is no longer supported).
+ * Minor backend modifications in relation to the above.
+ * SKLearn deprecation on label encoder fixes
+ * Minor genotyping fixes (thresholds)
+
 Version 0.252
 -------------
 

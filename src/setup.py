@@ -13,7 +13,7 @@ setup(
     name='ScaleHD',
 
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.252',
+    version='0.253',
 
     description='Automated DNA micro-satellite genotyping.',
     long_description=long_description,
@@ -75,18 +75,16 @@ setup(
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=['lxml',
 					  'numpy',
-					  'prettyplotlib',
+					  'seaborn',
 					  'matplotlib',
 					  'sklearn',
 					  'scipy',
 					  'peakutils',
-                      'django',
                       'pandas',
 					  'pysam',
 					  'regex',
 					  'PyPDF2',
 					  'reportlab',
-					  'rpy2',
 					  'generatr'
 					  ],
 

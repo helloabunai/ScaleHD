@@ -1,5 +1,5 @@
 #/usr/bin/python
-__version__ = 0.252
+__version__ = 0.253
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -482,8 +482,7 @@ def sequence_pairings(data_path, instance_rundir):
 		seq_qc_path = os.path.join(instance_rundir, sample_root, 'SeqQC')
 		align_path = os.path.join(instance_rundir, sample_root, 'Align')
 		predict_path = os.path.join(instance_rundir, sample_root, 'Predict')
-		bayes_path = os.path.join(instance_rundir, sample_root, 'Bayes')
-		file_pair[sample_root] = [forward_data, reverse_data, instance_path, seq_qc_path, align_path, predict_path, bayes_path]
+		file_pair[sample_root] = [forward_data, reverse_data, instance_path, seq_qc_path, align_path, predict_path]
 		sequence_pairs.append(file_pair)
 
 	return sequence_pairs
@@ -560,8 +559,6 @@ def initialise_libraries(instance_params):
 		try:type_func('samtools')
 		except ScaleHDException: trigger=True
 		try:type_func('generatr')
-		except ScaleHDException: trigger=True
-		try: type_func('R')
 		except ScaleHDException: trigger=True
 	if snp_calling == 'True':
 		try: type_func('picard')

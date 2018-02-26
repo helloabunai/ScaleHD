@@ -11,21 +11,19 @@ Python Packages
 All software packages have an accompanying version number listed. These are the versions of each package from which ScaleHD was developed. Newer versions may function fine, but are not tested. It is highly recommended to avoid older versions, and if possible, use the exact same version as during development. If you do not want to overwrite any packages of which you have a newer version, please see the sub-section in :ref:`detailed-install` about utilising virtual environments.
 
  * cutadapt (1.9.1)
- * django (1.5.4)
  * generatr (0.252)
  * lxml (4.0.0)
  * matplotlib (1.3.1)
  * numpy (1.13.1)
  * pandas (0.14.1)
  * peakutils (1.0.3)
- * prettyplotlib (0.1.7)
+ * seaborn (0.8.1)
  * PyPDF2 (1.26.0)
  * pysam (0.9.1.4)
  * regex (2017.1.17)
  * reportlab (3.3.0)
- * rpy2 (2.8.3)
  * scipy (0.17.1)
- * sklearn (0.19.0)
+ * sklearn (0.19.1)
 
 Third Party Binaries
 ~~~~~~~~~~~~~~~~~~~~
@@ -37,7 +35,6 @@ ScaleHD also uses third party binaries to carry out certain functions. These bin
  * SeqTK (1.2-r101-dirty)
  * BWA-MEM (0.7.15-r1140)
  * Samtools (1.3.1)
- * R (3.3.2)
  * Picard (2.10.10)
  * GATK (3.8)
 
@@ -189,11 +186,6 @@ Samtools (1.3.1)
 ~~~~~~~~~~~~~~~~
 
 Samtools is available from http://samtools.sourceforge.net/. Installation is identical to that of BWA-MEM. Extract the downloaded tarball, and move into the newly extracted directory. Configure, make and make install. Copy the new samtools binary to your Builds directory, and add it to your $PATH.
-
-R (3.3.2)
-~~~~~~~~~
-
-R is a statistical scripting environment with a powerful array of analysis packages. ScaleHD uses it for bayesian algorithms. R is available at https://cran.rstudio.com/bin/macosx/ and comes with a GUI-based installer, so no further instructions should be required. It is automatically put onto your $PATH, for you.
 
 Picard (2.10.10)
 ~~~~~~~~~~~~~~~~

@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.252
+__version__ = 0.253
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -153,16 +153,16 @@ class ScaleHD:
 		## Instance results (genotype table)
 		self.instance_results = os.path.join(self.instance_rundir, 'InstanceReport.csv')
 		self.padded_distributions = os.path.join(self.instance_rundir, 'AlignedDistributions.csv')
-		self.header = '{},{},{},{},{},{},{},{},{},{},{},{},' \
-					  '{},{},{},{},{},{},{},{},{},{},{},{},{},' \
-					  '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
-			'SampleName', '' ,'Primary GTYPE', 'Status', 'Map (FW)', 'Map% (FW)', 'Map (RV)', 'Map% (RV)', 'BSlippage',
-			'Somatic Mosaicism', 'Intervening Sequence', 'Confidence', '', 'Secondary GTYPE', 'Status', 'Map (FW)',
-			'Map% (FW)', 'Map (RV)','Map% (RV)', 'BSlippage', 'Somatic Mosaicism', 'Intervening Sequence', 'Confidence',
-			'', 'Exception Raised', 'Homozygous Haplotype', 'Neighbouring Peaks', 'Diminished Peaks', 'Novel Atypical',
-			'Alignment Warning', 'Atypical Alignment Warning', 'CCG Rewritten', 'CCG Zygosity Rewritten',
-			'CCG Uncertainty', 'CCT Uncertainty', 'SVM Failure', 'Differential Confusion', 'Peak Inspection Warning',
-			'Low Distribution Reads', 'Low Peak Reads'
+		self.header = '{},{},{},{},{},{},{},{},{},{},{},{},{},' \
+					  '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},' \
+					  '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
+			'SampleName', '' ,'Primary GTYPE', 'Status', 'Map (FW)', 'Map% (FW)', 'Purged (FW)', 'Map (RV)', 'Map% (RV)',
+			'Purged (RV)', 'BSlippage', 'Somatic Mosaicism', 'Intervening Sequence', 'Confidence', '', 'Secondary GTYPE',
+			'Status', 'Map (FW)', 'Map% (FW)', 'Purged (FW)', 'Map (RV)', 'Map% (RV)', 'Purged (RV)', 'BSlippage',
+			'Somatic Mosaicism', 'Intervening Sequence', 'Confidence', '', 'Exception Raised', 'Homozygous Haplotype',
+			'Neighbouring Peaks', 'Diminished Peaks', 'Novel Atypical', 'Alignment Warning', 'Atypical Alignment Warning',
+			'CCG Rewritten', 'CCG Zygosity Rewritten', 'CCG Uncertainty', 'CCT Uncertainty', 'SVM Failure',
+			'Differential Confusion', 'Peak Inspection Warning', 'Low Distribution Reads', 'Low Peak Reads'
 		)
 		padded_header = '{},{},{},{},{},N-VAL\n'.format('Filename','Allele','CCGVal','Dist',' ,'*200)
 		with open(self.instance_results, 'w') as outfi: outfi.write(self.header); outfi.close()
@@ -228,7 +228,6 @@ class ScaleHD:
 				current_seqpair.set_qcpath(seqpair_dat[3])
 				current_seqpair.set_alignpath(seqpair_dat[4])
 				current_seqpair.set_predictpath(seqpair_dat[5])
-				current_seqpair.set_bayespath(seqpair_dat[6])
 				current_seqpair.set_enshrineflag(self.enshrine_assembly)
 				current_seqpair.set_broadflag(self.broad_flag)
 				current_seqpair.set_groupflag(self.group_flag)
@@ -307,9 +306,9 @@ class ScaleHD:
 								os.remove(seqfi)
 							except OSError:
 								pass
-				#####################################################
-				## Stage five!! Genotype distributions/SNP Calling ##
-				#####################################################
+				#########################################
+				## Stage five!! Genotype distributions ##
+				#########################################
 				try:
 					self.allele_genotyping(current_seqpair, invalid_data)
 				except Exception, e:
@@ -317,16 +316,17 @@ class ScaleHD:
 					self.append_report(current_seqpair)
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Genotyping failure on ',seqpair_lbl, str(e)))
 					continue
-				#######################################
-				## Stage six!! Bayesian Genotyping.. ##
-				#######################################
-				# try:
-				# 	self.bayesian_analyses(current_seqpair)
-				# except Exception, e:
-				#	current_seqpair.set_exceptionraised('Bayes')
-				# 	self.append_report(current_seqpair, "FAIL")
-				# 	log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Bayesian failure on ', seqpair_lbl, str(e)))
-				# 	continue
+
+				#############################
+				## Stage six!! SNP calling ##
+				#############################
+				try:
+					self.snp_calling(current_seqpair)
+				except Exception, e:
+					current_seqpair.set_exceptionraised('SNP Calling')
+					self.append_report(current_seqpair)
+					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'SNP calling failure on ',seqpair_lbl, str(e)))
+					continue
 				#############################
 				## Finished! File output.. ##
 				#############################
@@ -402,7 +402,6 @@ class ScaleHD:
 	def allele_genotyping(self, sequencepair_object, invalid_data):
 
 		genotyping_flag = self.instance_params.config_dict['instance_flags']['@genotype_prediction']
-		snpcall_flag = self.instance_params.config_dict['instance_flags']['@snp_calling']
 
 		## genotyping
 		if genotyping_flag == 'True':
@@ -418,11 +417,19 @@ class ScaleHD:
 		gc.collect()
 		log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Genotyping workflow complete!'))
 
-	def bayesian_analyses(self, sequencepair_object):
+	def snp_calling(self, sequencepair_object):
 
-		print self.args.jobname
-		# TODO take distro and work into R functions
-		print 'bayes in development'
+		snpcall_flag = self.instance_params.config_dict['instance_flags']['@snp_calling']
+
+		##snp calling
+		if snpcall_flag == 'True':
+			log.info('{}{}{}{}'.format(clr.yellow, 'shd__ ', clr.end, 'Calling SNPs.. '))
+			sequencepair_object.set_snpreport(
+				predict.DetermineMutations(sequencepair_object, self.instance_params).get_report())
+
+		## tidy up
+		gc.collect()
+		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'SNP calling workflow complete!'))
 
 	def collate_graphs(self, sequencepair_object):
 
@@ -463,13 +470,13 @@ class ScaleHD:
 
 		unparsed_info = [[sequencepair_object, 'get_label'], ['NULL', 'NULL'], [primary_allele, 'get_reflabel'],
 						 [primary_allele, 'get_allelestatus'], [primary_allele, 'get_fwalncount'],
-						 [primary_allele, 'get_fwalnpcnt'], [primary_allele, 'get_rvalncount'],
-						 [primary_allele, 'get_rvalnpcnt'], [primary_allele, 'get_backwardsslippage'],
+						 [primary_allele, 'get_fwalnpcnt'], [primary_allele, 'get_fwalnrmvd'], [primary_allele, 'get_rvalncount'],
+						 [primary_allele, 'get_rvalnpcnt'], [primary_allele, 'get_rvalnrmvd'], [primary_allele, 'get_backwardsslippage'],
 						 [primary_allele, 'get_somaticmosaicism'], [primary_allele, 'get_intervening'],
 						 [primary_allele, 'get_alleleconfidence'], ['NULL', 'NULL'], [secondary_allele, 'get_reflabel'],
 						 [secondary_allele, 'get_allelestatus'], [secondary_allele, 'get_fwalncount'],
-						 [secondary_allele, 'get_fwalnpcnt'], [secondary_allele, 'get_rvalncount'],
-						 [secondary_allele, 'get_rvalnpcnt'], [secondary_allele, 'get_backwardsslippage'],
+						 [secondary_allele, 'get_fwalnpcnt'], [secondary_allele, 'get_fwalnrmvd'], [secondary_allele, 'get_rvalncount'],
+						 [secondary_allele, 'get_rvalnpcnt'], [secondary_allele, 'get_rvalnrmvd'], [secondary_allele, 'get_backwardsslippage'],
 						 [secondary_allele, 'get_somaticmosaicism'], [secondary_allele, 'get_intervening'],
 						 [secondary_allele, 'get_alleleconfidence'], ['NULL', 'NULL'],
 						 [sequencepair_object, 'get_exceptionraised'],[sequencepair_object, 'get_homozygoushaplotype'],
