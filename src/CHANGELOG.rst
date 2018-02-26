@@ -1,6 +1,6 @@
 .. _sect_changelog:
 
-Version 0.253
+Version 0.300
 -------------
 
  * Removed Rpy2 and R-interface codebase in preparation for switching bayesian confirmation model to a native python library.
