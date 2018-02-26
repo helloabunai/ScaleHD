@@ -1,10 +1,5 @@
-ScaleHD-ALSPAC: Automated Huntington Disease genotyping with end-to-end allele masking
+ScaleHD: Automated Huntington Disease genotyping with end-to-end allele masking
 =========================================================
-!! This self-fork of ScaleHD is intended for use in the ALSPAC PheWAS; if you're not involved in that study then perhaps
-this is not of use to you. Allele end-to-end masking entails the complete coverage of 'true' allele sizes, if the repeat count
-for said allele is greater than 31 -- all intermediary files and data must be "encrypted" from the end user, so the true
-genotype cannot be determined.
-
 ScaleHD is a package for automating the process of genotyping microsatellite repeats in Huntington Disease data.
 We utilise machine learning approaches to take into account natural data 'artefacts', such as PCR slippage and somatic
 mosaicism, when processing data. This provides the end-user with a simple to use platform which can robustly predict genotypes from input data.
