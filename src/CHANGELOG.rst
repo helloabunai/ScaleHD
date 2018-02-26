@@ -3,6 +3,8 @@
 Version 0.300
 -------------
 
+We now consider version 0.300 a "release-candidate alpha", if such a thing exists. I.E. The functionality performs as desired, 99% of the time (figure not accurate and i am not legally liable for any repercussions of assuming ScaleHD is 99% accurate haHAa). From this point onwards, new releases will contain new features, or a large collection of bug fixes. Minor iterations are (hopefully) over.
+
  * Removed Rpy2 and R-interface codebase in preparation for switching bayesian confirmation model to a native python library.
  * Added additional flag for ScaleHD output, describing how many reads that mapped to multiple references were removed (if enabled by the user).
  * Switched output rendering pipeline from Prettyplotlib to Seaborn (PPL is no longer supported).
