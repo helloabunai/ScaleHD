@@ -23,11 +23,7 @@ class DetermineMutations:
 		"""
 		Simple workflow function which calls various third party tools in order to call SNPs within the alignment
 		which we created earlier on within the pipeline.
-	
-		For some damn reason while working at home on arch linux I need to call certain subprocesses
-		via an interactive bash session rather than using shell == True. fuck knows why
-
-		:return: nothing yet
+		:return: n/a
 		"""	
 		for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 			## get data
@@ -70,8 +66,6 @@ class DetermineMutations:
 			allele.set_variant_file(desired_output)
 
 	def scrape_relevance(self):
-		print 'hi scrape_relevance()'
-
 		for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 			print allele.get_variant_file()
 
