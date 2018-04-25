@@ -682,7 +682,10 @@ class AlleleGenotyping:
 				while fod_failstate:
 					fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, distance_threshold, 'CAGHom', est_dist=estimated_distance, fod_recall=True)
 
-				allele.set_fodcag(cag_indexes)
+				if type(cag_indexes) == np.ndarray:
+					allele.set_fodcag(cag_indexes.flat[0])
+				else:
+					allele.set_fodcag(cag_indexes)
 
 		return pass_gtp
 
