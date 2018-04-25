@@ -262,7 +262,7 @@ class SeqAlign:
 		unpaired_pairing_penalty    :: -U <INT>      :: penalty for unpaired read pair [17]
 		"""
 
-		read_group_header = '@RG\tID:{}\tSM:{}\tPL:{}\tLB:{}'.format('ScaleHD-ALN',self.sequencepair_object.get_label(),
+		read_group_header = '@RG\\tID:{}\\tSM:{}\\tPL:{}\\tLB:{}'.format('ScaleHD-ALN',self.sequencepair_object.get_label(),
 																	 'ILLUMINA',self.instance_params.config_dict['JobName'])
 		bwa_process = subprocess.Popen(['bwa', 'mem', '-t', str(THREADS), '-k', min_seed_length,
 										'-w', band_width, '-r', seed_length_extension,

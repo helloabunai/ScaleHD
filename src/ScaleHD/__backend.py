@@ -515,14 +515,16 @@ def initialise_libraries(instance_params):
 	## Subfunction for recycling code
 	## Calls UNIX type for checking binaries present
 	## Changed from WHICH as apparently type functions over different shells/config files
-	def type_func(alias):
-		alias_subprocess = subprocess.Popen(['type', alias], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		alias_result = alias_subprocess.communicate()
-		alias_subprocess.wait()
-		if alias_result[0] == '':
-			if 'not found' in alias_result[1]:
-				log.critical('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Missing alias: ', alias, '. Not aliased in .bash_profile!'))
-				raise ScaleHDException
+	def type_func(binary):
+		binary_result = []
+		binary_string = 'type {}'.format(binary)
+		binary_subprocess = subprocess.Popen(['/bin/bash', '-i', '-c', binary_string], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		binary_result = binary_subprocess.communicate()
+		binary_subprocess.wait()
+		
+		if ('not found' in binary_result[0] or binary_result[1]):
+			log.critical('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Missing binary: ', binary, '!'))
+			raise ScaleHDException
 
 	##
 	## To determine which binaries to check for
