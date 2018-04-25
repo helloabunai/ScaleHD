@@ -238,6 +238,7 @@ class IndividualAllele:
 		self.reverse_array = []
 		self.forward_array_original = []
 		self.reverse_array_original = []
+		self.variant_file = ''
 		self.ccg_peak_threshold = 0.0
 		self.cag_peak_threshold = 0.0
 
@@ -306,6 +307,7 @@ class IndividualAllele:
 	def set_rvarray(self, array): self.reverse_array = array
 	def set_fwarray_orig(self, array): self.forward_array_original = array
 	def set_rvarray_orig(self, array): self.reverse_array_original = array
+	def set_variant_file(self, infile): self.variant_file = infile
 	def set_ccgthreshold(self, threshold): self.ccg_peak_threshold = threshold
 	def set_cagthreshold(self, threshold): self.cag_peak_threshold = threshold
 
@@ -374,6 +376,7 @@ class IndividualAllele:
 	def get_rvarray(self): return self.reverse_array
 	def get_fwarray_orig(self): return self.forward_array_original
 	def get_rvarray_orig(self): return self.reverse_array_original
+	def get_variant_file(self): return self.variant_file
 	def get_ccgthreshold(self): return self.ccg_peak_threshold
 	def get_cagthreshold(self): return self.cag_peak_threshold
 
