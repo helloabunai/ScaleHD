@@ -1,5 +1,14 @@
 .. _sect_changelog:
 
+Version 0.310
+-------------
+
+This is a minor update to ScaleHD. SNP calling has been implemented into the pipeline.
+ * Fixed a bug where genotyping would complete, but raise an exception at the end of the genotyping module, due to particular arrays not being flattened.
+ * Implemented Picard/GATK into the SNP calling module of ScaleHD.
+ * Updated the requirements for Picard/GATK to be integrated with ScaleHD on the user's system.
+ * Minor codebase re-arranging in preparation for Digital Signal Processing to be replaced by a c++ binary, for performance.
+
 Version 0.300
 -------------
 
