@@ -518,7 +518,7 @@ def initialise_libraries(instance_params):
 	def type_func(binary):
 		binary_result = []
 		binary_string = 'type {}'.format(binary)
-		binary_subprocess = subprocess.Popen(['/bin/bash', '-i', '-c', binary_string], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		binary_subprocess = subprocess.Popen([binary_string], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		binary_result = binary_subprocess.communicate()
 		binary_subprocess.wait()
 		
