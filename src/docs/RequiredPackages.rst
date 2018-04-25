@@ -190,24 +190,41 @@ Samtools is available from http://samtools.sourceforge.net/. Installation is ide
 Picard (2.10.10)
 ~~~~~~~~~~~~~~~~
 
-Picard is not a UNIX binary, and as such we need to do something slightly different to enable it for ScaleHD. Download the JAR release of Picard from https://broadinstitute.github.io/picard/. A JAR file is a package containing all code/images/resources into one file for distribution -- it's a java executable, essentially. Since we cannot add a JAR to our $PATH, we need to make an alias. In our bash_profile file, we add the following line:
+Picard can be downloaded from https://broadinstitute.github.io/picard/.
+
+.. warning::
+    Depending on which shell environment your operating system uses as default (or whichever shell you have chose to use), aliases may not be correctly read from your user profile by the bourne shell, which is the environment utilised by python's subprocess module. In order to account for this, modifications to how ScaleHD interacts with Picard were made as of version 0.31.
+
+Previously, ScaleHD interacted with Picard via a user-generated bash alias. However, throughout more robust testing of different environments, we encountered certain combinations of operating systems and shell environments being unable to successfully get the required information for aliases to function. As such, we have changed (as of ScaleHD v0.31) how we interact with this program.
+
+The user must create a unix script, which handles input arguments and launches the Picard JAR. An example script will look like the following:
 
 ::
 
-  alias picard="java -jar /Users/alastairm/Documents/Builds/Picard/picard.jar"
+  java -jar /Users/alastairm/Documents/Builds/Picard/picard.jar CreateSequenceDictionary REFERENCE=$1 OUTPUT=$2
+  
+As usual, replace the literal directory with your own Builds path. Save this as a file (with no extension) called 'picard'. Include this in the same folder as the Picard JAR, so that your ~/Builds/Picard folder looks like:
 
-This creates a custom command, 'picard', which runs the command seen above. This allows us to invoke the Java virtual machine to launch the Picard JAR file, from our shell. This allows ScaleHD to run Picard in a non-interactive manner.
+| Builds
+| ├── Picard          
+| │   ├── picard ##the binary script we just made
+| │   ├── picard.jar ##the download jar archive
 
+Then, make our script executable:
+
+::
+
+  chmod +x /Users/alastairm/Documents/Builds/Picard/picard
+  
+Once made executable, add the Picard folder to your $PATH. Picard is now set-up for ScaleHD.
+
+  
 GATK (3.8)
 ~~~~~~~~~~
 
-GATK is also a Java archive, and not a UNIX binary. Download GATK from https://software.broadinstitute.org/gatk/download/ and copy it to your Builds directory. Add the following alias to your bash_profile:
+GATK is also a Java archive, and not a UNIX binary. Download GATK from https://software.broadinstitute.org/gatk/download/ and copy it to your Builds directory. As with Picard, an alias is no longer suitable for ScaleHD to function with the software. However, we do not need to create our own executable script for GATK, as one is included with the download.
 
-::
-
-  alias gatk="java -jar /Users/alastairm/Documents/Builds/GATK/GenomeAnalysisTK.jar"
-
-Again, replacing the literal directory with your own Builds path. Once you've done this, you have successfully installed all required packages for ScaleHD to function!
+Move the 'gatk' script and the GATK jar archive into a GATK folder in your Builds path. Add that directory to your system $PATH, and gatk is now set-up for ScaleHD.
 
 Virtual Environments
 ~~~~~~~~~~~~~~~~~~~~
