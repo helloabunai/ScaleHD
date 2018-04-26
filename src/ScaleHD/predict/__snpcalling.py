@@ -1,9 +1,11 @@
 #/usr/bin/python
-__version__ = 0.3
+__version__ = 0.31
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 import os
+import vcf
 import subprocess
+from collections import Counter
 
 class DetermineMutations:
 	def __init__(self, sequencepair_object, instance_params):
@@ -16,6 +18,7 @@ class DetermineMutations:
 		# samtools faidx <reference>
 		# picard CreateSequenceDictioanry REFERENCE=<reference> OUTPUT=<reference.dict>
 		# samtools index <assembly> <assembly.bam.bai>
+		# freebayes -f ref.fa -C snp_threshold assembly.bam > variants.vcf
 		# gatk -R 4k-HD-INTER.fa -T HaplotypeCaller -I assembly_sorted.bam -o variants.vcf
 
 	def generate_variant_data(self):
@@ -37,7 +40,8 @@ class DetermineMutations:
 			## generically used by all typical samples so don't need to create dict repeatedly
 			if allele.get_allelestatus() == "Typical":
 				## check for dict, if doesn't exist, create
-				dict_path = '/'.join(fw_idx.split('/')[:-1])+'/forward.dict'
+				indiv_typical_reference_name = fw_idx.split('/')[-2:-1][0]
+				dict_path = '/'.join(fw_idx.split('/')[:-1])+'/'+indiv_typical_reference_name+'.dict'
 				if not os.path.isfile(dict_path):
 					## picard dict creation
 					picard_string = 'picard {} {}'.format(fw_idx, dict_path)
@@ -57,17 +61,112 @@ class DetermineMutations:
 				picard_log = picard_subprocess.communicate(); picard_subprocess.wait()
 				##todo error checking in picard_log
 			
-			# gatk haplotype caller
-			desired_output = os.path.join(predpath, '{}_variants.vcf'.format(header))
-			gatk_string = 'gatk HaplotypeCaller -R {} -I {} -O {}'.format(fw_idx, fw_assembly, desired_output)
+			## freebayes haplotype caller
+			observation_threshold = (allele.get_totalreads()/100) * int(self.sequencepair_object.get_snpobservationvalue())
+			freebayes_output = os.path.join(predpath, '{}_FreeBayesVariantCall.vcf'.format(header))
+			freebayes_string = 'freebayes -f {} -C {} {}'.format(fw_idx, observation_threshold, fw_assembly)
+			freebayes_outfi = open(freebayes_output, 'w')
+			freebayes_subprocess = subprocess.Popen([freebayes_string], shell=True,
+													stdout=freebayes_outfi, stderr=subprocess.PIPE)
+			freebayes_log = freebayes_subprocess.communicate(); freebayes_subprocess.wait()
+			##todo error checking in freebayes_log
+			allele.set_freebayes_file(freebayes_output)
+			freebayes_outfi.close()
+
+			## gatk haplotype caller
+			gatk_output = os.path.join(predpath, '{}_GATKVariantCall.vcf'.format(header))
+			gatk_string = 'gatk HaplotypeCaller -R {} -I {} -O {}'.format(fw_idx, fw_assembly, gatk_output)
 			gatk_subprocess = subprocess.Popen([gatk_string], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			gatk_log = gatk_subprocess.communicate(); gatk_subprocess.wait()
 			##todo error checking in gatk_log
-			allele.set_variant_file(desired_output)
+			allele.set_gatk_file(gatk_output)
 
 	def scrape_relevance(self):
+		"""
+		hi write docstrings for me pleaseeeeee
+		:return: 
+		"""
+
+		##
+		## Todo:: generalise the code for freebayes/gatk variant calling to appear at least somewhat professional
+		## For each allele we scrape the data required to call SNPs and assign to their own object variables
 		for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
-			print allele.get_variant_file()
+
+			## Get variants found by freebayes
+			target = ''; freebayes_call = 'N/A'; freebayes_score = 0
+			freebayes_matched = []; freebayes_unmatched = []
+			if allele.get_allelestatus() == 'Typical': target = allele.get_reflabel()
+			if allele.get_allelestatus() == 'Atypical': target = allele.get_reflabel().split('CAG')[0]
+			freebayes_reader = vcf.Reader(open(allele.get_freebayes_file(), 'r'))
+			for record in freebayes_reader:
+				origin = ''
+				if allele.get_allelestatus() == 'Typical': origin = record.CHROM
+				if allele.get_allelestatus() == 'Atypical': origin = record.CHROM.split('CAG')[0][:-1]
+				if origin == target:
+					freebayes_matched.append(record)
+				else:
+					freebayes_unmatched.append(record)
+
+			## Get variants found by GATK
+			target = ''; gatk_call = 'N/A'; gatk_score = 0
+			gatk_matched = []; gatk_unmatched = []
+			if allele.get_allelestatus() == 'Typical': target = allele.get_reflabel()
+			if allele.get_allelestatus() == 'Atypical': target = allele.get_reflabel().split('CAG')[0]
+			gatk_reader = vcf.Reader(open(allele.get_gatk_file(), 'r'))
+			for record in gatk_reader:
+				origin = ''
+				if allele.get_allelestatus() == 'Typical': origin = record.CHROM
+				if allele.get_allelestatus() == 'Atypical': origin = record.CHROM.split('CAG')[0][:-1]
+				if origin == target:
+					freebayes_matched.append(record)
+				else:
+					freebayes_unmatched.append(record)
+
+			## Determine what to set values of call/score to, then apply to allele object
+			## will be written to InstanceReport.csv from whatever algo the user wanted
+			## user chose freebayes
+			if self.sequencepair_object.get_snpalgorithm() == 'freebayes':
+				if not len(freebayes_matched) == 0:
+					## we have snps!
+
+					##todo friday check snp sorting here...
+
+					target_record = sorted(freebayes_matched, key = lambda x: x.QUAL)[0]
+					freebayes_call = '{}->{}:@{}'.format(target_record.REF, target_record.ALT, target_record.POS)
+					freebayes_score = target_record.QUAL
+					allele.set_variantcall(freebayes_call)
+					allele.set_variantscore(freebayes_score)
+				else:
+					## we do not
+					allele.set_variantcall(freebayes_call)
+					allele.set_variantscore(freebayes_score)
+
+			## user chose gatk
+			if self.sequencepair_object.get_snpalgorithm() == 'gatk':
+				if not len(gatk_matched) == 0:
+					## we have snps!
+					target_record = sorted(gatk_matched, key = lambda x: x.QUAL, reverse=True)[0]
+					gatk_call = '{}->{}:@{}'.format(target_record.REF, target_record.ALT, target_record.POS)
+					gatk_score = target_record.QUAL
+					allele.set_variantcall(gatk_call)
+					allele.set_variantscore(gatk_score)
+				else:
+					## we do not
+					allele.set_variantcall(gatk_call)
+					allele.set_variantscore(gatk_score)
+
+			## Write unmatched to file
+			target_dir = os.path.join(self.sequencepair_object.get_predictpath(), 'IrrelevantVariants.txt')
+			with open(target_dir, 'w') as outfi:
+				for record in freebayes_unmatched:
+					record_str = 'Freebayes: {} = {} -> {} @ {}. Qual: {}'.format(record.CHROM, record.REF,
+																		record.ALT, record.POS, record.QUAL)
+					outfi.write(record_str+'\n')
+				outfi.write('\n')
+				for record in gatk_unmatched:
+					record_str = 'GATK: {} = {} -> {} @ {}. Qual: {}'.format(record.CHROM, record.REF,
+																		record.ALT, record.POS, record.QUAL)
+					outfi.write(record_str+'\n')
 
 	def set_report(self, input_report):
 		self.snp_report = input_report

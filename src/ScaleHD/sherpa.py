@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.3
+__version__ = 0.31
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -84,6 +84,13 @@ class ScaleHD:
 			log.basicConfig(format='%(message)s')
 
 		##
+		## Check we're on python 2.7.13
+		if not (sys.version_info[0] == 2 and sys.version_info[1] == 7 and sys.version_info[2] == 13):
+			current_user_version = '{}.{}.{}'.format(sys.version_info[0], sys.version_info[1], sys.version_info[2])
+			log.error('{}{}{}{}{}.'.format(clr.red, 'shd__ ', clr.end, 'ScaleHD requires python 2.7.13! You are using: ', current_user_version))
+			sys.exit(2)
+
+		##
 		## Check inputs, generate outputs
 		if sanitise_inputs(self.args):
 			log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Error with specified input(s) configuration. Exiting.'))
@@ -153,13 +160,14 @@ class ScaleHD:
 		## Instance results (genotype table)
 		self.instance_results = os.path.join(self.instance_rundir, 'InstanceReport.csv')
 		self.padded_distributions = os.path.join(self.instance_rundir, 'AlignedDistributions.csv')
-		self.header = '{},{},{},{},{},{},{},{},{},{},{},{},{},' \
-					  '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},' \
+		self.header = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},' \
+					  '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},' \
 					  '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
 			'SampleName', '' ,'Primary GTYPE', 'Status', 'Map (FW)', 'Map% (FW)', 'Purged (FW)', 'Map (RV)', 'Map% (RV)',
-			'Purged (RV)', 'BSlippage', 'Somatic Mosaicism', 'Intervening Sequence', 'Confidence', '', 'Secondary GTYPE',
-			'Status', 'Map (FW)', 'Map% (FW)', 'Purged (FW)', 'Map (RV)', 'Map% (RV)', 'Purged (RV)', 'BSlippage',
-			'Somatic Mosaicism', 'Intervening Sequence', 'Confidence', '', 'Exception Raised', 'Homozygous Haplotype',
+			'Purged (RV)', 'BSlippage', 'Somatic Mosaicism', 'Variant Call', 'Variant Score', 'Intervening Sequence',
+			'Confidence', '', 'Secondary GTYPE', 'Status', 'Map (FW)', 'Map% (FW)', 'Purged (FW)', 'Map (RV)',
+			'Map% (RV)', 'Purged (RV)', 'BSlippage', 'Somatic Mosaicism', 'Variant Call', 'Variant Score',
+			'Intervening Sequence', 'Confidence', '', 'Exception Raised', 'Homozygous Haplotype',
 			'Neighbouring Peaks', 'Diminished Peaks', 'Novel Atypical', 'Alignment Warning', 'Atypical Alignment Warning',
 			'CCG Rewritten', 'CCG Zygosity Rewritten', 'CCG Uncertainty', 'CCT Uncertainty', 'SVM Failure',
 			'Differential Confusion', 'Peak Inspection Warning', 'Low Distribution Reads', 'Low Peak Reads'
@@ -229,6 +237,8 @@ class ScaleHD:
 				current_seqpair.set_alignpath(seqpair_dat[4])
 				current_seqpair.set_predictpath(seqpair_dat[5])
 				current_seqpair.set_enshrineflag(self.enshrine_assembly)
+				current_seqpair.set_snpobservationvalue(self.instance_params.config_dict['prediction_flags']['@snp_observation_threshold'])
+				current_seqpair.set_snpalgorithm(self.instance_params.config_dict['prediction_flags']['@algorithm_utilisation'])
 				current_seqpair.set_broadflag(self.broad_flag)
 				current_seqpair.set_groupflag(self.group_flag)
 				current_seqpair.set_fwidx(self.reference_indexes[0])
@@ -320,13 +330,13 @@ class ScaleHD:
 				#############################
 				## Stage six!! SNP calling ##
 				#############################
-				#try:
-				self.snp_calling(current_seqpair)
-				#except Exception, e:
-				#	current_seqpair.set_exceptionraised('SNP Calling')
-				#	self.append_report(current_seqpair)
-				#	log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'SNP calling failure on ',seqpair_lbl, str(e)))
-				#	continue
+				try:
+					self.snp_calling(current_seqpair)
+				except Exception, e:
+					current_seqpair.set_exceptionraised('SNP Calling')
+					self.append_report(current_seqpair)
+					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'SNP calling failure on ',seqpair_lbl, str(e)))
+					continue
 				#############################
 				## Finished! File output.. ##
 				#############################
@@ -467,12 +477,14 @@ class ScaleHD:
 						 [primary_allele, 'get_allelestatus'], [primary_allele, 'get_fwalncount'],
 						 [primary_allele, 'get_fwalnpcnt'], [primary_allele, 'get_fwalnrmvd'], [primary_allele, 'get_rvalncount'],
 						 [primary_allele, 'get_rvalnpcnt'], [primary_allele, 'get_rvalnrmvd'], [primary_allele, 'get_backwardsslippage'],
-						 [primary_allele, 'get_somaticmosaicism'], [primary_allele, 'get_intervening'],
+						 [primary_allele, 'get_somaticmosaicism'], [primary_allele, 'get_variantcall'],
+						 [primary_allele, 'get_variantscore'], [primary_allele, 'get_intervening'],
 						 [primary_allele, 'get_alleleconfidence'], ['NULL', 'NULL'], [secondary_allele, 'get_reflabel'],
 						 [secondary_allele, 'get_allelestatus'], [secondary_allele, 'get_fwalncount'],
 						 [secondary_allele, 'get_fwalnpcnt'], [secondary_allele, 'get_fwalnrmvd'], [secondary_allele, 'get_rvalncount'],
 						 [secondary_allele, 'get_rvalnpcnt'], [secondary_allele, 'get_rvalnrmvd'], [secondary_allele, 'get_backwardsslippage'],
-						 [secondary_allele, 'get_somaticmosaicism'], [secondary_allele, 'get_intervening'],
+						 [secondary_allele, 'get_somaticmosaicism'], [secondary_allele, 'get_variantcall'],
+						 [secondary_allele, 'get_variantscore'], [secondary_allele, 'get_intervening'],
 						 [secondary_allele, 'get_alleleconfidence'], ['NULL', 'NULL'],
 						 [sequencepair_object, 'get_exceptionraised'],[sequencepair_object, 'get_homozygoushaplotype'],
 						 [sequencepair_object, 'get_neighbouringpeaks'], [sequencepair_object, 'get_diminishedpeaks'],

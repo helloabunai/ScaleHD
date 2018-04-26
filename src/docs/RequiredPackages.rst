@@ -35,8 +35,9 @@ ScaleHD also uses third party binaries to carry out certain functions. These bin
  * SeqTK (1.2-r101-dirty)
  * BWA-MEM (0.7.15-r1140)
  * Samtools (1.3.1)
- * Picard (2.10.10)
- * GATK (3.8)
+ * Picard (2.18.3)
+ * GATK (4.0.3.0)
+ * FreeBayes (v1.1.0-60-gc15b070)
 
 .. _installation:
 
@@ -187,7 +188,7 @@ Samtools (1.3.1)
 
 Samtools is available from http://samtools.sourceforge.net/. Installation is identical to that of BWA-MEM. Extract the downloaded tarball, and move into the newly extracted directory. Configure, make and make install. Copy the new samtools binary to your Builds directory, and add it to your $PATH.
 
-Picard (2.10.10)
+Picard (2.18.3)
 ~~~~~~~~~~~~~~~~
 
 Picard can be downloaded from https://broadinstitute.github.io/picard/.
@@ -219,12 +220,19 @@ Then, make our script executable:
 Once made executable, add the Picard folder to your $PATH. Picard is now set-up for ScaleHD.
 
   
-GATK (3.8)
-~~~~~~~~~~
+GATK (4.0.3.0)
+~~~~~~~~~~~~~~
 
 GATK is also a Java archive, and not a UNIX binary. Download GATK from https://software.broadinstitute.org/gatk/download/ and copy it to your Builds directory. As with Picard, an alias is no longer suitable for ScaleHD to function with the software. However, we do not need to create our own executable script for GATK, as one is included with the download.
 
 Move the 'gatk' script and the GATK jar archive into a GATK folder in your Builds path. Add that directory to your system $PATH, and gatk is now set-up for ScaleHD.
+
+FreeBayes (v1.1.0-60-gc15b070)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+FreeBayes has also been included within the SNP calling module of ScaleHD. Throughout development and testing, we observed a stronger performance of amplicon flanking sequence SNP detection with freebayes, and as such, the output of this binary is treated with more prominance in ScaleHD. Freebayes is available on github at https://github.com/ekg/freebayes. The readme for that repository contains installation instructions, which consists of a standard make/make install. It is also available for download from Homebrew, for easier installation on OS X.
+
+Once installed (assuming via Homebrew, or by installing to /usr/local/bin with 'sudo make install'), the binary will be on your $PATH and ready for use by ScaleHD.
 
 Virtual Environments
 ~~~~~~~~~~~~~~~~~~~~

@@ -13,7 +13,7 @@ setup(
     name='ScaleHD',
 
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.3',
+    version='0.31',
 
     description='Automated DNA micro-satellite genotyping.',
     long_description=long_description,
@@ -85,7 +85,8 @@ setup(
 					  'regex',
 					  'PyPDF2',
 					  'reportlab',
-					  'generatr'
+					  'generatr',
+					  'pyvcf'
 					  ],
 
     # These are the data files to be included in the package

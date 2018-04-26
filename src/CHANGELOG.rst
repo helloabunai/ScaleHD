@@ -3,11 +3,14 @@
 Version 0.310
 -------------
 
-This is a minor update to ScaleHD. SNP calling implementation has begun, but requires polishing,.
+This is a minor update to ScaleHD. SNP calling implementation is now in alpha.
 
  * Fixed a bug where genotyping would complete, but raise an exception at the end of the genotyping module, due to particular arrays not being flattened.
- * Implemented Picard/GATK into the SNP calling module of ScaleHD.
- * Updated the requirements for Picard/GATK to be integrated with ScaleHD on the user's system.
+ * Implemented Picard/GATK/Freebayes into the SNP calling module of ScaleHD.
+ * Added PyVCF as a Python library requirement for scraping data from variant calls.
+ * Modified the requirements for Picard/GATK to be integrated with ScaleHD on the user's system $PATH.
+ * Added Freebayes to the list of required binaries in __backend; addition user $PATH check
+ * Added new XML flag for user to specify a strictness value, for determining legitimate SNP calls.
  * Minor codebase re-arranging in preparation for Digital Signal Processing to be replaced by a c++ binary, for performance.
 
 Version 0.300

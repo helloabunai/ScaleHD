@@ -40,7 +40,7 @@ Here is an example configuration file:
   <instance_flags quality_control="True" sequence_alignment="True" atypical_realignment="True" genotype_prediction="True" snp_calling="False"/>
 	  <trim_flags trim_type="Adapter" quality_threshold="5" adapter_flag="-a" forward_adapter="GATCGGAAGAGCACACGTCTGAACTCCAGTCAC" reverse_adapter="AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT" error_tolerance="0.39"/>
   <alignment_flags min_seed_length="19" band_width="100" seed_length_extension="1.5" skip_seed_with_occurrence="500" chain_drop="0.50" seeded_chain_drop="0" seq_match_score="1" mismatch_penalty="4" indel_penalty="6,6" gap_extend_penalty="4,4" prime_clipping_penalty="5,5" unpaired_pairing_penalty="17"/>
-  <prediction_flags plot_graphs="True"/>
+  <prediction_flags snp_observation_threshold="2"/>
   </config>
 
 Within the **<config>** branch, there are three attributes to which the user must assign a value. *data_dir* must point to your input folder, consisting of an even number of input data files (see: :ref:`sect_dataassume`). *forward_reference* points to a .fasta reference file, for which alignment is carried out on forward reads. *reverse_reference* points to a .fasta reference file, for reverse alignment.
@@ -82,7 +82,7 @@ Within the **<config>** branch, there are three attributes to which the user mus
 | unpaired_pairing_penalty  | -U <INT>         |
 +---------------------------+------------------+
 
-**<prediction_flags>** is a remnant of previous development implementations, where we utilised different statistical approaches to genotyping and the end-user was expected to modify the parameters of a predictive model for improved accuracy. However, we have radically changed our design approach in this implementation of the pipeline and there is only one flag remaining, which decides whether you want graphs to be rendered or not. However, this has not been re-implemented within this approach to ScaleHD and as a result, doesn't do anything if you choose 'False'. ¯\\_(ツ)_/¯.
+**<prediction_flags>** now has a function! wow! Since SNP calling has been implemented, the user has the option of choosing the cutoff for filtering what we consider to be a valid SNP. Values accepted are range(1,5). 1 being the most lenient value in determining a SNP as valid, 5 being the most harsh. I typically use 2. Do what you want. The flag algorithm_utilisation determines which SNP calling algorithm to prefer for inclusion in ScaleHD reporting; accepted values are 'freebayes' and 'gatk'. Default is freebayes, so I suggest using that.
 
 
 

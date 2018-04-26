@@ -5,6 +5,10 @@ Miscellanious Definitions
 
 Within the instance-wide output table produced by ScaleHD, there are many flags or data entities which require explanation. Throughout the development of ScaleHD, we ended up determining a range of characteristics that indicate the believability of data produced from amplicon sequencing when attempting genotyping via our multiple reference library-based method. These characteristics provide us with a heuristic method to determine if an attempt at automated genotyping was successful, or not. Here, we define these characteristics and what they mean in literal terms. They range in importance, but all are useful in creating a representation of data quality. Some are self-explanatory, but are explained anyway.
 
+A further note on SNP calling:
+Either Freebayes or GATK may detect variants in allele contigs which are not relevant to the literal alleles of any given sample. I.E., a sample with alleles 17_1_1_7_2 and 23_1_1_10_2 may have variants reported in a highly irrelevant contig, 40_1_1_5_2. SNPs are only reported within InstanceResults.csv if they are found within the appropriate contigs for that sample -- other 'irrelevant' variant reports are written to IrrelevantVariants.txt in the sample's specific output folder.
+An individual SNP will be reported in the format "{originalbase }->{mutated base}: @{base pair position in read}". E.G. "C->T: @36".
+
 The significance levels are as follows:
 
  * N/A -- This means the flag contains discrete information and does not need to be interpreted in regards to genotyping quality.
@@ -25,6 +29,10 @@ The significance levels are as follows:
 | BSlippage                  | Dependent    | The amount of backwards slippage, relative to each allele's peak. Calculated as [(n-1 to n-5) / n].*                   |
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
 | Somatic Mosaicism          | Dependent    | The amount of somatic mosaicism, relative to each allele's peak. Calculated as [(n+1 to n+10) / n].*                   |
++----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
+| VariantCall                | Dependent    | If a SNP was detected, the value of the nucleotide in REF:OBSERVED. States "N/A" if no SNP is found                    |
++----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
+| VariantScore               | Dependent    | The "QUAL" value from the allele's VCF file. The higher the value, the more reliable the variant call.                 |
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
 | Confidence                 | Major        | The percentage confidence in a genotype call. See the confidence calculation subsection for info.                      |
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+

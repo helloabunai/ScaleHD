@@ -24,4 +24,4 @@ In addition to this, each stage of the ScaleHD pipeline will have a respective o
 
  * SeqQC -- containing FastQC reports and any trimming reports
  * Align -- containing aligned reads (in *.SAM format), an alignment report and alignment statistics. These files are present for both FW and RV data.
- * Predict -- containing a genotype graph PDF, reports on each allele's genotype (and associated flags), as well as a penalties log for each allele (stating what was deducted from each allele during confidence calculation).
+ * Predict -- containing a genotype graph PDF, reports on each allele's genotype (and associated flags), as well as a penalties log for each allele (stating what was deducted from each allele during confidence calculation). Variant calls are also present in this folder, with a VCF file from both Freebayes and GATK available for further analysis. However, if variants were detected in contigs which are not either of the alleles in a sample, these 'irrelevant' variants are reported on in their own report file.

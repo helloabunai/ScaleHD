@@ -1,5 +1,5 @@
 #/usr/bin/python
-__version__ = 0.3
+__version__ = 0.31
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -307,10 +307,17 @@ class ConfigReader(object):
 		##
 		## Genotype prediction flag settings
 		if genotype_flag == 'True':
-			plot_graphs = self.config_dict['prediction_flags']['@plot_graphs']
-			if not (plot_graphs == 'True' or plot_graphs == 'False'):
-				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Plot graphs flag is not True/False.'))
-				trigger = True
+			snp_observation_pcnt = self.config_dict['prediction_flags']['@snp_observation_threshold']
+			if not snp_observation_pcnt.isdigit():
+				if not int(snp_observation_pcnt) in range(1,5):
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: SNP Observation value invalid! Please use 1-10.'))
+					trigger = True
+
+		variant_algorithm = self.config_dict['prediction_flags']['@algorithm_utilisation']
+		if not variant_algorithm in ['freebayes', 'gatk']:
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end,
+										'XML Config: Specified variant_algorithm value is invalid. [freebayes/gatk]'))
+			trigger = True
 
 		if trigger:
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Failure, exiting.'))
@@ -521,8 +528,8 @@ def initialise_libraries(instance_params):
 		binary_subprocess = subprocess.Popen([binary_string], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		binary_result = binary_subprocess.communicate()
 		binary_subprocess.wait()
-		
-		if ('not found' in binary_result[0] or binary_result[1]):
+
+		if 'not found' in binary_result[0] or binary_result[1]:
 			log.critical('{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Missing binary: ', binary, '!'))
 			raise ScaleHDException
 
@@ -564,6 +571,8 @@ def initialise_libraries(instance_params):
 		except ScaleHDException: trigger=True
 	if snp_calling == 'True':
 		try: type_func('picard')
+		except ScaleHDException: trigger=True
+		try: type_func('freebayes')
 		except ScaleHDException: trigger=True
 		try: type_func('gatk')
 		except ScaleHDException: trigger = True

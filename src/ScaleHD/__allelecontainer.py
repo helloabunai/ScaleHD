@@ -10,6 +10,8 @@ class SequenceSample:
 		self.sample_predictpath = ''
 		self.enshrine_flag = False
 		self.subsample_flag = False
+		self.snpobservationvalue = 0
+		self.snpalgorithm = ''
 		self.broad_flag = False
 		self.group_flag = False
 		self.avoid_furthersubsample = False
@@ -71,6 +73,8 @@ class SequenceSample:
 	def set_predictpath(self, predictpath):	self.sample_predictpath = predictpath
 	def set_enshrineflag(self, flag): self.enshrine_flag = flag
 	def set_subsampleflag(self, flag): self.subsample_flag = flag
+	def set_snpobservationvalue(self, val): self.snpobservationvalue = val
+	def set_snpalgorithm(self, algo): self.snpalgorithm = algo
 	def set_broadflag(self, flag): self.broad_flag = flag
 	def set_groupflag(self, flag): self.group_flag = flag
 	def set_avoidfurthersubsample(self, flag): self.avoid_furthersubsample = flag
@@ -132,6 +136,8 @@ class SequenceSample:
 	def get_predictpath(self): return self.sample_predictpath
 	def get_enshrineflag(self): return self.enshrine_flag
 	def get_subsampleflag(self): return self.subsample_flag
+	def get_snpobservationvalue(self): return self.snpobservationvalue
+	def get_snpalgorithm(self): return self.snpalgorithm
 	def get_broadflag(self): return self.broad_flag
 	def get_groupflag(self): return self.group_flag
 	def get_avoidfurthersubsample(self): return self.avoid_furthersubsample
@@ -210,6 +216,8 @@ class IndividualAllele:
 		self.rewritten_ccg = 0
 		self.unrewritten_ccg = 0
 		self.cct_value = 0
+		self.variant_call = ''
+		self.variant_score = 0
 		self.three_prime = ''
 
 		self.allele_status = ''
@@ -238,7 +246,8 @@ class IndividualAllele:
 		self.reverse_array = []
 		self.forward_array_original = []
 		self.reverse_array_original = []
-		self.variant_file = ''
+		self.gatk_file = ''
+		self.freebayes_file = ''
 		self.ccg_peak_threshold = 0.0
 		self.cag_peak_threshold = 0.0
 
@@ -279,6 +288,8 @@ class IndividualAllele:
 	def set_rewrittenccg(self, ccg): self.rewritten_ccg = ccg
 	def set_unrewrittenccg(self, ccg): self.unrewritten_ccg = ccg
 	def set_cctval(self, cct): self.cct_value = cct
+	def set_variantcall(self, call): self.variant_call = call
+	def set_variantscore(self, score): self.variant_score = score
 	def set_threeprime(self, tp): self.three_prime = tp
 
 	def set_allelestatus(self, status): self.allele_status = status
@@ -307,7 +318,8 @@ class IndividualAllele:
 	def set_rvarray(self, array): self.reverse_array = array
 	def set_fwarray_orig(self, array): self.forward_array_original = array
 	def set_rvarray_orig(self, array): self.reverse_array_original = array
-	def set_variant_file(self, infile): self.variant_file = infile
+	def set_gatk_file(self, infile): self.gatk_file = infile
+	def set_freebayes_file(self, infile): self.freebayes_file = infile
 	def set_ccgthreshold(self, threshold): self.ccg_peak_threshold = threshold
 	def set_cagthreshold(self, threshold): self.cag_peak_threshold = threshold
 
@@ -348,6 +360,8 @@ class IndividualAllele:
 	def get_rewrittenccg(self): return self.rewritten_ccg
 	def get_unrewrittenccg(self): return self.unrewritten_ccg
 	def get_cct(self): return self.cct_value
+	def get_variantcall(self): return self.variant_call
+	def get_variantscore(self): return self.variant_score
 	def get_threeprime(self): return self.three_prime
 
 	def get_allelestatus(self): return self.allele_status
@@ -376,7 +390,8 @@ class IndividualAllele:
 	def get_rvarray(self): return self.reverse_array
 	def get_fwarray_orig(self): return self.forward_array_original
 	def get_rvarray_orig(self): return self.reverse_array_original
-	def get_variant_file(self): return self.variant_file
+	def get_gatk_file(self): return self.gatk_file
+	def get_freebayes_file(self): return self.freebayes_file
 	def get_ccgthreshold(self): return self.ccg_peak_threshold
 	def get_cagthreshold(self): return self.cag_peak_threshold
 
