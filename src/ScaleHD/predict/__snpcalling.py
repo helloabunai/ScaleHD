@@ -5,7 +5,6 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 import os
 import vcf
 import subprocess
-from collections import Counter
 
 class DetermineMutations:
 	def __init__(self, sequencepair_object, instance_params):
@@ -83,13 +82,16 @@ class DetermineMutations:
 
 	def scrape_relevance(self):
 		"""
-		hi write docstrings for me pleaseeeeee
-		:return: 
+		Given the user can prioritise which variant calling software to prefer, this function will extract
+		the relevant information from associated objects here. Validity of a SNP is filtered via certain
+		thresholds which can be specified by the user in the configuration XML.
+		:return: nothin m8
 		"""
 
 		##
 		## Todo:: generalise the code for freebayes/gatk variant calling to appear at least somewhat professional
 		## For each allele we scrape the data required to call SNPs and assign to their own object variables
+		variant_cutoff = int(self.instance_params.config_dict['prediction_flags']['@quality_cutoff'])
 		for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 
 			## Get variants found by freebayes
@@ -122,15 +124,22 @@ class DetermineMutations:
 				else:
 					freebayes_unmatched.append(record)
 
+			## sort and remove records which are < user specified cutoff
+			## todo again generalise this code you absolute throbber
+			freebayes_sorted = sorted(freebayes_matched, key=lambda a:a.QUAL, reverse=True)
+			freebayes_sorted = [x for x in freebayes_sorted if x.QUAL > variant_cutoff]
+			gatk_sorted = sorted(gatk_matched, key=lambda b:b.QUAL, reverse=True)
+			gatk_sorted = [x for x in gatk_sorted if x.QUAL > variant_cutoff]
+
 			## Determine what to set values of call/score to, then apply to allele object
 			## will be written to InstanceReport.csv from whatever algo the user wanted
 			## user chose freebayes
 			if self.sequencepair_object.get_snpalgorithm() == 'freebayes':
-				if not len(freebayes_matched) == 0:
+				if not len(freebayes_sorted) == 0:
 					## we have snps!
-					target_record = sorted(freebayes_matched, key = lambda x: x.QUAL, reverse=True)[0]
-					freebayes_call = '{}->{}:@{}'.format(target_record.REF, target_record.ALT[0], target_record.POS)
-					freebayes_score = target_record.QUAL
+					target = freebayes_sorted[0]
+					freebayes_call = '{}->{}@{}'.format(target.REF, target.ALT[0], target.POS)
+					freebayes_score = target.QUAL
 					allele.set_variantcall(freebayes_call)
 					allele.set_variantscore(freebayes_score)
 				else:
@@ -140,11 +149,11 @@ class DetermineMutations:
 
 			## user chose gatk
 			if self.sequencepair_object.get_snpalgorithm() == 'gatk':
-				if not len(gatk_matched) == 0:
+				if not len(gatk_sorted) == 0:
 					## we have snps!
-					target_record = sorted(gatk_matched, key = lambda x: x.QUAL, reverse=True)[0]
-					gatk_call = '{}->{}:@{}'.format(target_record.REF, target_record.ALT, target_record.POS)
-					gatk_score = target_record.QUAL
+					target = gatk_sorted[0]
+					gatk_call = '{}->{}@{}'.format(target.REF, target.ALT, target.POS)
+					gatk_score = target.QUAL
 					allele.set_variantcall(gatk_call)
 					allele.set_variantscore(gatk_score)
 				else:

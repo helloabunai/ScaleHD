@@ -246,7 +246,6 @@ class ScaleHD:
 				current_seqpair.set_fwreads(seqpair_dat[0])
 				current_seqpair.set_rvreads(seqpair_dat[1])
 				current_seqpair.generate_sampletree()
-
 				############################################
 				## Stage one!! Sequence quality control.. ##
 				############################################
@@ -326,7 +325,6 @@ class ScaleHD:
 					self.append_report(current_seqpair)
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Genotyping failure on ',seqpair_lbl, str(e)))
 					continue
-
 				#############################
 				## Stage six!! SNP calling ##
 				#############################
