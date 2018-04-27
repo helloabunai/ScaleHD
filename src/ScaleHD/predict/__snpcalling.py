@@ -128,11 +128,8 @@ class DetermineMutations:
 			if self.sequencepair_object.get_snpalgorithm() == 'freebayes':
 				if not len(freebayes_matched) == 0:
 					## we have snps!
-
-					##todo friday check snp sorting here...
-
-					target_record = sorted(freebayes_matched, key = lambda x: x.QUAL)[0]
-					freebayes_call = '{}->{}:@{}'.format(target_record.REF, target_record.ALT, target_record.POS)
+					target_record = sorted(freebayes_matched, key = lambda x: x.QUAL, reverse=True)[0]
+					freebayes_call = '{}->{}:@{}'.format(target_record.REF, target_record.ALT[0], target_record.POS)
 					freebayes_score = target_record.QUAL
 					allele.set_variantcall(freebayes_call)
 					allele.set_variantscore(freebayes_score)
