@@ -1,5 +1,10 @@
 .. _sect_changelog:
 
+Version 0.311
+-------------
+
+ * Moron hotfix for dumb reverse aggregate distribution bug I introduced with v0.310
+
 Version 0.310
 -------------
 

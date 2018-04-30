@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.31
+__version__ = 0.311
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -358,7 +358,6 @@ class AlleleGenotyping:
 					self.reverse_aggregate = self.distribution_collapse(self.reverse_distribution)
 			self.zygosity_state = self.predict_zygstate()
 
-
 			##
 			## Allele read peak (dsp error)
 			major = max(self.reverse_aggregate)
@@ -566,7 +565,6 @@ class AlleleGenotyping:
 		##
 		## Constructs
 		pass_gtp = True
-
 		###############################################
 		## Pre-Check: atypical allele mis-assignment ##
 		###############################################
@@ -675,6 +673,11 @@ class AlleleGenotyping:
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
 
+				for i in range(0, len(target_distro)):
+					if i != allele.get_cag() - 1:
+						removal = (target_distro[i] / 100) * 85
+						target_distro[i] -= removal
+
 				allele.set_totalreads(sum(target_distro))
 				allele.set_cagthreshold(0.50)
 
@@ -757,7 +760,6 @@ class AlleleGenotyping:
 		secondary_peakreads = (self.split_cag_target(secondary_allele.get_fwarray())['CCG{}'.format(secondary_dsp_ccg)])[
 			secondary_dsp_cag - 1]
 		secondary_allele.set_peakreads(secondary_peakreads)
-
 
 		##
 		## Double check fod peaks
