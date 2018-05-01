@@ -530,7 +530,7 @@ class AlleleGenotyping:
 				allele.set_ccgvalid(True)
 			ccg_values.append([x for x in ccg_indexes if x == allele.get_ccg()])
 
-			if len(ccg_indexes > 1):
+			if len(ccg_indexes) > 1:
 				if allele.get_header() == 'PRI':
 					allele.set_fodccg(np.asarray(ccg_indexes[0]))
 				if allele.get_header() == 'SEC':
@@ -1091,8 +1091,8 @@ class AlleleGenotyping:
 
 			###
 			### distribution fixed but csv writing incorrect list still
-			sample_output = '{},{},CCG{},{}\n'.format(self.sequencepair_object.get_label(), allele.get_header(),
-													  allele.get_ccg(), padded_dist)
+			sample_output = '{},{},{},{}\n'.format(self.sequencepair_object.get_label(), allele.get_header(),
+													  allele.get_allelegenotype(), padded_dist)
 
 			with open(self.padded_target, 'a') as distfi: distfi.write(sample_output)
 			distfi.close()

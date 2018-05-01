@@ -158,8 +158,8 @@ class ScaleHD:
 				reverse_index = align.ReferenceIndex(reverse_reference, self.index_path).get_index_path()
 				self.typical_indexes = [forward_index, reverse_index]
 				self.reference_indexes = [forward_index, reverse_index]
-			if self.instance_params.config_dict['instance_flags']['@demultiplex']:
-				log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,'Demultiplexing reads.. '))
+			if self.instance_params.config_dict['instance_flags']['@demultiplex'] == 'True':
+				log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,'Demultiplexing reads.. (this may take some time)'))
 				seq_qc.BatchadaptWrapper(self.instance_params)
 
 		##
@@ -178,7 +178,7 @@ class ScaleHD:
 			'CCG Rewritten', 'CCG Zygosity Rewritten', 'CCG Uncertainty', 'CCT Uncertainty', 'SVM Failure',
 			'Differential Confusion', 'Peak Inspection Warning', 'Low Distribution Reads', 'Low Peak Reads'
 		)
-		padded_header = '{},{},{},{},{},N-VAL\n'.format('Filename','Allele','CCGVal','Dist',' ,'*200)
+		padded_header = '{},{},{},{},{},N-VAL\n'.format('Filename','Allele','Genotype','Dist',' ,'*200)
 		with open(self.instance_results, 'w') as outfi: outfi.write(self.header); outfi.close()
 		with open(self.padded_distributions, 'w') as padfi: padfi.write(padded_header); padfi.close()
 
@@ -217,7 +217,7 @@ class ScaleHD:
 		"""
 		##
 		## Config generics
-		if self.instance_params.config_dict['instance_flags']['@demultiplex']:
+		if self.instance_params.config_dict['instance_flags']['@demultiplex'] == 'True':
 			instance_inputdata = self.instance_params.config_dict['@data_dir']+'_demultiplexed'
 		else:
 			instance_inputdata = self.instance_params.config_dict['@data_dir']

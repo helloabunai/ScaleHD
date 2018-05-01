@@ -3,7 +3,9 @@
 Version 0.312
 -------------
 
- * Added an additional (optional) pre-processing stage, including sequence demultiplexing via batchadapt
+ * Added an additional (optional) pre-processing stage, including sequence demultiplexing via Batchadapt.
+ * CCG First order differential bugfix in situations where peak-calling returned multiple variables when unexpected.
+ * Added Batchadapt to the required python package list for ScaleHD. Installed automatically from PIP where possible.
 
 Version 0.311
 -------------

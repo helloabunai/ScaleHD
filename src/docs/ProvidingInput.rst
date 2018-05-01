@@ -36,16 +36,19 @@ Here is an example configuration file:
 
 ::
 
-  <config data_dir="/path/to/fastq/" forward_reference="/path/to/fa" reverse_reference="/path/to/fa">
-  <instance_flags quality_control="True" sequence_alignment="True" atypical_realignment="True" genotype_prediction="True" snp_calling="False"/>
-	  <trim_flags trim_type="Adapter" quality_threshold="5" adapter_flag="-a" forward_adapter="GATCGGAAGAGCACACGTCTGAACTCCAGTCAC" reverse_adapter="AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT" error_tolerance="0.39"/>
-  <alignment_flags min_seed_length="19" band_width="100" seed_length_extension="1.5" skip_seed_with_occurrence="500" chain_drop="0.50" seeded_chain_drop="0" seq_match_score="1" mismatch_penalty="4" indel_penalty="6,6" gap_extend_penalty="4,4" prime_clipping_penalty="5,5" unpaired_pairing_penalty="17"/>
-  <prediction_flags snp_observation_threshold="2" algorithm_utilisation="freebayes" quality_cutoff="1000"/>
+  <config data_dir="/path/to/fq" forward_reference="/path/to/fw.fa" reverse_reference="/path/to/rv.fa">
+	<instance_flags demultiplex="False" quality_control="True" sequence_alignment="True" atypical_realignment="True" genotype_prediction="True" snp_calling="True"/>
+	<demultiplex_flags forward_adapter="GCGACCCTGG" forward_position="5P" reverse_adapter="GCAGCGGCTG" reverse_position="5P" error_rate="0" min_overlap="10" min_length="" max_length=""/>
+	<trim_flags	trim_type="Adapter" quality_threshold="5" adapter_flag="-a" adapter="ACACTCTTTCCCTACACGACGCTCTTCCGATC" error_tolerance="0.5"/>
+	<alignment_flags min_seed_length="19" band_width="100" seed_length_extension="1.5" seed_occurrence="20" skip_seed_with_occurrence="500" chain_drop="0.50" seeded_chain_drop="0" seq_match_score="1" mismatch_penalty="4" indel_penalty="6,6" gap_extend_penalty="1,1" prime_clipping_penalty="5,5" unpaired_pairing_penalty="17"/>
+	<prediction_flags snp_observation_threshold="2" algorithm_utilisation="freebayes" quality_cutoff="1000"/>
   </config>
 
 Within the **<config>** branch, there are three attributes to which the user must assign a value. *data_dir* must point to your input folder, consisting of an even number of input data files (see: :ref:`sect_dataassume`). *forward_reference* points to a .fasta reference file, for which alignment is carried out on forward reads. *reverse_reference* points to a .fasta reference file, for reverse alignment.
 
-**<instance_flags>** determines which stage(s) of ScaleHD that the user wishes to run. These are all simple True/False boolean options, where 'False' means a stage will not be processed. Currently, snp_calling is still in development and testing, and as such does not execute regardless of which boolean you input here. Other stages all function as expected.
+**<instance_flags>** determines which stage(s) of ScaleHD that the user wishes to run. These are all simple True/False boolean options, where 'False' means a stage will not be processed. Other stages all function as expected.
+
+**<demultiplex_flags>** provides input arguments for demultiplexing, if chosen. These are arguments for Batchadapt, which is a simple wrapper I wrote for a colleague to run Cutadapt (http://cutadapt.readthedocs.io/en/stable/) on a folder of input sample pairs. x_position flags must be '5P', '3P' or 'AP'. Adapter strings must only contain A,T,G,C. Other arguments are positive integers, only.
 
 **<trim_flags>** is for specifying options that get passed to cutadapt for sequence adapter/quality trimming. For an explanation of these flags, you can find the cutadapt documentation at: http://cutadapt.readthedocs.io/en/stable/. 
 
