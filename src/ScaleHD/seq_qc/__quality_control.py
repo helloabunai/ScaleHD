@@ -1,5 +1,5 @@
 #/usr/bin/python
-__version__ = 0.311
+__version__ = 0.312
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -145,3 +145,92 @@ class SeqQC:
 
 	def get_trimreport(self):
 		return self.trimming_report
+
+class BatchadaptWrapper:
+	def __init__(self, instance_params):
+		self.instance_params = instance_params
+		self.data_dir = self.instance_params.config_dict['@data_dir']
+		self.target_dir = None
+		self.forward_adapter = ''
+		self.forward_position = ''
+		self.reverse_adapter = ''
+		self.reverse_position = ''
+		self.error_rate = None
+		self.min_overlap = None
+		self.min_length = None
+		self.max_length = None
+
+		self.get_targets()
+		self.demultiplex()
+
+	def get_targets(self):
+
+		self.forward_adapter = self.instance_params.config_dict['demultiplex_flags']['@forward_adapter']
+		self.forward_position = self.instance_params.config_dict['demultiplex_flags']['@forward_position']
+		self.reverse_adapter = self.instance_params.config_dict['demultiplex_flags']['@reverse_adapter']
+		self.reverse_position = self.instance_params.config_dict['demultiplex_flags']['@reverse_position']
+		self.error_rate = self.instance_params.config_dict['demultiplex_flags']['@error_rate']
+		self.min_overlap = self.instance_params.config_dict['demultiplex_flags']['@min_overlap']
+		self.min_length = self.instance_params.config_dict['demultiplex_flags']['@min_length']
+		self.max_length = self.instance_params.config_dict['demultiplex_flags']['@max_length']
+		self.target_dir = self.data_dir+'_demultiplexed'
+		if not os.path.exists(self.target_dir):
+			os.makedirs(self.target_dir)
+
+	def demultiplex(self):
+
+		## Build forward command string if required
+		## with appropriate FP/TP argument for batchadapt
+		forward_run = False
+		forward_command = ''
+		forward_adapter_argument = ''
+		if self.forward_adapter != '' and self.forward_position != '':
+			forward_run = True
+			if self.forward_position == '3P': forward_adapter_argument = '-fwtp'
+			if self.forward_position == '5P': forward_adapter_argument = '-fwfp'
+		else:
+			log.error('{}{}{}{}.'.format(clr.red,
+										   'shd__ ',
+										   clr.end,
+										   'Invalid demultiplexing adapter settings (forward). Please check.'))
+			sys.exit(2)
+
+		## same for reverse cos i'm too lazy to do clean generic code
+		reverse_run = False
+		reverse_command = ''
+		reverse_adapter_argument = ''
+		if self.reverse_adapter != '' and self.reverse_position != '':
+			reverse_run = True
+			if self.reverse_position == '3P': reverse_adapter_argument = '-rvtp'
+			if self.reverse_position == '5P': reverse_adapter_argument = '-rvfp'
+		else:
+			log.error('{}{}{}{}.'.format(clr.red,
+										   'shd__ ',
+										   clr.end,
+										   'Invalid demultiplexing adapter settings (reverse). Please check.'))
+			sys.exit(2)
+
+		## Build commands
+		if forward_run: forward_command = '{} {}'.format(forward_adapter_argument, self.forward_adapter)
+		if reverse_run: reverse_command = '{} {}'.format(reverse_adapter_argument, self.reverse_adapter)
+
+		minlen_command = ''; maxlen_command = ''
+		if self.min_length != '': minlen_command = '{} {}'.format('-min', self.min_length)
+		if self.max_length != '': maxlen_command = '{} {}'.format('-max', self.max_length)
+
+		# batchadapt -i <> -o <> -fwfp AAA -fvFP GGG -e 0 -ov 10
+		command_string = '{} {} {} {} {} {} {} {} {} {} {} {} {}'.format('batchadapt',
+																		 '-i', self.data_dir,
+																		 '-o', self.target_dir,
+																		 forward_command,
+																		 reverse_command,
+																		 '-e', self.error_rate,
+																		 '-ov', self.min_overlap,
+																		 minlen_command,
+																		 maxlen_command)
+
+		batchadapt_subprocess = subprocess.Popen(command_string,
+												 shell=True,
+												 stdout=subprocess.PIPE,
+												 stderr=subprocess.PIPE)
+		batchadapt_status = batchadapt_subprocess.communicate(); batchadapt_subprocess.wait()

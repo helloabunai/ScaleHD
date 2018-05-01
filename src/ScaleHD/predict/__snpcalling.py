@@ -1,5 +1,5 @@
 #/usr/bin/python
-__version__ = 0.311
+__version__ = 0.312
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 import os

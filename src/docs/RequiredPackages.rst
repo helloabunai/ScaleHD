@@ -12,6 +12,7 @@ All software packages have an accompanying version number listed. These are the 
 
  * cutadapt (1.9.1)
  * generatr (0.252)
+ * batchadapt (0.1)
  * lxml (4.0.0)
  * matplotlib (1.3.1)
  * numpy (1.13.1)
@@ -55,7 +56,7 @@ Quick Instructions
 
 If you know your way around a terminal, these instructions are for you.
 
-ScaleHD uses Python 2.7, so ensure your target for package installation is the correct version of Python on your system.
+ScaleHD uses Python 2.7.14, so ensure your target for package installation is the correct version of Python on your system.
 
 ::
 
@@ -94,7 +95,7 @@ Now we run our downloaded script to install PIP. Assuming that your script is in
 
 ::
 
-  python ~/Downloads/get-pip.py
+  python2 ~/Downloads/get-pip.py
 
 The specific command you need to run will depend on the location that you chose to download get-pip.py. Regardless, This will install PIP onto your system, allowing you to install ScaleHD and any Python-based dependencies with no effort at all. In order to do that, in the same terminal, issue a new command:
 

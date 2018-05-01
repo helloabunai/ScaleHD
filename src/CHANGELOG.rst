@@ -1,5 +1,10 @@
 .. _sect_changelog:
 
+Version 0.312
+-------------
+
+ * Added an additional (optional) pre-processing stage, including sequence demultiplexing via batchadapt
+
 Version 0.311
 -------------
 

@@ -1,5 +1,5 @@
 #/usr/bin/python
-__version__ = 0.311
+__version__ = 0.312
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -177,6 +177,10 @@ class ConfigReader(object):
 
 		##
 		## Instance flag settings
+		demultiplexing_flag = self.config_dict['instance_flags']['@demultiplex']
+		if not (demultiplexing_flag == 'True' or demultiplexing_flag == 'False'):
+			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Demultiplexing flag is not set to True/False.'))
+			trigger = True
 		sequence_qc_flag = self.config_dict['instance_flags']['@quality_control']
 		if not (sequence_qc_flag == 'True' or sequence_qc_flag == 'False'):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Sequence Quality control flag is not set to True/False.'))
@@ -199,6 +203,49 @@ class ConfigReader(object):
 			trigger = True
 
 		##
+		## Demultiplexing flag settings
+		trim_adapter_base = ['A', 'G', 'C', 'T']
+		if demultiplexing_flag == 'True':
+			forward_adapter = self.config_dict['demultiplex_flags']['@forward_adapter']
+			for charbase in forward_adapter:
+				if charbase not in trim_adapter_base:
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Invalid character detected in forward_adapter demultiplexing flag.'))
+					trigger = True
+			forward_position = self.config_dict['demultiplex_flags']['@forward_position']
+			if forward_position not in ['5P', '3P', 'AP']:
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Given demultiplexing forward adapter position invalid! [5P, 3P, AP]'))
+				trigger = True
+
+			reverse_adapter = self.config_dict['demultiplex_flags']['@reverse_adapter']
+			for charbase in reverse_adapter:
+				if charbase not in trim_adapter_base:
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Invalid character detected in reverse_adapter demultiplexing flag.'))
+					trigger = True
+			reverse_position = self.config_dict['demultiplex_flags']['@reverse_position']
+			if reverse_position not in ['5P', '3P', 'AP']:
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Given demultiplexing reverse adapter position invalid! [5P, 3P, AP]'))
+				trigger = True
+
+			error_rate = self.config_dict['demultiplex_flags']['@error_rate']
+			if not error_rate.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified error_rate is not a valid integer.'))
+				trigger = True
+			minimum_overlap = self.config_dict['demultiplex_flags']['@min_overlap']
+			if not minimum_overlap.isdigit():
+				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified min_overlap is not a valid integer.'))
+				trigger = True
+			minimum_length = self.config_dict['demultiplex_flags']['@min_length']
+			if not minimum_length == '':
+				if not minimum_length.isdigit():
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified min_length is not a valid integer.'))
+					trigger = True
+			maximum_length = self.config_dict['demultiplex_flags']['@max_length']
+			if not maximum_length == '':
+				if not maximum_length.isdigit():
+					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified max_length is not a valid integer.'))
+					trigger = True
+
+		##
 		## Trimming flag settings
 		if sequence_qc_flag == 'True':
 			trimming_type = self.config_dict['trim_flags']['@trim_type']
@@ -217,7 +264,6 @@ class ConfigReader(object):
 			if not (adapter_flag in trim_adapters):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified trimming adapter not valid selection.'))
 				trigger = True
-			trim_adapter_base = ['A','G','C','T']
 			forward_adapter = self.config_dict['trim_flags']['@forward_adapter']
 			for charbase in forward_adapter:
 				if charbase not in trim_adapter_base:

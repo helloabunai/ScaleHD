@@ -13,11 +13,11 @@ setup(
     name='ScaleHD',
 
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.311',
+    version='0.312',
 
     description='Automated DNA micro-satellite genotyping.',
     long_description=long_description,
-
+	python_requires='>=2.7.13',
     # The project's main homepage.
     url='https://github.com/helloabunai/ScaleHD',
 
@@ -86,6 +86,7 @@ setup(
 					  'PyPDF2',
 					  'reportlab',
 					  'generatr',
+					  'batchadapt',
 					  'pyvcf'
 					  ],
 

@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.311
+__version__ = 0.312
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -85,10 +85,13 @@ class ScaleHD:
 
 		##
 		## Check we're on python 2.7.13
-		if not (sys.version_info[0] == 2 and sys.version_info[1] == 7 and sys.version_info[2] == 13):
-			current_user_version = '{}.{}.{}'.format(sys.version_info[0], sys.version_info[1], sys.version_info[2])
-			log.error('{}{}{}{}{}.'.format(clr.red, 'shd__ ', clr.end, 'ScaleHD requires python 2.7.13! You are using: ', current_user_version))
-			sys.exit(2)
+		if not (sys.version_info[0] == 2 and sys.version_info[1] == 7):
+			if sys.version_info[2] > 13:
+				pass
+			if sys.version_info[2] < 13:
+				current_user_version = '{}.{}.{}'.format(sys.version_info[0], sys.version_info[1], sys.version_info[2])
+				log.error('{}{}{}{}{}.'.format(clr.red, 'shd__ ', clr.end, 'ScaleHD requires python 2.7.13! You are using: ', current_user_version))
+				sys.exit(2)
 
 		##
 		## Check inputs, generate outputs
@@ -155,6 +158,9 @@ class ScaleHD:
 				reverse_index = align.ReferenceIndex(reverse_reference, self.index_path).get_index_path()
 				self.typical_indexes = [forward_index, reverse_index]
 				self.reference_indexes = [forward_index, reverse_index]
+			if self.instance_params.config_dict['instance_flags']['@demultiplex']:
+				log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,'Demultiplexing reads.. '))
+				seq_qc.BatchadaptWrapper(self.instance_params)
 
 		##
 		## Instance results (genotype table)
@@ -211,7 +217,10 @@ class ScaleHD:
 		"""
 		##
 		## Config generics
-		instance_inputdata = self.instance_params.config_dict['@data_dir']
+		if self.instance_params.config_dict['instance_flags']['@demultiplex']:
+			instance_inputdata = self.instance_params.config_dict['@data_dir']+'_demultiplexed'
+		else:
+			instance_inputdata = self.instance_params.config_dict['@data_dir']
 
 		##
 		## Pre-stage: check for compressed data, extract
@@ -224,7 +233,6 @@ class ScaleHD:
 		data_pairs = sequence_pairings(instance_inputdata, self.instance_rundir)
 		for i in range(len(data_pairs)):
 			for seqpair_lbl, seqpair_dat in data_pairs[i].iteritems():
-
 				################################################
 				## Pre stage! Sample object/Tree generation.. ##
 				################################################

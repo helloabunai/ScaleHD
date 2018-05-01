@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.311
+__version__ = 0.312
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -518,6 +518,7 @@ class AlleleGenotyping:
 		## For the two allele objects in this sample_pair
 		## First, ensure CCG matches between DSP estimate and FOD derision
 		for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
+
 			allele.set_ccgthreshold(0.50)
 			fod_failstate, ccg_indexes = self.peak_detection(allele, allele.get_rvarray(), 1, 'CCG')
 			while fod_failstate:
@@ -528,7 +529,14 @@ class AlleleGenotyping:
 				ccg_matches += 1
 				allele.set_ccgvalid(True)
 			ccg_values.append([x for x in ccg_indexes if x == allele.get_ccg()])
-			allele.set_fodccg(np.asarray(ccg_indexes[0]))
+
+			if len(ccg_indexes > 1):
+				if allele.get_header() == 'PRI':
+					allele.set_fodccg(np.asarray(ccg_indexes[0]))
+				if allele.get_header() == 'SEC':
+					allele.set_fodccg(np.asarray(ccg_indexes[1]))
+			else:
+				allele.set_fodccg(np.asarray(ccg_indexes[0]))
 
 			distribution_split = self.split_cag_target(allele.get_fwarray())
 			target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
@@ -538,7 +546,6 @@ class AlleleGenotyping:
 			local_zygstate = 'HOMO'
 		if not ccg_values[0] == ccg_values[1]:
 			local_zygstate = 'HETERO'
-
 
 		##
 		## If the sample's total read count is so low that we cannot trust results
