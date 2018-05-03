@@ -60,6 +60,8 @@ The significance levels are as follows:
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
 | Differential Confusion     | Major        | The allele sorting algorithm was confused between a potential neighbouring peak, or homozygous haplotype.              |
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
+| Missed Expansion           | Major        | One genotyping algorithm believes an allele to be expanded with low reads, the other algorithm believes otherwise.     |
++----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
 | Peak Inspection Warning    | Minor        | At least one allele failed minimum read-count distribution threshold inspection. Common in "bad" sequencing data.      |
 +----------------------------+--------------+------------------------------------------------------------------------------------------------------------------------+
 | Low Distribution Reads     | Dependent    | At least one allele's CAG read distribution (FW-200 length) contains a noteworthly low number of reads.                |

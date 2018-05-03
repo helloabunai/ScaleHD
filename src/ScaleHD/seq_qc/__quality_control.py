@@ -1,5 +1,5 @@
 #/usr/bin/python
-__version__ = 0.312
+__version__ = 0.313
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -28,7 +28,9 @@ class SeqQC:
 		self.trimming_errors = False
 		self.trimming_report = []
 		if stage.lower()=='validate': self.verify_input()
-		if stage.lower()=='trim': self.execute_trimming(); self.execute_fastqc()
+		if stage.lower()=='trim':
+			self.execute_trimming()
+			self.execute_fastqc()
 
 	def verify_input(self, raise_exception=True):
 
@@ -75,6 +77,9 @@ class SeqQC:
 					trimmed_outdir = '{}/{}{}{}'.format(self.target_output,'trimmed_',file_root,'.fq')
 					quality_threshold = self.instance_params.config_dict['trim_flags']['@quality_threshold']
 
+					if file_root.split('_')[-1] == 'R1':
+						self.sequencepair_data.set_fwtrimmed(trimmed_outdir)
+
 					argument_list = ['-e', error_tolerance, '-q', quality_threshold, self.input_filepair[i], '-o', trimmed_outdir]
 					trim_report = execute_cutadapt(argument_list, file_root, self.target_output)
 					if i == 0: self.sequencepair_data.set_fwreads(trimmed_outdir)
@@ -98,6 +103,8 @@ class SeqQC:
 					if adapter_anchor == '-a$':adapter_anchor = '-a';adapter_string += '$'
 					if adapter_anchor == '-g^':adapter_anchor = '-g';adapter_string = '^' + adapter_string
 
+					if file_root.split('_')[-1] == 'R1':
+						self.sequencepair_data.set_fwtrimmed(trimmed_outdir)
 					argument_list = ['-e', error_tolerance, adapter_anchor, adapter_string, self.input_filepair[i], '-o', trimmed_outdir]
 					trim_report = execute_cutadapt(argument_list, file_root, self.target_output)
 					if i == 0: self.sequencepair_data.set_fwreads(trimmed_outdir)
@@ -118,6 +125,9 @@ class SeqQC:
 					if stepwise_counter == 1:
 						adapter_string = self.instance_params.config_dict['trim_flags']['@reverse_adapter']
 
+					if file_root.split('_')[-1] == 'R1':
+						self.sequencepair_data.set_fwtrimmed(trimmed_outdir)
+
 					##
 					## Alter string based on anchor, messy but whatever
 					if adapter_anchor == '-a$':adapter_anchor = '-a';adapter_string += '$'
@@ -137,11 +147,11 @@ class SeqQC:
 
 		##
 		## For the files in the current file pair, make FastQC output folder and run FastQC
-		for fqfile in self.input_filepair[0:1]:
-			fastqc_outdir = os.path.join(self.target_output, 'FastQC')
-			mkdir_p(fastqc_outdir)
-			fastqc_process = subprocess.Popen(['fastqc','--quiet','--extract','-t',THREADS,'-o',fastqc_outdir,fqfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-			fastqc_process.wait()
+		fqfile = self.sequencepair_data.get_fwtrimmed()
+		fastqc_outdir = os.path.join(self.target_output, 'FastQC')
+		mkdir_p(fastqc_outdir)
+		fastqc_process = subprocess.Popen(['fastqc','--quiet','--extract','-t',THREADS,'-o',fastqc_outdir,fqfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		fastqc_process.wait()
 
 	def get_trimreport(self):
 		return self.trimming_report

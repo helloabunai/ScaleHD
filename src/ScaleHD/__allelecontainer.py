@@ -31,6 +31,7 @@ class SequenceSample:
 		self.reverse_assembly = ''
 		self.forward_distribution = []
 		self.reverse_distribution = []
+		self.forward_trimmed = ''
 
 		self.trim_report = []
 		self.align_report = []
@@ -61,6 +62,7 @@ class SequenceSample:
 		self.distribution_readcount_warning = False
 		self.novel_atypical_structure = False
 		self.differential_confusion = False
+		self.missed_expansion = False
 		self.original_fqcount = 0
 		self.subsampled_fqcount = 0
 
@@ -94,6 +96,7 @@ class SequenceSample:
 	def set_rvassembly(self, assembly): self.reverse_assembly = assembly
 	def set_fwdist(self, dist): self.forward_distribution = dist
 	def set_rvdist(self, dist): self.reverse_distribution = dist
+	def set_fwtrimmed(self, reads): self.forward_trimmed = reads
 
 	def set_trimreport(self, report): self.trim_report = report
 	def set_alignreport(self, report): self.align_report = report
@@ -124,6 +127,7 @@ class SequenceSample:
 	def set_distribution_readcount_warning(self, state): self.distribution_readcount_warning = state
 	def set_novel_atypical_structure(self, state): self.novel_atypical_structure = state
 	def set_differential_confusion(self, state): self.differential_confusion = state
+	def set_missed_expansion(self, state): self.missed_expansion = state
 	def set_original_fqcount(self, count): self.original_fqcount = count
 	def set_subsampled_fqcount(self, count): self.subsampled_fqcount = count
 
@@ -157,6 +161,7 @@ class SequenceSample:
 	def get_rvassembly(self): return self.reverse_assembly
 	def get_fwdist(self): return self.forward_distribution
 	def get_rvdist(self): return self.reverse_distribution
+	def get_fwtrimmed(self): return self.forward_trimmed
 
 	def get_trimreport(self): return self.trim_report
 	def get_alignreport(self): return self.align_report
@@ -187,6 +192,7 @@ class SequenceSample:
 	def get_distribution_readcount_warning(self): return self.distribution_readcount_warning
 	def get_novel_atypical_structure(self): return self.novel_atypical_structure
 	def get_differential_confusion(self): return self.differential_confusion
+	def get_missed_expansion(self): return self.missed_expansion
 	def get_original_fqcount(self): return self.original_fqcount
 	def get_subsampled_fqcount(self): return self.subsampled_fqcount
 
@@ -272,6 +278,8 @@ class IndividualAllele:
 		self.slippage_overwrite = False
 		self.fatalalignmentwarning = False
 		self.distribution_readcount_warning = False
+		self.differential_confusion = False
+		self.ccg_uncertain = False
 
 	##
 	## Setters
@@ -344,6 +352,8 @@ class IndividualAllele:
 	def set_slippageoverwrite(self, state): self.slippage_overwrite = state
 	def set_fatalalignmentwarning(self, state): self.fatalalignmentwarning = state
 	def set_distribution_readcount_warning(self, state): self.distribution_readcount_warning = state
+	def set_differential_confusion(self, state): self.differential_confusion = state
+	def set_ccguncertainty(self, state): self.ccg_uncertain = state
 
 	##
 	## Getters
@@ -416,3 +426,5 @@ class IndividualAllele:
 	def get_slippageoverwrite(self): return self.slippage_overwrite
 	def get_fatalalignmentwarning(self): return self.fatalalignmentwarning
 	def get_distribution_readcount_warning(self): return self.distribution_readcount_warning
+	def get_differential_confusion(self): return self.differential_confusion
+	def get_ccguncertainty(self): return self.ccg_uncertain

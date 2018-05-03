@@ -5,6 +5,8 @@ Sequence Quality Control (SeqQC)
 
 Assuming that all dependencies are functioning and input data is valid, the first stage of ScaleHD is Sequence Quality Control (SeqQC). This stage is utilised to attempt to provide further stages with the best possible quality data for aligning and genotyping.
 
+As of version 0.312, we have included a pre-processing stage for demultiplexing sequence reads based on sequencing adapters. This is done via a wrapper for Cutadapt, called batchadapt -- it is a lazy way for my colleagues to easily run cutadapt for sequence trimming on a folder of input files without having to think about bash scripts. As such, batchadapt has been added to the requirements for this package, and is automatically installed from pip along with other dependencies.
+
 Initially, the pipeline will execute FastQC (https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) on input data. This provides a visual report on raw sequence quality, which may inform users of basic characteristics of their sequencing data. 
 
 The main focus of this stage utilises Cutadapt (http://cutadapt.readthedocs.io/en/stable/). In a ScaleHD configuration file, the user can specify three types of trimming to be carried out: quality, adapter or both. Quality trimming, if chosen, is recommended to be carried out before adapter trimming -- if the user has chosen to use both types of trimming via ScaleHD, this is the order in which commands will be executed. Quality trimming will remove low-quality reads from an input data, providing any further analysis stages with the highest possible quality data available. See http://cutadapt.readthedocs.io/en/stable/guide.html#quality-trimming for more information.

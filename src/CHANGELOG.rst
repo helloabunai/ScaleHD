@@ -1,5 +1,14 @@
 .. _sect_changelog:
 
+Version 0.313
+-------------
+
+ * Fixed a rare error wherein graphs would not be rendered where an atypical allele rewrote the CCG-zygosity from heterozygous to homozygous.
+ * Added a flag for when the two core genotyping algorithms cannot agree on the status of one allele; this manifests as an expanded allele being missed due to significantly low read count.
+ * Allele sorting algorithm has been tweaked to correct some mistakes in my garbage code.
+ * Fixed rare error where FastQC would be executed on incorrect data.
+ * Fixed certain genotyping flags being applied on a sample wide basis as opposed to an individual allele basis.
+
 Version 0.312
 -------------
 

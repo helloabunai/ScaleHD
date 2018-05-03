@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.312
+__version__ = 0.313
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -62,8 +62,8 @@ class AlleleGenotyping:
 			self.warning_triggered = True
 			self.sequencepair_object.set_peakinspection_warning(True)
 		self.n_align_dist()
-		self.render_graphs()
 		self.calculate_score()
+		self.render_graphs()
 		self.set_report()
 
 	def build_zygosity_model(self):
@@ -376,9 +376,11 @@ class AlleleGenotyping:
 			if abs(majidx-minidx) == 1:
 				if np.isclose([minor], [tertiary], atol=minor*0.80):
 					skip_flag = True
+					allele_object.set_ccguncertainty(True)
 					self.sequencepair_object.set_ccguncertainty(True)
 			if minor == self.reverse_aggregate[allele_object.get_ccg()-1]:
 				skip_flag = True
+				allele_object.set_ccguncertainty(True)
 				self.sequencepair_object.set_ccguncertainty(True)
 			## skip the following block if so
 			if not skip_flag:
@@ -906,7 +908,9 @@ class AlleleGenotyping:
 
 	def inspect_peaks(self):
 
-		for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
+		primary_allele = self.sequencepair_object.get_primaryallele()
+		secondary_allele = self.sequencepair_object.get_secondaryallele()
+		for allele in [primary_allele, secondary_allele]:
 
 			distribution_split = self.split_cag_target(allele.get_fwarray())
 			target = distribution_split['CCG{}'.format(allele.get_ccg())]
@@ -1025,6 +1029,7 @@ class AlleleGenotyping:
 			allele.set_allelegenotype('{}_{}_{}_{}_{}'.format(allele.get_fodcag(), novel_caacag,
 															  novel_ccgcca, allele.get_fodccg(),
 															  allele.get_cct()))
+
 			##
 			## Check DSP generated allele label vs FOD results
 			if int(allele.get_reflabel().split('_')[3]) != int(allele.get_fodccg()):
@@ -1038,6 +1043,15 @@ class AlleleGenotyping:
 															  allele.get_cct()))
 				allele.set_fodoverwrite(True)
 
+			##
+			## Homozygous from SVM, genotypes match, allele DSP differ, hzygous flag False
+			## aka this sample has an large expanded allele with almost no reads
+			## and the pipeline missed it
+			if self.zygosity_state != 'HETERO':
+				if not self.sequencepair_object.get_homozygoushaplotype():
+					if allele.get_fodoverwrite():
+						self.sequencepair_object.set_missed_expansion(True)
+						self.sequencepair_object.set_diminishedpeaks(True)
 
 			##
 			## If failed, write intermediate data to report
@@ -1062,6 +1076,7 @@ class AlleleGenotyping:
 				with open(inspection_logfi,'w') as logfi:
 					logfi.write(inspection_str)
 					logfi.close()
+
 		return self.pass_vld
 
 	def n_align_dist(self):
@@ -1175,14 +1190,16 @@ class AlleleGenotyping:
 		sample_pdf_path = os.path.join(predpath, '{}{}'.format(self.sequencepair_object.get_label(),'.pdf'))
 		c = canvas.Canvas(sample_pdf_path, pagesize=(720,432))
 		header_string = '{}{}'.format('Sample header: ', self.sequencepair_object.get_label())
-		primary_string = '{}(CAG{}, CCG{}) ({}; {})'.format('Primary: ', self.sequencepair_object.get_primaryallele().get_fodcag(),
+		primary_string = '{}(CAG{}, CCG{}) ({}; {}; Confidence {}%)'.format('Primary: ', self.sequencepair_object.get_primaryallele().get_fodcag(),
 												 self.sequencepair_object.get_primaryallele().get_fodccg(),
 												 self.sequencepair_object.get_primaryallele().get_allelestatus(),
-												 self.sequencepair_object.get_primaryallele().get_allelegenotype())
-		secondary_string = '{}(CAG{}, CCG{}) ({}; {})'.format('Secondary: ', self.sequencepair_object.get_secondaryallele().get_fodcag(),
+												 self.sequencepair_object.get_primaryallele().get_allelegenotype(),
+												 int(self.sequencepair_object.get_primaryallele().get_alleleconfidence()))
+		secondary_string = '{}(CAG{}, CCG{}) ({}; {}; Confidence {}%)'.format('Secondary: ', self.sequencepair_object.get_secondaryallele().get_fodcag(),
 												   self.sequencepair_object.get_secondaryallele().get_fodccg(),
 												   self.sequencepair_object.get_secondaryallele().get_allelestatus(),
-												   self.sequencepair_object.get_secondaryallele().get_allelegenotype())
+												   self.sequencepair_object.get_secondaryallele().get_allelegenotype(),
+												   int(self.sequencepair_object.get_secondaryallele().get_alleleconfidence()))
 
 		##########################################################
 		## Create canvas for sample 'intro card'				##
@@ -1243,10 +1260,11 @@ class AlleleGenotyping:
 						if i != allele.get_cag() - 1:
 							removal = (target_distro[i] / 100) * 75
 							target_distro[i] -= removal
-				if allele.get_rewrittenccg():
+
+				if allele.get_rewrittenccg() is not None:
 					peak_filename = 'CCG{}-CAGDetection_atypical_ccgdiff.pdf'.format(allele.get_fodccg())
 					peak_prefix = '(CCG{}**) '.format(allele.get_fodccg())
-				elif allele.get_unrewrittenccg():
+				elif allele.get_unrewrittenccg() is not None:
 					peak_filename = 'CCG{}-CAGDetection_atypical_ccgsame.pdf'.format(allele.get_fodccg())
 					peak_prefix = '(CCG{}++) '.format(allele.get_fodccg())
 				else:
@@ -1280,7 +1298,7 @@ class AlleleGenotyping:
 				##
 				## Merge 'allele sample' into one page
 				ccg_val = allele.get_fodccg()
-				if allele.get_unrewrittenccg(): hplus = True
+				if (allele.get_unrewrittenccg() is not None) or (allele.get_rewrittenccg() is not None): hplus = True
 				else: hplus = False
 				merged_graph = pagemerge_subfunction(temp_graphs, predpath, ccg_val, hplus=hplus)
 				hetero_graphs.append(merged_graph)
@@ -1412,7 +1430,9 @@ class AlleleGenotyping:
 				if self.sequencepair_object.get_diminishedpeaks():
 					allele_confidence -= 10; penfi.write('{}, {}\n'.format('Diminished Peaks','-10'))
 				if allele.get_fodoverwrite():
-					allele_confidence -= 1; penfi.write('{}, {}\n'.format('Differential Overwrite','-1'))
+					allele_confidence -= 20; penfi.write('{}, {}\n'.format('Differential Overwrite','-20'))
+					if self.sequencepair_object.get_missed_expansion():
+						allele_confidence -= 50; penfi.write('{}, {}\n'.format('Missed Expansion', '-50'))
 
 				##
 				## Allele based genotyping flags
@@ -1527,7 +1547,7 @@ class AlleleGenotyping:
 				##
 				## Warning penalty.. if triggered, no confidence
 				if self.warning_triggered: allele_confidence -= 20; penfi.write('{}, {}\n'.format('Peak Inspection warning triggered','-20'))
-				if self.sequencepair_object.get_ccguncertainty(): allele_confidence -= 30; penfi.write('{}, {}\n'.format('CCG Uncertainty','-30'))
+				if allele.get_ccguncertainty(): allele_confidence -= 30; penfi.write('{}, {}\n'.format('CCG Uncertainty','-30'))
 				if self.sequencepair_object.get_alignmentwarning(): allele_confidence -= 15; penfi.write('{}, {}\n'.format('Low read count alignment warning','-15'))
 				if self.sequencepair_object.get_atypical_alignmentwarning(): allele_confidence -= 50; penfi.write('{}, {}\n'.format('Atypical re-alignment inaccurate','-50'))
 				if allele.get_fatalalignmentwarning(): allele_confidence -= 25; penfi.write('{}, {}\n'.format('Fatal low read count alignment warning','-25'))
@@ -1535,8 +1555,8 @@ class AlleleGenotyping:
 				##
 				## Differential Confusion
 				## i.e two peaks nearby, large difference between suspected but unsure whether homo or neighbour
-				if self.sequencepair_object.get_differential_confusion():
-					allele_confidence = 0; penfi.write('{}, {}\n'.format('Differential Confusion', '-100'))
+				if allele.get_differential_confusion():
+					allele_confidence -= 45; penfi.write('{}, {}\n'.format('Differential Confusion', '-45'))
 
 				##
 				## If reflabel CAG and FOD CAG differ.. no confidence
