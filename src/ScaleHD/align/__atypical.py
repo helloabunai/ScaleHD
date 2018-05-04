@@ -668,7 +668,11 @@ class ScanAtypical:
 						secondary_allele = sorted_info[1][1]
 						secondary_allele['Reference'] = sorted_info[1][0]
 					else:
-						secondary_allele = primary_allele.copy()
+						if int(sorted_info[0][1]['EstimatedCAG']) - int(sorted_info[2][1]['EstimatedCAG']) == 1:
+							secondary_allele = sorted_info[1][1]
+							secondary_allele['Reference'] = sorted_info[1][0]
+						else:
+							secondary_allele = primary_allele.copy()
 				elif beta_drop >= 0.20:
 					secondary_allele = sorted_info[1][1]
 					secondary_allele['Reference'] = sorted_info[1][0]
@@ -714,6 +718,7 @@ class ScanAtypical:
 			if temp_curr[0] == temp_curr[1]:
 				if self.sequencepair_object.get_atypical_ccgrewrite():
 					self.sequencepair_object.set_atypical_zygrewrite(True)
+
 
 		return primary_allele, secondary_allele, atypical_count
 

@@ -1,5 +1,10 @@
 .. _sect_changelog:
 
+Version 0.314/5
+
+ * Fixed homozygous haplotype casting error
+ * Fixed diminished alleles being skipped (or not flagged) in particular cases of read drop-off in homozygous expansions
+
 Version 0.313
 -------------
 

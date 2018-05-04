@@ -13,7 +13,7 @@ setup(
     name='ScaleHD',
 
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.314',
+    version='0.315',
 
     description='Automated DNA micro-satellite genotyping.',
     long_description=long_description,
