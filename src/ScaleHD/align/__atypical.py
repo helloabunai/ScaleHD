@@ -490,192 +490,29 @@ class ScanAtypical:
 		## Check % dropoff in read count between #2 and #3
 		alpha_diff = float(abs(sorted_info[0][1]['TotalReads'] - sorted_info[1][1]['TotalReads']))
 		beta_diff = float(abs(sorted_info[0][1]['TotalReads'] - sorted_info[2][1]['TotalReads']))
-		sub_diff = float(abs(sorted_info[1][1]['TotalReads'] - sorted_info[2][1]['TotalReads']))
+		theta_diff = float(abs(sorted_info[1][1]['TotalReads'] - sorted_info[2][1]['TotalReads']))
 		alpha_drop = float(alpha_diff / sorted_info[0][1]['TotalReads'])
 		beta_drop = float(beta_diff / sorted_info[0][1]['TotalReads'])
-		sub_drop = float(sub_diff / sorted_info[1][1]['TotalReads'])
+		theta_drop = float(theta_diff / sorted_info[1][1]['TotalReads'])
 
 		## Top1 always used
 		primary_allele = sorted_info[0][1]; primary_allele['Reference'] = sorted_info[0][0]
 		secondary_allele = None
 
+		print '#1 Allele: \n{}'.format(sorted_info[0])
+		print '#2 Allele: \n{}'.format(sorted_info[1])
+		print '#3 Allele: \n{}'.format(sorted_info[2])
+
 		##
 		## CCG matches between #2/#3, potential peak skew
-		##TODO lmao this is fucking horrible
-		##TODO refactor this please
-		if sorted_info[1][1]['EstimatedCCG'] == sorted_info[2][1]['EstimatedCCG']:
-			##
-			## check #2 and #3 vs CAG(#1)
-			for val in [sorted_info[1], sorted_info[2]]:
-				top1_reads = primary_allele['TotalReads']; curr_reads = val[1].get('TotalReads')
-				read_drop = abs(top1_reads-curr_reads)/top1_reads
-				if val[1].get('EstimatedCCG') != primary_allele['EstimatedCCG']:
-					if read_drop >= 0.40:
-						if sub_drop <= 0.25:
-							secondary_allele = sorted_info[2][1]
-							secondary_allele['Reference'] = sorted_info[2][0]
-							break
-						else:
-							secondary_allele = sorted_info[1][1]
-							secondary_allele['Reference'] = sorted_info[1][0]
-							break
-					else:
-						if sub_drop <= 0.25:
-							secondary_allele = sorted_info[1][1]
-							secondary_allele['Reference'] = sorted_info[1][0]
-							break
-				##
-				## Secondary allele unassigned, perhaps homzoygous haplotype
-				if not secondary_allele:
-					top1_top3_dist = abs(sorted_info[0][1]['EstimatedCAG']-sorted_info[2][1]['EstimatedCAG'])
-					top1_top2_dist = abs(sorted_info[0][1]['EstimatedCAG']-sorted_info[1][1]['EstimatedCAG'])
-					top2_top3_dist = abs(sorted_info[1][1]['EstimatedCAG']-sorted_info[2][1]['EstimatedCAG'])
-					top2_ccg = sorted_info[1][1]['EstimatedCCG']; top3_ccg = sorted_info[2][1]['EstimatedCCG']
-					if read_drop >= 0.65:
-						if top2_top3_dist == 1 and top2_ccg==top3_ccg:
-							top2_cag = sorted_info[1][1]['EstimatedCAG']; top3_cag = sorted_info[2][1]['EstimatedCAG']
-							##
-							## Diminished Peak (Top2)
-							if top2_cag > top3_cag:
-								if np.isclose([sub_drop],[0.5],atol=0.1):
-									if not np.isclose([primary_allele['EstimatedCAG']],[top2_cag],atol=5):
-										secondary_allele = sorted_info[1][1]
-										secondary_allele['Reference'] = sorted_info[1][0]
-										break
-									else:
-										secondary_allele = primary_allele.copy()
-										break
-								elif np.isclose([sub_drop],[0.25],atol=0.05):
-									secondary_allele = sorted_info[1][1]
-									secondary_allele['Reference'] = sorted_info[1][0]
-								elif np.isclose([sub_drop],[0.05],atol=0.03):
-									if top2_ccg == top3_ccg:
-										if np.isclose([top2_cag],[top3_cag], atol=2):
-											secondary_allele = sorted_info[1][1]
-											secondary_allele['Reference'] = sorted_info[1][0]
-											break
-									else:
-										secondary_allele = primary_allele.copy()
-										break
-								else:
-									if top2_ccg==top3_ccg:
-										if np.isclose([top2_cag], [top3_cag], atol=2):
-											secondary_allele = sorted_info[1][1]
-											secondary_allele['Reference'] = sorted_info[1][0]
-											break
-									else:
-										secondary_allele = primary_allele.copy()
-										break
-							##
-							## Diminished peak (Top3)
-							elif top3_cag > top2_cag:
-								if np.isclose([sub_drop],[0.2],atol=0.2):
-									if not np.isclose([primary_allele['EstimatedCAG']],[top3_cag],atol=5):
-										secondary_allele = sorted_info[1][1]
-										secondary_allele['Reference'] = sorted_info[1][0]
-										break
-									else:
-										secondary_allele = primary_allele.copy()
-										break
-								else:
-									secondary_allele = primary_allele.copy()
-									break
-						elif top1_top2_dist == 1 and top2_top3_dist != 1:
-							secondary_allele = sorted_info[2][1]
-							secondary_allele['Reference'] = sorted_info[2][0]
-						else:
-							secondary_allele = sorted_info[1][1]
-							secondary_allele['Reference'] = sorted_info[1][0]
-					##
-					## Legit peak (not diminished or homozyg)
-					elif 0.0 < read_drop < 0.64:
-						if not top1_top2_dist == 1:
-							secondary_allele = sorted_info[1][1]
-							secondary_allele['Reference'] = sorted_info[1][0]
-							break
-						else:
-							differential = max(sub_diff, alpha_diff)/min(sub_diff, alpha_diff)
-							if differential > 5 and not (primary_allele['Status'] == val[1].get('Status')):
-								secondary_allele = sorted_info[1][1]
-								secondary_allele['Reference'] = sorted_info[1][0]
-								break
-							elif 1.5 < differential < 7.5:
-								if sorted_info[0][1]['EstimatedCCG'] == sorted_info[1][1]['EstimatedCCG'] == sorted_info[2][1]['EstimatedCCG']:
-									secondary_allele = sorted_info[2][1]
-									secondary_allele['Reference'] = sorted_info[2][0]
-									break
-								else:
-									secondary_allele = sorted_info[1][1]
-									secondary_allele['Reference'] = sorted_info[1][0]
-									break
-							else:
-								if np.isclose([differential], [1.5], atol=0.25):
-									secondary_allele = sorted_info[1][1]
-									secondary_allele['Reference'] = sorted_info[1][0]
-									break
-								else:
-									top1_top2_diff = primary_allele['TotalReads'] - sorted_info[1][1]['TotalReads']
-									top2_top3_diff = sorted_info[1][1]['TotalReads'] - sorted_info[2][1]['TotalReads']
-									if top2_top3_diff > top1_top2_diff:
-										secondary_allele = sorted_info[1][1]
-										secondary_allele['Reference'] = sorted_info[1][0]
-										break
-									else:
-										secondary_allele = sorted_info[2][1]
-										secondary_allele['Reference'] = sorted_info[2][0]
-										secondary_allele['DiffConfuse'] = True
-										break
-					elif top2_top3_dist >= 2:
-						if not top1_top3_dist == 1:
-							secondary_allele = sorted_info[2][1]
-							secondary_allele['Reference'] = sorted_info[2][0]
-							break
-						else:
-							secondary_allele = sorted_info[1][1]
-							secondary_allele['Reference'] = sorted_info[1][0]
-							break
-					else:
-						secondary_allele = sorted_info[1][1]
-						secondary_allele['Reference'] = sorted_info[1][0]
-						break
-		##
-		## CCG mismatch between #2/#3, no potential peak skew
-		else:
-			if sorted_info[0][1]['EstimatedCCG'] == sorted_info[1][1]['EstimatedCCG']:
-				if np.isclose([sorted_info[0][1]['EstimatedCAG']], [sorted_info[1][1]['EstimatedCAG']],atol=1):
-					if alpha_drop > 0.75:
-						secondary_allele = primary_allele.copy()
-						if np.isclose([alpha_drop],[0.75], atol=0.12):
-							secondary_allele = sorted_info[2][1]
-							secondary_allele['Reference'] = sorted_info[2][0]
-							secondary_allele['DiffConfuse'] = True
-					else:
-						if sorted_info[0][1]['EstimatedCCG'] != sorted_info[2][1]['EstimatedCCG']:
-							secondary_allele = sorted_info[2][1]
-							secondary_allele['Reference'] = sorted_info[2][0]
-				else:
-					secondary_allele = sorted_info[1][1]
-					secondary_allele['Reference'] = sorted_info[1][0]
-			elif not sorted_info[0][1]['EstimatedCCG'] == sorted_info[1][1]['EstimatedCCG']:
-				if sorted_info[1][1]['EstimatedCAG'] > 30:
-					secondary_allele = sorted_info[1][1]
-					secondary_allele['Reference'] = sorted_info[1][0]
-				elif sorted_info[2][1]['EstimatedCAG'] > 30:
-					secondary_allele = sorted_info[2][1]
-					secondary_allele['Reference'] = sorted_info[2][0]
-				if alpha_drop >= 0.65 and beta_drop >= 0.80:
-					if np.isclose([sub_drop],[0.3],atol=0.02):
-						secondary_allele = sorted_info[1][1]
-						secondary_allele['Reference'] = sorted_info[1][0]
-					else:
-						if int(sorted_info[0][1]['EstimatedCAG']) - int(sorted_info[2][1]['EstimatedCAG']) == 1:
-							secondary_allele = sorted_info[1][1]
-							secondary_allele['Reference'] = sorted_info[1][0]
-						else:
-							secondary_allele = primary_allele.copy()
-				elif beta_drop >= 0.20:
-					secondary_allele = sorted_info[1][1]
-					secondary_allele['Reference'] = sorted_info[1][0]
+		## TODO rework from here until heuristic engine matches your work in R
+		uniform_ccg = False
+		for allele in sorted_info:
+			if allele['EstimatedCCG'] == primary_allele['EstimatedCCG']:
+				print '{} CCG match to primary'.format(allele['Reference'])
+			else:
+				uniform_ccg = True
+
 
 		##
 		## For each of the alleles we've determined..
