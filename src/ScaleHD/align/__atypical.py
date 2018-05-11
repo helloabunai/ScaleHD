@@ -84,6 +84,7 @@ class ScanAtypical:
 			obj.set_rewrittenccg(dat.get('RewrittenCCG'))
 			obj.set_unrewrittenccg(dat.get('UnrewrittenCCG'))
 			obj.set_differential_confusion(dat.get('DiffConfuse'))
+			obj.set_neighbouring_candidate(dat.get('Neighbouring'))
 		sequencepair_object.set_primary_allele(primary_object)
 		sequencepair_object.set_secondary_allele(secondary_object)
 
@@ -116,21 +117,24 @@ class ScanAtypical:
 		elif 20000 > awk_output > 15000: subsample_float = 0.175
 		elif 15000 > awk_output > 10000: subsample_float = 0.200
 		elif 10000 > awk_output > 5000: subsample_float = 0.225
-		else: subsample_float = 0.500
+		else: subsample_float = 0.5
 		self.sequencepair_object.set_subsampled_fqcount(awk_output)
 
 		##
 		## Subsample reads
 		## Index the subsampled assembly
-		if not self.sequencepair_object.get_broadflag():
-			self.sequencepair_object.set_subsampleflag(subsample_float)
-			self.sequencepair_object.set_automatic_DSPsubsample(True)
-			self.subsample_assembly = os.path.join(self.sequence_path,'subsample.sam')
-			self.subsample_index = os.path.join(self.sequence_path,'subsample.sam.bai')
-			assem_obj = open(self.subsample_assembly,'w')
-			subsample_process = subprocess.Popen(['samtools','view','-s',str(subsample_float),'-b', self.sorted_assembly], stdout=assem_obj)
-			subsample_process.wait(); assem_obj.close()
-			index_process = subprocess.Popen(['samtools','index',self.subsample_assembly]); index_process.wait()
+		if awk_output > 5000:
+			if not self.sequencepair_object.get_broadflag():
+				self.sequencepair_object.set_subsampleflag(subsample_float)
+				self.sequencepair_object.set_automatic_DSPsubsample(True)
+				self.subsample_assembly = os.path.join(self.sequence_path,'subsample.sam')
+				self.subsample_index = os.path.join(self.sequence_path,'subsample.sam.bai')
+				assem_obj = open(self.subsample_assembly,'w')
+				subsample_process = subprocess.Popen(['samtools','view','-s',str(subsample_float),'-b', self.sorted_assembly], stdout=assem_obj)
+				subsample_process.wait(); assem_obj.close()
+				index_process = subprocess.Popen(['samtools','index',self.subsample_assembly]); index_process.wait()
+			else:
+				self.subsample_assembly = self.sorted_assembly
 		else:
 			self.subsample_assembly = self.sorted_assembly
 
@@ -486,32 +490,230 @@ class ScanAtypical:
 		sorted_info = sorted(self.atypical_info.iteritems(), key=lambda (x, y): y['TotalReads'], reverse=True)
 		if len(sorted_info) != 3: raise IndexError('< 3 references in sorted top; alignment failure?')
 
-		##
-		## Check % dropoff in read count between #2 and #3
-		alpha_diff = float(abs(sorted_info[0][1]['TotalReads'] - sorted_info[1][1]['TotalReads']))
-		beta_diff = float(abs(sorted_info[0][1]['TotalReads'] - sorted_info[2][1]['TotalReads']))
-		theta_diff = float(abs(sorted_info[1][1]['TotalReads'] - sorted_info[2][1]['TotalReads']))
-		alpha_drop = float(alpha_diff / sorted_info[0][1]['TotalReads'])
-		beta_drop = float(beta_diff / sorted_info[0][1]['TotalReads'])
-		theta_drop = float(theta_diff / sorted_info[1][1]['TotalReads'])
-
 		## Top1 always used
 		primary_allele = sorted_info[0][1]; primary_allele['Reference'] = sorted_info[0][0]
-		secondary_allele = None
 
-		print '#1 Allele: \n{}'.format(sorted_info[0])
-		print '#2 Allele: \n{}'.format(sorted_info[1])
-		print '#3 Allele: \n{}'.format(sorted_info[2])
+
+		## TODO temp --- remove after debugging
+		secondary_allele = primary_allele
+		secondary_was_set = False
+		temporary_debug_file = os.path.join(self.sequencepair_object.get_alignpath(), 'AlleleHeuristic_Debug.txt')
+		with open(temporary_debug_file, 'a') as debug_fi:
+			debug_fi.write('\n#1 Allele: \n{}'.format(sorted_info[0]))
+			debug_fi.write('\n#2 Allele: \n{}'.format(sorted_info[1]))
+			debug_fi.write('\n#3 Allele: \n{}\n----'.format(sorted_info[2]))
 
 		##
 		## CCG matches between #2/#3, potential peak skew
 		## TODO rework from here until heuristic engine matches your work in R
-		uniform_ccg = False
-		for allele in sorted_info:
-			if allele['EstimatedCCG'] == primary_allele['EstimatedCCG']:
-				print '{} CCG match to primary'.format(allele['Reference'])
-			else:
-				uniform_ccg = True
+		## Heuristics
+		## Estimated CCG
+		alpha_estCCG = int(sorted_info[0][1]['EstimatedCCG'])
+		beta_estCCG = int(sorted_info[1][1]['EstimatedCCG'])
+		theta_estCCG = int(sorted_info[2][1]['EstimatedCCG'])
+
+		## Estimated CAG
+		alpha_estCAG = int(sorted_info[0][1]['EstimatedCAG'])
+		beta_estCAG = int(sorted_info[1][1]['EstimatedCAG'])
+		theta_estCAG = int(sorted_info[2][1]['EstimatedCAG'])
+
+		## CAG differences
+		alpha_beta_CAGDiff = abs(alpha_estCAG - beta_estCAG)
+		beta_theta_CAGDiff = abs(beta_estCAG - theta_estCAG)
+		alpha_theta_CAGDiff = abs(alpha_estCAG - theta_estCAG)
+
+		## CCG differences
+		alpha_beta_CCGDiff = abs(alpha_estCCG - beta_estCCG)
+		beta_theta_CCGDiff = abs(beta_estCCG - theta_estCCG)
+		alpha_theta_CCGDiff = abs(alpha_estCCG - theta_estCCG)
+
+		## Read Count
+		alpha_readCount = int(sorted_info[0][1]['TotalReads'])
+		beta_readCount = int(sorted_info[1][1]['TotalReads'])
+		theta_readCount = int(sorted_info[2][1]['TotalReads'])
+
+		## Literal read drop values
+		alpha_beta_ReadDelta = abs(alpha_readCount - beta_readCount)
+		beta_theta_ReadDelta = abs(beta_readCount - theta_readCount)
+		alpha_theta_ReadDelta = abs(alpha_readCount - theta_readCount)
+
+		## Percentage read drops
+		alpha_beta_ReadPcnt = alpha_beta_ReadDelta / alpha_readCount
+		beta_theta_ReadPcnt = beta_theta_ReadDelta / beta_readCount
+		alpha_theta_readPcnt = alpha_theta_ReadDelta / alpha_readCount
+
+		## Atypical/Typical ratio
+		alpha_typicalRatio = sorted_info[0][1]['TypicalPcnt']
+		beta_typicalRatio = sorted_info[1][1]['TypicalPcnt']
+		theta_typicalRatio = sorted_info[2][1]['TypicalPcnt']
+
+		## Begin filtering...
+		with open(temporary_debug_file, 'a') as debug_fi:##todo remove after debugging
+			uniform_ccg = 0
+			for allele in sorted_info[1:]:
+				if allele[1]['EstimatedCCG'] == primary_allele['EstimatedCCG']:
+					uniform_ccg += 1
+
+			## CCG in Top3 all equal?
+			if uniform_ccg == 2:
+				debug_fi.write('\n> CCG all match')
+
+				##top1-top2 CAG difference
+				if alpha_beta_CAGDiff == 1 and beta_theta_CAGDiff != 1:
+					debug_fi.write('\n>> A.B.CAGDiff == 1, B.T.CAGDiff != 1')
+					if alpha_beta_CAGDiff == 1 and alpha_theta_CAGDiff == 1:
+						debug_fi.write('\n>>> A.B.CAGDiff == 1, A.T.CAGDiff == 1')
+						if np.isclose([alpha_beta_ReadPcnt], [0.3], atol=0.1):
+							debug_fi.write('\n>>>> A.B.ReadPcnt np.isclose(0.3) TRUE')
+							## B.T.ReadPcnt > threshold.. beta == neighbouring
+							if np.isclose([beta_theta_ReadPcnt],[0.75],atol=0.1):
+								debug_fi.write('\n>>>>> B.T.ReadPcnt np.isclose(0.75) TRUE')
+								secondary_allele = sorted_info[1][1]
+								secondary_allele['Reference'] = sorted_info[1][0]
+								secondary_allele['Neighbouring'] = True
+								secondary_was_set = True
+							## dropoff too small, homozygous haplotype
+							if 0 < beta_theta_ReadPcnt <= 0.64:
+								debug_fi.write('\n>>>>> 0 < B.T.ReadPcnt < 0.64')
+								secondary_allele = primary_allele.copy()
+								secondary_was_set = True
+						else:
+							debug_fi.write('\n>>>> A.B.ReadPcnt np.isclose(0.3) FALSE')
+							## B.T.ReadPcnt > threshold.. beta == neighbouring
+							if np.isclose([beta_theta_ReadPcnt],[0.75],atol=0.1):
+								debug_fi.write('\n>>>>> B.T.ReadPcnt np.isclose(0.75) TRUE')
+								secondary_allele = sorted_info[1][1]
+								secondary_allele['Reference'] = sorted_info[1][0]
+								secondary_allele['Neighbouring'] = True
+								secondary_was_set = True
+							## dropoff too small, homozygous haplotype
+							if 0 < beta_theta_ReadPcnt <= 0.64:
+								debug_fi.write('\n>>>>> 0 < B.T.ReadPcnt < 0.64')
+								secondary_allele = primary_allele.copy()
+								secondary_allele['DiffConfuse'] = True
+								secondary_was_set = True
+
+				##top2-top3 CAG difference
+				if beta_theta_CAGDiff == 1 and alpha_beta_CAGDiff != 1:
+					debug_fi.write('\n>> B.T.CAGDiff == 1, A.B.CAGDiff != 1')
+					if 0.55 <= beta_theta_ReadPcnt < 1:
+						debug_fi.write('\n>>> 0.55 <= B.T.ReadPcnt < 1')
+						secondary_allele = sorted_info[1][1]
+						secondary_allele['Reference'] = sorted_info[1][0]
+						secondary_was_set = True
+					if np.isclose([beta_theta_ReadPcnt],[0.45],atol=0.1):
+						debug_fi.write('\n>>> B.T.ReadPcnt np.isclose(0.45) TRUE')
+						secondary_allele = sorted_info[1][1]
+						secondary_allele['Reference'] = sorted_info[1][0]
+						secondary_was_set = True
+					elif beta_theta_ReadPcnt <= 0.35:
+						debug_fi.write('\n>>> B.T.ReadPcnt <= 0.35')
+						secondary_allele = sorted_info[1][1]
+						secondary_allele['Reference'] = sorted_info[1][0]
+						secondary_allele['DiffConfuse'] = True
+						secondary_was_set = True
+
+				##top1-top2-top3 all within 1
+				if beta_theta_CAGDiff == 1 and alpha_beta_CAGDiff == 1:
+					debug_fi.write('\n>> A.B.CAGDiff == 1, B.T.CAGDiff == 1')
+					if 0.55 <= alpha_beta_ReadPcnt < 1:
+						debug_fi.write('\n>>> 0.55 <= A.B.ReadPcnt < 1')
+						secondary_allele = primary_allele.copy()
+						secondary_was_set = True
+					elif np.isclose([alpha_beta_ReadPcnt],[0.45],atol=0.1):
+						debug_fi.write('\n>>> A.B.ReadPcnt np.isclose(0.45) TRUE')
+						secondary_allele = sorted_info[1][1]
+						secondary_allele['Reference'] = sorted_info[1][0]
+						secondary_was_set = True
+					elif alpha_beta_ReadPcnt <= 0.35:
+						debug_fi.write('\n>>> A.B.ReadPcnt <= 0.35')
+						secondary_allele = sorted_info[1][1]
+						secondary_allele['Reference'] = sorted_info[1][0]
+						secondary_allele['DiffConfuse'] = True
+						secondary_was_set = True
+
+				## Same CCG but out of step with order
+				if alpha_theta_CAGDiff == 1:
+					debug_fi.write('\n>> A.T.CAGDiff == 1')
+					secondary_allele = sorted_info[1][1]
+					secondary_allele['Reference'] = sorted_info[1][0]
+					secondary_was_set = True
+
+			## CCG in Top3 not equal?
+			if uniform_ccg < 2:
+				debug_fi.write('\n> Some CCG Mismatched')
+
+				## the CCG in #2,#3 match
+				if beta_estCCG == theta_estCCG:
+					## determine CAG distance
+					debug_fi.write('\n>> B.estCCG == t.estCCG')
+					## if "neighbours"
+					if beta_theta_CAGDiff == 1:
+						debug_fi.write('\n>>> B.T.CAGDiff == 1')
+						## read dropoff percentage of #2 determines whether #2 or #3 is legitimate
+						if np.isclose([beta_theta_ReadPcnt], [0.15], atol=0.1):
+							debug_fi.write('\n>>>> B.T.ReadPcnt np.isclose(0.15) TRUE')
+							secondary_allele = sorted_info[1][1]
+							secondary_allele['Reference'] = sorted_info[1][0]
+							secondary_allele['DiffConfuse'] = True
+							secondary_was_set = True
+						else:
+							debug_fi.write('\n>>>> B.T.ReadPcnt np.isclose(0.15) FALSE')
+							secondary_allele = sorted_info[1][1]
+							secondary_allele['Reference'] = sorted_info[1][0]
+							secondary_was_set = True
+
+				## the CCG in #2,#3 don't match
+				if not beta_estCCG == theta_estCCG:
+					debug_fi.write('\n>> B.estCCG == T.estCCG')
+					## beta CCG match and alpha.CAG-beta.CAG == 1:
+					if alpha_estCCG == beta_estCCG:
+						debug_fi.write('\n>>> A.estCCG == B.estCCG')
+						if alpha_beta_CAGDiff == 1:
+							debug_fi.write('\n>>>> A.B.CAGDiff == 1')
+							## large enough drop between alpha and beta rules out beta/theta
+							if np.isclose([alpha_beta_ReadPcnt],[0.75],atol=0.25):
+								debug_fi.write('\n>>>>> A.B.ReadPcnt np.isclose(0.75) TRUE')
+								secondary_allele = primary_allele.copy()
+								secondary_was_set = True
+							## drop is small and alpha.CAG-beta.CAG == 1, thus slippage (theta real)
+							elif 0.25 <= alpha_beta_ReadPcnt <= 0.49:
+								debug_fi.write('\n>>>>> 0.25 <= A.B.ReadPcnt <= 0.49')
+								secondary_allele = sorted_info[2][1]
+								secondary_allele['Reference'] = sorted_info[2][0]
+								secondary_was_set = True
+							else:
+								debug_fi.write('\n>>>>> A.B.ReadPcnt np.isclose(0.75) FALSE')
+								secondary_allele = sorted_info[1][1]
+								secondary_allele['Reference'] = sorted_info[1][0]
+								secondary_allele['DiffConfuse'] = True
+								secondary_was_set = True
+
+					## theta is slippage of alpha, beta is legitimate
+					if alpha_estCCG != beta_estCCG:
+						debug_fi.write('\n >>> A.estCCG != b.estCCG')
+						if alpha_estCCG == theta_estCCG and alpha_theta_CAGDiff == 1:
+							debug_fi.write('\n >>>> A.estCCG == T.estCCG AND A.T.CAGDiff == 1')
+							secondary_allele = sorted_info[1][1]
+							secondary_allele['Reference'] = sorted_info[1][0]
+							secondary_was_set = True
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 		##
@@ -556,6 +758,11 @@ class ScanAtypical:
 				if self.sequencepair_object.get_atypical_ccgrewrite():
 					self.sequencepair_object.set_atypical_zygrewrite(True)
 
+		with open(temporary_debug_file, 'a') as debug_fi:
+			debug_fi.write('\n\n----------')
+			debug_fi.write('\nPrimary: \n{}'.format(primary_allele))
+			debug_fi.write('\nSecondary: \n{}'.format(secondary_allele))
+			debug_fi.write('\n\n::: SECONDARY WAS SET: {}'.format(secondary_was_set))
 
 		return primary_allele, secondary_allele, atypical_count
 

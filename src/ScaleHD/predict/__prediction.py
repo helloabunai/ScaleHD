@@ -373,25 +373,27 @@ class AlleleGenotyping:
 
 			## check if minor is n-1/n+1 AND third peak is np.close(minor)
 			skip_flag = False
-			if abs(majidx-minidx) == 1:
-				if np.isclose([minor], [tertiary], atol=minor*0.80):
-					skip_flag = True
-					allele_object.set_ccguncertainty(True)
-					self.sequencepair_object.set_ccguncertainty(True)
-			if minor == self.reverse_aggregate[allele_object.get_ccg()-1]:
-				skip_flag = True
-				allele_object.set_ccguncertainty(True)
-				self.sequencepair_object.set_ccguncertainty(True)
-			## skip the following block if so
-			if not skip_flag:
-				if abs_ratio < 0.05: pass
-				else:
-					for fod_peak in [majidx+1, minidx+1]:
-						if allele_object.get_ccg() not in [majidx+1, minidx]:
-							if fod_peak not in [self.sequencepair_object.get_primaryallele().get_ccg(),
-												self.sequencepair_object.get_secondaryallele().get_ccg()]:
-								allele_object.set_fodoverwrite(True)
-								allele_object.set_ccgval(int(fod_peak))
+			if not self.sequencepair_object.get_primaryallele().get_neighbouring_candidate():
+				if not self.sequencepair_object.get_secondaryallele().get_neighbouring_candidate():
+					if abs(majidx-minidx) == 1:
+						if np.isclose([minor], [tertiary], atol=minor*0.80):
+							skip_flag = True
+							allele_object.set_ccguncertainty(True)
+							self.sequencepair_object.set_ccguncertainty(True)
+					if minor == self.reverse_aggregate[allele_object.get_ccg()-1]:
+						skip_flag = True
+						allele_object.set_ccguncertainty(True)
+						self.sequencepair_object.set_ccguncertainty(True)
+					## skip the following block if so
+					if not skip_flag:
+						if abs_ratio < 0.05: pass
+						else:
+							for fod_peak in [majidx+1, minidx+1]:
+								if allele_object.get_ccg() not in [majidx+1, minidx]:
+									if fod_peak not in [self.sequencepair_object.get_primaryallele().get_ccg(),
+														self.sequencepair_object.get_secondaryallele().get_ccg()]:
+										allele_object.set_fodoverwrite(True)
+										allele_object.set_ccgval(int(fod_peak))
 
 			##
 			## Clean up distribution for erroneous peaks
@@ -682,10 +684,12 @@ class AlleleGenotyping:
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
 
-				for i in range(0, len(target_distro)):
-					if i != allele.get_cag() - 1:
-						removal = (target_distro[i] / 100) * 85
-						target_distro[i] -= removal
+				if not self.sequencepair_object.get_primaryallele().get_neighbouring_candidate():
+					if not self.sequencepair_object.get_secondaryallele().get_neighbouring_candidate():
+						for i in range(0, len(target_distro)):
+							if i != allele.get_cag() - 1:
+								removal = (target_distro[i] / 100) * 85
+								target_distro[i] -= removal
 
 				allele.set_totalreads(sum(target_distro))
 				allele.set_cagthreshold(0.50)

@@ -279,6 +279,7 @@ class IndividualAllele:
 		self.fatalalignmentwarning = False
 		self.distribution_readcount_warning = False
 		self.differential_confusion = False
+		self.neighbouring_candidate = False
 		self.ccg_uncertain = False
 
 	##
@@ -353,6 +354,7 @@ class IndividualAllele:
 	def set_fatalalignmentwarning(self, state): self.fatalalignmentwarning = state
 	def set_distribution_readcount_warning(self, state): self.distribution_readcount_warning = state
 	def set_differential_confusion(self, state): self.differential_confusion = state
+	def set_neighbouring_candidate(self, state): self.neighbouring_candidate = state
 	def set_ccguncertainty(self, state): self.ccg_uncertain = state
 
 	##
@@ -427,4 +429,5 @@ class IndividualAllele:
 	def get_fatalalignmentwarning(self): return self.fatalalignmentwarning
 	def get_distribution_readcount_warning(self): return self.distribution_readcount_warning
 	def get_differential_confusion(self): return self.differential_confusion
+	def get_neighbouring_candidate(self): return self.neighbouring_candidate
 	def get_ccguncertainty(self): return self.ccg_uncertain
