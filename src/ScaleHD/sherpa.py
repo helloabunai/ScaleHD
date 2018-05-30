@@ -90,7 +90,8 @@ class ScaleHD:
 				pass
 			if sys.version_info[2] < 13:
 				current_user_version = '{}.{}.{}'.format(sys.version_info[0], sys.version_info[1], sys.version_info[2])
-				log.error('{}{}{}{}{}.'.format(clr.red, 'shd__ ', clr.end, 'ScaleHD requires python 2.7.13! You are using: ', current_user_version))
+				log.error('{}{}{}{}{}.'.format(clr.red, 'shd__ ', clr.end, 'ScaleHD requires python2 2.7.13 or later!'
+																		   ' You are using: ', current_user_version))
 				sys.exit(2)
 
 		##
