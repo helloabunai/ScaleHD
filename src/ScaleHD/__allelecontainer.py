@@ -63,6 +63,7 @@ class SequenceSample:
 		self.novel_atypical_structure = False
 		self.differential_confusion = False
 		self.missed_expansion = False
+		self.heuristicfilter_fail = False
 		self.original_fqcount = 0
 		self.subsampled_fqcount = 0
 
@@ -128,6 +129,7 @@ class SequenceSample:
 	def set_novel_atypical_structure(self, state): self.novel_atypical_structure = state
 	def set_differential_confusion(self, state): self.differential_confusion = state
 	def set_missed_expansion(self, state): self.missed_expansion = state
+	def set_heuristicfilter(self, state): self.heuristicfilter_fail = state
 	def set_original_fqcount(self, count): self.original_fqcount = count
 	def set_subsampled_fqcount(self, count): self.subsampled_fqcount = count
 
@@ -193,13 +195,13 @@ class SequenceSample:
 	def get_novel_atypical_structure(self): return self.novel_atypical_structure
 	def get_differential_confusion(self): return self.differential_confusion
 	def get_missed_expansion(self): return self.missed_expansion
+	def get_heuristicfilter(self): return self.heuristicfilter_fail
 	def get_original_fqcount(self): return self.original_fqcount
 	def get_subsampled_fqcount(self): return self.subsampled_fqcount
 
 	##
 	## Functions
 	def generate_sampletree(self):
-
 		for path in [self.sample_qcpath, self.sample_alignpath, self.sample_predictpath]:
 			try:
 				os.makedirs(path)

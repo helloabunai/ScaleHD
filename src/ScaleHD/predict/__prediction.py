@@ -1562,6 +1562,10 @@ class AlleleGenotyping:
 				if allele.get_differential_confusion():
 					allele_confidence -= 45; penfi.write('{}, {}\n'.format('Differential Confusion', '-45'))
 
+				## Heuristic filtering of DSP results state check
+				if not self.sequencepair_object.get_heuristicfilter():
+					allele_confidence -= 20; penfi.write('{}, {}\n'.format('Heuristic filtering of alleles did not assign a secondary allele','-20'))
+
 				##
 				## If reflabel CAG and FOD CAG differ.. no confidence
 				label_split = allele.get_reflabel().split('_')[0]

@@ -555,9 +555,7 @@ class ScanAtypical:
 			log.info('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Caught CTRL+C. Killing worker {}'.format(os.getpid())))
 			self.processor_pool.terminate()
 			self.processor_pool.join()
-		else:
-			self.processor_pool.close()
-			self.processor_pool.join()
+			return
 
 		## If broadflag = false, we subsampled
 		## remove the subsampled SAM file, retaining only the original
@@ -578,7 +576,6 @@ class ScanAtypical:
 		## Top1 always used
 		primary_allele = sorted_info[0][1]; primary_allele['Reference'] = sorted_info[0][0]
 
-
 		## TODO temp --- remove after debugging
 		secondary_allele = primary_allele
 		secondary_was_set = False
@@ -588,9 +585,6 @@ class ScanAtypical:
 			debug_fi.write('\n#2 Allele: \n{}'.format(sorted_info[1]))
 			debug_fi.write('\n#3 Allele: \n{}\n----'.format(sorted_info[2]))
 
-		##
-		## CCG matches between #2/#3, potential peak skew
-		## TODO rework from here until heuristic engine matches your work in R
 		## Heuristics
 		## Estimated CCG
 		alpha_estCCG = int(sorted_info[0][1]['EstimatedCCG'])
@@ -607,11 +601,6 @@ class ScanAtypical:
 		beta_theta_CAGDiff = abs(beta_estCAG - theta_estCAG)
 		alpha_theta_CAGDiff = abs(alpha_estCAG - theta_estCAG)
 
-		## CCG differences
-		alpha_beta_CCGDiff = abs(alpha_estCCG - beta_estCCG)
-		beta_theta_CCGDiff = abs(beta_estCCG - theta_estCCG)
-		alpha_theta_CCGDiff = abs(alpha_estCCG - theta_estCCG)
-
 		## Read Count
 		alpha_readCount = int(sorted_info[0][1]['TotalReads'])
 		beta_readCount = int(sorted_info[1][1]['TotalReads'])
@@ -625,12 +614,6 @@ class ScanAtypical:
 		## Percentage read drops
 		alpha_beta_ReadPcnt = alpha_beta_ReadDelta / alpha_readCount
 		beta_theta_ReadPcnt = beta_theta_ReadDelta / beta_readCount
-		alpha_theta_readPcnt = alpha_theta_ReadDelta / alpha_readCount
-
-		## Atypical/Typical ratio
-		alpha_typicalRatio = sorted_info[0][1]['TypicalPcnt']
-		beta_typicalRatio = sorted_info[1][1]['TypicalPcnt']
-		theta_typicalRatio = sorted_info[2][1]['TypicalPcnt']
 
 		## Begin filtering...
 		with open(temporary_debug_file, 'a') as debug_fi:##todo remove after debugging
@@ -783,24 +766,6 @@ class ScanAtypical:
 							secondary_allele['Reference'] = sorted_info[1][0]
 							secondary_was_set = True
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 		##
 		## For each of the alleles we've determined..
 		## Get intervening lengths, create accurate genotype string
@@ -849,6 +814,7 @@ class ScanAtypical:
 			debug_fi.write('\nSecondary: \n{}'.format(secondary_allele))
 			debug_fi.write('\n\n::: SECONDARY WAS SET: {}'.format(secondary_was_set))
 
+		self.sequencepair_object.set_heuristicfilter(secondary_was_set)
 		return primary_allele, secondary_allele, atypical_count
 
 	def create_genotype_label(self, input_reference):
