@@ -148,7 +148,11 @@ def scan_reference_reads(current_iterator):
 	:return:
 	"""
 
-	print '>> process {} working on {}'.format(os.getpid(), current_iterator)
+	##
+	## Unpack iterator values into discrete objects for manipulation
+	contig, read_count, read_vector = current_iterator
+
+	print '>> process {} working on {} w/ {} reads'.format(os.getpid(), contig, read_count)
 
 	##
 	## Counts of atypical/typical reads
@@ -158,7 +162,7 @@ def scan_reference_reads(current_iterator):
 	##
 	## For every read in this reference, get the aligned sequence
 	## Split into triplet sliding window list, remove any triplets that are < 3
-	for read in ASSEMBLY_OBJECT.fetch(reference=current_iterator[0]):
+	for read in ASSEMBLY_OBJECT.fetch(reference=contig):
 		target_sequence = read.query_alignment_sequence
 		sequence_windows = [target_sequence[i:i + 3] for i in range(0, len(target_sequence), 3)]
 		sequence_windows = [x for x in sequence_windows if len(x) == 3]
@@ -315,8 +319,7 @@ def scan_reference_reads(current_iterator):
 
 	##
 	## Append results to reference label
-	return [current_iterator[0], reference_dictionary]
-
+	return [contig, reference_dictionary]
 
 class ScanAtypical:
 	def __init__(self, sequencepair_object, instance_params):
@@ -422,11 +425,11 @@ class ScanAtypical:
 		awk_process = subprocess.Popen(awk, stdin=count_process.stdout, stdout=subprocess.PIPE)
 		count_process.wait(); awk_process.wait(); awk_output = int(awk_process.communicate()[0])
 		print 'Before AWK: ', awk_output
-		if awk_output > 20000: subsample_float = 0.075
-		elif 20000 > awk_output > 15000: subsample_float = 0.175
-		elif 15000 > awk_output > 10000: subsample_float = 0.200
-		elif 10000 > awk_output > 5000: subsample_float = 0.225
-		else: subsample_float = 0.5
+		if awk_output > 20000: subsample_float = 0.35
+		elif 20000 > awk_output > 15000: subsample_float = 0.45
+		elif 15000 > awk_output > 10000: subsample_float = 0.65
+		elif 10000 > awk_output > 5000: subsample_float = 0.85
+		else: subsample_float = 1.00
 		self.sequencepair_object.set_subsampled_fqcount(awk_output)
 
 		##
@@ -434,7 +437,6 @@ class ScanAtypical:
 		## Index the subsampled assembly
 		if awk_output > 5000:
 			if not self.sequencepair_object.get_broadflag():
-				print 'Subsampling...'
 				self.sequencepair_object.set_subsampleflag(subsample_float)
 				self.sequencepair_object.set_automatic_DSPsubsample(True)
 				self.subsample_assembly = os.path.join(self.sequence_path,'subsample.sam')
@@ -450,20 +452,27 @@ class ScanAtypical:
 
 		##
 		## Load into object, determine references to investigate
-		print 'class bound assembly object opening :: ', self.subsample_assembly
 		self.assembly_object = pysam.AlignmentFile(self.subsample_assembly, 'rb')
-		##TODO bug introduced here; assembly object/file gets incorrectly assigned?
-		global ASSEMBLY_OBJECT; ASSEMBLY_OBJECT = self.assembly_object
 		self.present_references = self.assembly_object.references
 		assembly_refdat = []
 		for reference in self.present_references:
-			reference_tuple = (reference, self.assembly_object.count(reference))
-			if reference_tuple[1] == 0: pass
-			else: assembly_refdat.append(reference_tuple)
+			reference_vector = [reference, self.assembly_object.count(reference)]
+			if reference_vector[1] == 0: pass
+			else: assembly_refdat.append(reference_vector)
 
 		##
 		## Assign our target references (Top 3 sorted references, sorted by read count)
 		self.assembly_targets = sorted(assembly_refdat, key=itemgetter(1), reverse=True)[0:3]
+		global ASSEMBLY_OBJECT; ASSEMBLY_OBJECT = self.assembly_object
+
+		##
+		## Extract reads for each contig we're looking at so that the non-class bound version
+		## of our assembly_targets can be interacted with via a non-bound method in a processor pool
+		for contig in self.assembly_targets:
+			contig_reads = []
+			for read in self.assembly_object.fetch(reference=contig[0]):
+				contig_reads.append(read)
+			contig.append(contig_reads)
 
 		##
 		## Check for a mal-aligned sample
@@ -541,11 +550,10 @@ class ScanAtypical:
 			## make iterator for our processor pool to share
 			## run that iterator on our pool of worker processes
 			allele_iterator = iter(self.assembly_targets)
-			pool_output = self.processor_pool.map(scan_reference_reads, allele_iterator)
+			pool_output = self.processor_pool.imap(scan_reference_reads, allele_iterator)
 			## assign the output of each contig result to the respective dictionary
 			for contig_results in pool_output:
 				self.atypical_info[contig_results[0]] = contig_results[1]
-
 		except KeyboardInterrupt:
 			log.info('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Caught CTRL+C. Killing worker {}'.format(os.getpid())))
 			self.processor_pool.terminate()

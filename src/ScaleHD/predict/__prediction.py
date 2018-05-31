@@ -774,14 +774,6 @@ class AlleleGenotyping:
 			secondary_dsp_cag - 1]
 		secondary_allele.set_peakreads(secondary_peakreads)
 
-		print 'Genotype Validation'
-		print 'DSP'
-		print primary_dsp_cag, primary_dsp_ccg
-		print secondary_dsp_cag, secondary_dsp_ccg
-		print 'FOD'
-		print primary_fod_cag, primary_fod_ccg
-		print secondary_fod_cag, secondary_fod_ccg
-
 		##
 		## Double check fod peaks
 		def dimension_checker(input_list):
@@ -915,28 +907,6 @@ class AlleleGenotyping:
 							if peak < 750:
 								self.sequencepair_object.set_diminishedpeaks(True)
 						return pass_vld
-
-		##
-		## Primary Allele
-		primary_dsp_ccg = primary_allele.get_ccg();
-		primary_fod_ccg = primary_allele.get_fodccg()
-		primary_dsp_cag = primary_allele.get_cag();
-		primary_fod_cag = primary_allele.get_fodcag()
-
-		##
-		## Secondary Allele
-		secondary_dsp_ccg = secondary_allele.get_ccg();
-		secondary_fod_ccg = secondary_allele.get_fodccg()
-		secondary_dsp_cag = secondary_allele.get_cag();
-		secondary_fod_cag = secondary_allele.get_fodcag()
-
-		print 'Genotype Validation 2'
-		print 'DSP'
-		print primary_dsp_cag, primary_dsp_ccg
-		print secondary_dsp_cag, secondary_dsp_ccg
-		print 'FOD'
-		print primary_fod_cag, primary_fod_ccg
-		print secondary_fod_cag, secondary_fod_ccg
 
 		return pass_vld
 
@@ -1110,28 +1080,6 @@ class AlleleGenotyping:
 				with open(inspection_logfi,'w') as logfi:
 					logfi.write(inspection_str)
 					logfi.close()
-
-		##
-		## Primary Allele
-		primary_dsp_ccg = primary_allele.get_ccg();
-		primary_fod_ccg = primary_allele.get_fodccg()
-		primary_dsp_cag = primary_allele.get_cag();
-		primary_fod_cag = primary_allele.get_fodcag()
-
-		##
-		## Secondary Allele
-		secondary_dsp_ccg = secondary_allele.get_ccg();
-		secondary_fod_ccg = secondary_allele.get_fodccg()
-		secondary_dsp_cag = secondary_allele.get_cag();
-		secondary_fod_cag = secondary_allele.get_fodcag()
-
-		print 'Inspect peaks'
-		print 'DSP'
-		print primary_dsp_cag, primary_dsp_ccg
-		print secondary_dsp_cag, secondary_dsp_ccg
-		print 'FOD'
-		print primary_fod_cag, primary_fod_ccg
-		print secondary_fod_cag, secondary_fod_ccg
 
 		return self.pass_vld
 

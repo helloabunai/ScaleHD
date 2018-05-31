@@ -320,10 +320,8 @@ class ScaleHD:
 				if self.instance_params.config_dict['instance_flags']['@quality_control']:
 					for seqfi in [current_seqpair.get_fwreads(), current_seqpair.get_rvreads()]:
 						if '_SUB_R' in seqfi:
-							try:
-								os.remove(seqfi)
-							except OSError:
-								pass
+							try: os.remove(seqfi)
+							except OSError: pass
 				#########################################
 				## Stage five!! Genotype distributions ##
 				#########################################
