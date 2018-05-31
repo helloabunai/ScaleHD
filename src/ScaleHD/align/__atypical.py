@@ -424,7 +424,6 @@ class ScanAtypical:
 		count_process = subprocess.Popen(['samtools','idxstats', self.sorted_assembly], stdout=subprocess.PIPE)
 		awk_process = subprocess.Popen(awk, stdin=count_process.stdout, stdout=subprocess.PIPE)
 		count_process.wait(); awk_process.wait(); awk_output = int(awk_process.communicate()[0])
-		print 'Before AWK: ', awk_output
 		if awk_output > 20000: subsample_float = 0.35
 		elif 20000 > awk_output > 15000: subsample_float = 0.45
 		elif 15000 > awk_output > 10000: subsample_float = 0.65
