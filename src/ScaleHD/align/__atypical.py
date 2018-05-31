@@ -152,8 +152,6 @@ def scan_reference_reads(current_iterator):
 	## Unpack iterator values into discrete objects for manipulation
 	contig, read_count, read_vector = current_iterator
 
-	print '>> process {} working on {} w/ {} reads'.format(os.getpid(), contig, read_count)
-
 	##
 	## Counts of atypical/typical reads
 	typical_count = 0; atypical_count = 0; intervening_population = []
