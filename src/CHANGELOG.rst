@@ -10,6 +10,7 @@ Verson 0.316
 * Fixed bug where atypical alleles which changed from CCG-homozygous to CCG-heterozygous was not identified.
 * Fixed error where the heuristic filtering engine suspects an expanded allele, but ended up calling a homozygous haplotype.
 * Casting issue where two alleles returned different dimension-shaped arrays for FOD genotype calling, was resolved.
+* Issue where allele structure counter would not increment properly across individual child processes.
 
 Version 0.314/5
 ---------------
