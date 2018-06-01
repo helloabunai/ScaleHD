@@ -18,8 +18,6 @@ from ..__allelecontainer import IndividualAllele
 
 ## Globals
 ASSEMBLY_OBJECT = None
-CCT_UNCERTAIN_BOOL = False
-ATYPICAL_COUNT = 0
 
 ## required for worker thread
 ## (can't serialise class-bound methods)
@@ -152,8 +150,6 @@ def scan_reference_reads(current_iterator):
 	## Unpack iterator values into discrete objects for manipulation
 	contig, read_count, read_vector = current_iterator
 
-	print 'Process {} is working on: {}, {}'.format(os.getpid(), contig, read_count)
-
 	##
 	## Counts of atypical/typical reads
 	typical_count = 0; atypical_count = 0; intervening_population = []
@@ -230,8 +226,6 @@ def scan_reference_reads(current_iterator):
 			typical_count += 1
 		intervening_population.append(intervene_string)
 
-	print 'contig: {}, typical: {}, atypical: {}'.format(contig, typical_count, atypical_count)
-
 	##
 	## Calculate the presence of each 'state' of reference
 	ref_typical = format(((typical_count / current_iterator[1]) * 100), '.2f')
@@ -247,7 +241,6 @@ def scan_reference_reads(current_iterator):
 		cct_diff = 0
 	if np.isclose([cct_diff], [2.0], atol=0.3):
 		est_cct = 2
-		global CCT_UNCERTAIN_BOOL; CCT_UNCERTAIN_BOOL = True
 
 	##
 	## Determine most frequent intervening sequence
@@ -260,14 +253,13 @@ def scan_reference_reads(current_iterator):
 	if np.isclose([typical_count], [atypical_count], atol=typical_tenpcnt):
 		raise Exception('Allele(s) nearing 50/50 split atypical/typical read count.')
 
-	global ATYPICAL_COUNT
 	if len(common_intervening) == 0: common_intervening = [['CAACAGCCGCCA']]
 	reference_dictionary = {'TotalReads': current_iterator[1],
 							'TypicalCount': typical_count,
 							'TypicalPcnt': ref_typical,
 							'AtypicalCount': atypical_count,
 							'AtypicalPcnt': ref_atypical,
-							'Status': ATYPICAL_COUNT,
+							'Status': '',
 							'5PFlank': fp_flank_population[0][0],
 							'3PFlank': tp_flank_population[0][0],
 							'EstimatedCAG': est_cag,
@@ -276,10 +268,8 @@ def scan_reference_reads(current_iterator):
 							'InterveningSequence': common_intervening[0][0]}
 
 	if atypical_count > typical_count:
-		ATYPICAL_COUNT += 1
 		reference_dictionary['Status'] = 'Atypical'
 	elif est_cct != 2:
-		ATYPICAL_COUNT += 1
 		reference_dictionary['Status'] = 'Atypical'
 	else:
 		reference_dictionary['Status'] = 'Typical'
@@ -422,34 +412,36 @@ class ScanAtypical:
 		##
 		## Determine number of reads - for subsampling float
 		## Use awk to read samtools idxstats output (get total read count)
-		awk = ['awk', ' {i+=$3} END {print i}']
-		count_process = subprocess.Popen(['samtools','idxstats', self.sorted_assembly], stdout=subprocess.PIPE)
-		awk_process = subprocess.Popen(awk, stdin=count_process.stdout, stdout=subprocess.PIPE)
-		count_process.wait(); awk_process.wait(); awk_output = int(awk_process.communicate()[0])
-		if awk_output > 20000: subsample_float = 0.35
-		elif 20000 > awk_output > 15000: subsample_float = 0.45
-		elif 15000 > awk_output > 10000: subsample_float = 0.65
-		elif 10000 > awk_output > 5000: subsample_float = 0.85
-		else: subsample_float = 1.00
-		self.sequencepair_object.set_subsampled_fqcount(awk_output)
+		# awk = ['awk', ' {i+=$3} END {print i}']
+		# count_process = subprocess.Popen(['samtools','idxstats', self.sorted_assembly], stdout=subprocess.PIPE)
+		# awk_process = subprocess.Popen(awk, stdin=count_process.stdout, stdout=subprocess.PIPE)
+		# count_process.wait(); awk_process.wait(); awk_output = int(awk_process.communicate()[0])
+		# if awk_output > 20000: subsample_float = 0.35
+		# elif 20000 > awk_output > 15000: subsample_float = 0.45
+		# elif 15000 > awk_output > 10000: subsample_float = 0.65
+		# elif 10000 > awk_output > 5000: subsample_float = 0.85
+		# else: subsample_float = 1.00
+		# self.sequencepair_object.set_subsampled_fqcount(awk_output)
 
 		##
 		## Subsample reads
 		## Index the subsampled assembly
-		if awk_output > 5000:
-			if not self.sequencepair_object.get_broadflag():
-				self.sequencepair_object.set_subsampleflag(subsample_float)
-				self.sequencepair_object.set_automatic_DSPsubsample(True)
-				self.subsample_assembly = os.path.join(self.sequence_path,'subsample.sam')
-				self.subsample_index = os.path.join(self.sequence_path,'subsample.sam.bai')
-				assem_obj = open(self.subsample_assembly,'w')
-				subsample_process = subprocess.Popen(['samtools','view','-s',str(subsample_float),'-b', self.sorted_assembly], stdout=assem_obj)
-				subsample_process.wait(); assem_obj.close()
-				index_process = subprocess.Popen(['samtools','index',self.subsample_assembly]); index_process.wait()
-			else:
-				self.subsample_assembly = self.sorted_assembly
-		else:
-			self.subsample_assembly = self.sorted_assembly
+		# if awk_output > 5000:
+		# 	if not self.sequencepair_object.get_broadflag():
+		# 		self.sequencepair_object.set_subsampleflag(subsample_float)
+		# 		self.sequencepair_object.set_automatic_DSPsubsample(True)
+		# 		self.subsample_assembly = os.path.join(self.sequence_path,'subsample.sam')
+		# 		self.subsample_index = os.path.join(self.sequence_path,'subsample.sam.bai')
+		# 		assem_obj = open(self.subsample_assembly,'w')
+		# 		subsample_process = subprocess.Popen(['samtools','view','-s',str(subsample_float),'-b', self.sorted_assembly], stdout=assem_obj)
+		# 		subsample_process.wait(); assem_obj.close()
+		# 		index_process = subprocess.Popen(['samtools','index',self.subsample_assembly]); index_process.wait()
+		# 	else:
+		# 		self.subsample_assembly = self.sorted_assembly
+		# else:
+
+		## todo debugging, disabled SAM subsampling for now
+		self.subsample_assembly = self.sorted_assembly
 
 		##
 		## Load into object, determine references to investigate
@@ -751,7 +743,7 @@ class ScanAtypical:
 							## large enough drop between alpha and beta rules out beta/theta
 							if np.isclose([alpha_beta_ReadPcnt],[0.75],atol=0.25):
 								if abs(beta_estCCG - theta_estCCG) > 1:
-									if np.isclose([beta_theta_ReadPcnt], [0.15], atol=0.11):
+									if np.isclose([beta_theta_ReadPcnt], [0.15], atol=0.15):
 										secondary_allele = sorted_info[2][1]
 										secondary_allele['Reference'] = sorted_info[2][0]
 										secondary_was_set = True
@@ -825,6 +817,9 @@ class ScanAtypical:
 			if temp_curr[0] == temp_curr[1]:
 				if self.sequencepair_object.get_atypical_ccgrewrite():
 					self.sequencepair_object.set_atypical_zygrewrite(True)
+		if temp_zyg[0] == temp_zyg[1]:
+			if temp_curr[0] != temp_zyg[0] or temp_curr[1] != temp_zyg[1]:
+				self.sequencepair_object.set_atypical_zygrewrite(True)
 
 		with open(temporary_debug_file, 'a') as debug_fi:
 			debug_fi.write('\n\n----------')

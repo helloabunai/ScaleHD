@@ -625,14 +625,14 @@ class AlleleGenotyping:
 			for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
+				allele.set_totalreads(sum(target_distro))
 
-				if self.zygosity_state == 'HOMO+':
+				if self.zygosity_state == 'HOMO+' or self.zygosity_state == 'HOMO*':
 					for i in range(0, len(target_distro)):
 						if i != allele.get_cag() - 1:
 							removal = (target_distro[i] / 100) * 85
 							target_distro[i] -= removal
 
-				allele.set_totalreads(sum(target_distro))
 				allele.set_cagthreshold(0.50)
 				fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, 1, 'CAGHet')
 				while fod_failstate:
@@ -850,7 +850,15 @@ class AlleleGenotyping:
 					self.sequencepair_object.set_secondary_allele(self.sequencepair_object.get_primaryallele())
 					##no need to call ensure_integrity as secondary allele is a copy of primary object
 					return True
-			if primary_fod_cag.all() and secondary_fod_cag.all():
+
+			## fucky bug with homozygotes not filtering properly
+			## leaving unassigned value from FOD
+			try:
+				primary_fod_cag.all(); secondary_fod_cag.all()
+			except AttributeError:
+				secondary_fod_cag = primary_fod_cag
+
+			if primary_fod_cag == secondary_fod_cag:
 				self.sequencepair_object.set_homozygoushaplotype(True)
 				self.sequencepair_object.set_secondary_allele(self.sequencepair_object.get_primaryallele())
 				##no need to call ensure_integrity as secondary allele is a copy of primary object
