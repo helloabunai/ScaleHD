@@ -660,6 +660,11 @@ class ScanAtypical:
 								secondary_allele = primary_allele.copy()
 								secondary_allele['DiffConfuse'] = True
 								secondary_was_set = True
+					if alpha_beta_CAGDiff == 1 and alpha_theta_CAGDiff != 1:
+						debug_fi.write('\n>>> A.B.CAGDiff == 1 and A.T.CAGDiff != 1')
+						secondary_allele = sorted_info[2][1]
+						secondary_allele['Reference'] = sorted_info[2][0]
+						secondary_was_set = True
 
 				##top2-top3 CAG difference
 				if beta_theta_CAGDiff == 1 and alpha_beta_CAGDiff != 1:

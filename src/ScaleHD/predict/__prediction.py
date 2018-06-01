@@ -621,6 +621,7 @@ class AlleleGenotyping:
 		## Heterozygous for CCG ##
 		##########################
 		if self.zygosity_state == 'HETERO' or self.zygosity_state == 'HOMO*' or self.zygosity_state == 'HOMO+':
+			existing_calls = []
 			for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
@@ -637,10 +638,18 @@ class AlleleGenotyping:
 				while fod_failstate:
 					fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, 1, 'CAGHet', fod_recall=True)
 
-				if type(cag_indexes) == np.ndarray:
-					allele.set_fodcag(cag_indexes.flat[0])
-				else:
-					allele.set_fodcag(cag_indexes)
+				for item in cag_indexes:
+					if not item in existing_calls:
+						existing_calls.append(item)
+
+						if type(cag_indexes) == np.ndarray:
+							itemindex = np.where(cag_indexes == item)
+							allele.set_fodcag(cag_indexes.flat[itemindex])
+						else:
+							allele.set_fodcag(cag_indexes)
+
+				print 'HZ Reflabel: ', allele.get_reflabel()
+				print 'HZ Get FODCAG: ', allele.get_fodcag()
 
 		########################
 		## Homozygous for CCG ##
@@ -680,6 +689,7 @@ class AlleleGenotyping:
 			##
 			## Process each allele, getting the specific CCG distribution
 			## Re-set read count for the allele, due to subsampling
+			existing_calls = []
 			for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
@@ -698,10 +708,20 @@ class AlleleGenotyping:
 				while fod_failstate:
 					fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, distance_threshold, 'CAGHom', est_dist=estimated_distance, fod_recall=True)
 
-				if type(cag_indexes) == np.ndarray:
-					allele.set_fodcag(cag_indexes.flat[0])
-				else:
-					allele.set_fodcag(cag_indexes)
+				## check that FOD didn't return more items than it was required for this allele
+				## only keep discrete values from the inferred total of all calls in the current sample
+				for item in cag_indexes:
+					if not item in existing_calls:
+						existing_calls.append(item)
+
+						if type(cag_indexes) == np.ndarray:
+							itemindex = np.where(cag_indexes == item)
+							allele.set_fodcag(cag_indexes.flat[itemindex])
+						else:
+							allele.set_fodcag(cag_indexes)
+
+				print 'HM Reflabel: ', allele.get_reflabel()
+				print 'HM Get FODCAG: ', allele.get_fodcag()
 
 		return pass_gtp
 
@@ -1042,6 +1062,7 @@ class AlleleGenotyping:
 															  allele.get_cct()))
 				allele.set_fodoverwrite(True)
 			if int(allele.get_reflabel().split('_')[0]) != int(allele.get_fodcag()):
+				print 'overwriting cag..'
 				allele.set_referencelabel('{}_{}_{}_{}_{}'.format(allele.get_fodcag(), novel_caacag,
 															  novel_ccgcca, allele.get_fodccg(),
 															  allele.get_cct()))
@@ -1054,6 +1075,11 @@ class AlleleGenotyping:
 			if self.zygosity_state != 'HETERO':
 				if not self.sequencepair_object.get_homozygoushaplotype():
 					if allele.get_fodoverwrite():
+
+						print allele.get_fodcag(), allele.get_fodccg()
+						print allele.get_cag(), allele.get_ccg()
+						print allele.get_reflabel()
+
 						self.sequencepair_object.set_missed_expansion(True)
 						self.sequencepair_object.set_diminishedpeaks(True)
 
@@ -1127,6 +1153,8 @@ class AlleleGenotyping:
 		pri_rvarray = self.sequencepair_object.get_primaryallele().get_rvarray()
 		sec_rvarray = self.sequencepair_object.get_secondaryallele().get_rvarray()
 		pri_fwarray = self.sequencepair_object.get_primaryallele().get_fwarray()
+		sec_fwarray = self.sequencepair_object.get_secondaryallele().get_fwarray()
+
 		predpath = self.sequencepair_object.get_predictpath()
 
 		def graph_subfunction(x, y, axis_labels, xticks, peak_index, predict_path, file_handle, prefix='', graph_type=None, neg_anchor=False):
@@ -1257,8 +1285,13 @@ class AlleleGenotyping:
 				##
 				## Data for this allele (peak detection graph)
 				temp_graphs = []
-				distribution_split = self.split_cag_target(allele.get_fwarray())
-				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
+
+				target_distro = []
+				if allele.get_header() == 'PRI':
+					target_distro = self.primary_original
+				if allele.get_header() == 'SEC':
+					target_distro = self.secondary_original
+
 				if self.zygosity_state == 'HOMO+':
 					for i in range(0, len(target_distro)):
 						if i != allele.get_cag() - 1:
@@ -1326,7 +1359,7 @@ class AlleleGenotyping:
 			peak_prefix = '(CCG{}) '.format(self.sequencepair_object.get_primaryallele().get_ccg())
 			altpeak_filename = 'CCG{}-Peak.pdf'.format(self.sequencepair_object.get_primaryallele().get_fodccg())
 			ccg_peaks = [int(pri_fodccg),int(sec_fodccg)]; cag_peaks = [int(pri_fodcag),int(sec_fodcag)]
-			distribution_split = self.split_cag_target(pri_fwarray); target_distro = distribution_split[target_ccg]
+			distribution_split = self.split_cag_target(pri_fwarray); target_distro = self.primary_original
 			## Subslice data
 			pri_cag = self.sequencepair_object.get_primaryallele().get_cag()
 			sec_cag = self.sequencepair_object.get_secondaryallele().get_cag()
