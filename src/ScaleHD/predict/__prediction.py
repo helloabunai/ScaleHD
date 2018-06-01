@@ -648,9 +648,6 @@ class AlleleGenotyping:
 						else:
 							allele.set_fodcag(cag_indexes)
 
-				print 'HZ Reflabel: ', allele.get_reflabel()
-				print 'HZ Get FODCAG: ', allele.get_fodcag()
-
 		########################
 		## Homozygous for CCG ##
 		########################
@@ -719,9 +716,6 @@ class AlleleGenotyping:
 							allele.set_fodcag(cag_indexes.flat[itemindex])
 						else:
 							allele.set_fodcag(cag_indexes)
-
-				print 'HM Reflabel: ', allele.get_reflabel()
-				print 'HM Get FODCAG: ', allele.get_fodcag()
 
 		return pass_gtp
 
