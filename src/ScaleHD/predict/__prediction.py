@@ -648,6 +648,9 @@ class AlleleGenotyping:
 						else:
 							allele.set_fodcag(cag_indexes)
 
+				print 'HZ Reflabel: ', allele.get_reflabel()
+				print 'HZ Get FODCAG: ', allele.get_fodcag()
+
 		########################
 		## Homozygous for CCG ##
 		########################
@@ -716,6 +719,9 @@ class AlleleGenotyping:
 							allele.set_fodcag(cag_indexes.flat[itemindex])
 						else:
 							allele.set_fodcag(cag_indexes)
+
+				print 'HM Reflabel: ', allele.get_reflabel()
+				print 'HM Get FODCAG: ', allele.get_fodcag()
 
 		return pass_gtp
 
@@ -807,7 +813,7 @@ class AlleleGenotyping:
 
 		for item in [[primary_fod_cag, primary_dsp_cag, primary_allele], [secondary_fod_cag, secondary_dsp_cag, secondary_allele]]:
 			dimension_checker(item)
-			primary_fod_cag = primary_allele.get_fodcag(); secondary_fod_cag = secondary_allele.get_fodcag()
+			primary_fod_cag = [primary_allele.get_fodcag()]; secondary_fod_cag = [secondary_allele.get_fodcag()]
 
 		##
 		## Brute force zygosity
@@ -827,13 +833,14 @@ class AlleleGenotyping:
 			secondary_reads = secondary_target[secondary_allele.get_cag()-1]
 			diff = abs(primary_reads-secondary_reads)
 			pcnt = (diff/max([primary_reads, secondary_reads]))
+
 			## If read count is so close (and distance is atol=1)
 			## Neighbouring peak...
 			if 0.0 < pcnt < 0.20:
 				self.sequencepair_object.set_neighbouringpeaks(True)
 				pass_vld = ensure_integrity()
 				return pass_vld
-			elif np.isclose([pcnt], [0.25], atol=0.05):
+			if np.isclose([pcnt], [0.25], atol=0.05):
 				if 0.0 < pcnt <= 0.30:
 					self.sequencepair_object.set_neighbouringpeaks(True)
 					pass_vld = ensure_integrity()
@@ -843,7 +850,7 @@ class AlleleGenotyping:
 					self.sequencepair_object.set_secondary_allele(self.sequencepair_object.get_primaryallele())
 					##no need to call ensure_integrity as secondary allele is a copy of primary object
 					return True
-			elif primary_fod_cag.all() and secondary_fod_cag.all():
+			if primary_fod_cag.all() and secondary_fod_cag.all():
 				self.sequencepair_object.set_homozygoushaplotype(True)
 				self.sequencepair_object.set_secondary_allele(self.sequencepair_object.get_primaryallele())
 				##no need to call ensure_integrity as secondary allele is a copy of primary object
@@ -1056,7 +1063,6 @@ class AlleleGenotyping:
 															  allele.get_cct()))
 				allele.set_fodoverwrite(True)
 			if int(allele.get_reflabel().split('_')[0]) != int(allele.get_fodcag()):
-				print 'overwriting cag..'
 				allele.set_referencelabel('{}_{}_{}_{}_{}'.format(allele.get_fodcag(), novel_caacag,
 															  novel_ccgcca, allele.get_fodccg(),
 															  allele.get_cct()))

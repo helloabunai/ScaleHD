@@ -152,6 +152,8 @@ def scan_reference_reads(current_iterator):
 	## Unpack iterator values into discrete objects for manipulation
 	contig, read_count, read_vector = current_iterator
 
+	print 'Process {} is working on: {}, {}'.format(os.getpid(), contig, read_count)
+
 	##
 	## Counts of atypical/typical reads
 	typical_count = 0; atypical_count = 0; intervening_population = []
@@ -227,6 +229,8 @@ def scan_reference_reads(current_iterator):
 		else:
 			typical_count += 1
 		intervening_population.append(intervene_string)
+
+	print 'contig: {}, typical: {}, atypical: {}'.format(contig, typical_count, atypical_count)
 
 	##
 	## Calculate the presence of each 'state' of reference
@@ -738,7 +742,7 @@ class ScanAtypical:
 
 				## the CCG in #2,#3 don't match
 				if not beta_estCCG == theta_estCCG:
-					debug_fi.write('\n>> B.estCCG == T.estCCG')
+					debug_fi.write('\n>> B.estCCG != T.estCCG')
 					## beta CCG match and alpha.CAG-beta.CAG == 1:
 					if alpha_estCCG == beta_estCCG:
 						debug_fi.write('\n>>> A.estCCG == B.estCCG')
@@ -746,9 +750,18 @@ class ScanAtypical:
 							debug_fi.write('\n>>>> A.B.CAGDiff == 1')
 							## large enough drop between alpha and beta rules out beta/theta
 							if np.isclose([alpha_beta_ReadPcnt],[0.75],atol=0.25):
-								debug_fi.write('\n>>>>> A.B.ReadPcnt np.isclose(0.75) TRUE')
-								secondary_allele = primary_allele.copy()
-								secondary_was_set = True
+								if abs(beta_estCCG - theta_estCCG) > 1:
+									if np.isclose([beta_theta_ReadPcnt], [0.15], atol=0.11):
+										secondary_allele = sorted_info[2][1]
+										secondary_allele['Reference'] = sorted_info[2][0]
+										secondary_was_set = True
+									else:
+										secondary_allele = primary_allele.copy()
+										secondary_was_set = True
+								else:
+									debug_fi.write('\n>>>>> A.B.ReadPcnt np.isclose(0.75) TRUE')
+									secondary_allele = primary_allele.copy()
+									secondary_was_set = True
 							## drop is small and alpha.CAG-beta.CAG == 1, thus slippage (theta real)
 							elif 0.25 <= alpha_beta_ReadPcnt <= 0.49:
 								debug_fi.write('\n>>>>> 0.25 <= A.B.ReadPcnt <= 0.49')
