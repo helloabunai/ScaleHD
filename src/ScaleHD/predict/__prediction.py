@@ -648,9 +648,6 @@ class AlleleGenotyping:
 						else:
 							allele.set_fodcag(cag_indexes)
 
-				print 'HZ Reflabel: ', allele.get_reflabel()
-				print 'HZ Get FODCAG: ', allele.get_fodcag()
-
 		########################
 		## Homozygous for CCG ##
 		########################
@@ -719,9 +716,6 @@ class AlleleGenotyping:
 							allele.set_fodcag(cag_indexes.flat[itemindex])
 						else:
 							allele.set_fodcag(cag_indexes)
-
-				print 'HM Reflabel: ', allele.get_reflabel()
-				print 'HM Get FODCAG: ', allele.get_fodcag()
 
 		return pass_gtp
 
@@ -1083,11 +1077,6 @@ class AlleleGenotyping:
 			if self.zygosity_state != 'HETERO':
 				if not self.sequencepair_object.get_homozygoushaplotype():
 					if allele.get_fodoverwrite():
-
-						print allele.get_fodcag(), allele.get_fodccg()
-						print allele.get_cag(), allele.get_ccg()
-						print allele.get_reflabel()
-
 						self.sequencepair_object.set_missed_expansion(True)
 						self.sequencepair_object.set_diminishedpeaks(True)
 

@@ -16,9 +16,6 @@ from ..__backend import Colour as clr
 from ..seq_qc.__quality_control import THREADS
 from ..__allelecontainer import IndividualAllele
 
-## Globals
-ASSEMBLY_OBJECT = None
-
 ## required for worker thread
 ## (can't serialise class-bound methods)
 def rotation_check(string1, string2):
@@ -148,7 +145,12 @@ def scan_reference_reads(current_iterator):
 
 	##
 	## Unpack iterator values into discrete objects for manipulation
-	contig, read_count, read_vector = current_iterator
+	contig_vector = current_iterator
+	contig = contig_vector[0]; read_count = contig_vector[1]; assembly_path = contig_vector[2]
+
+	##
+	## object of SAM
+	assembly_object = pysam.AlignmentFile(assembly_path, 'rb')
 
 	##
 	## Counts of atypical/typical reads
@@ -158,7 +160,7 @@ def scan_reference_reads(current_iterator):
 	##
 	## For every read in this reference, get the aligned sequence
 	## Split into triplet sliding window list, remove any triplets that are < 3
-	for read in ASSEMBLY_OBJECT.fetch(reference=contig):
+	for read in assembly_object.fetch(reference=contig):
 		target_sequence = read.query_alignment_sequence
 		sequence_windows = [target_sequence[i:i + 3] for i in range(0, len(target_sequence), 3)]
 		sequence_windows = [x for x in sequence_windows if len(x) == 3]
@@ -218,12 +220,9 @@ def scan_reference_reads(current_iterator):
 		for i in range(0, len(sequence_windows)):
 			if i in intervene_range:
 				intervene_string += str(sequence_windows[i])
-		if rotation_check('CAACAGCCGCCA', intervene_string):
-			intervene_string = 'CAACAGCCGCCA'
-		if intervene_string != 'CAACAGCCGCCA':
-			atypical_count += 1
-		else:
-			typical_count += 1
+		if rotation_check('CAACAGCCGCCA', intervene_string): intervene_string = 'CAACAGCCGCCA'
+		if intervene_string != 'CAACAGCCGCCA': atypical_count += 1
+		else: typical_count += 1
 		intervening_population.append(intervene_string)
 
 	##
@@ -412,36 +411,32 @@ class ScanAtypical:
 		##
 		## Determine number of reads - for subsampling float
 		## Use awk to read samtools idxstats output (get total read count)
-		# awk = ['awk', ' {i+=$3} END {print i}']
-		# count_process = subprocess.Popen(['samtools','idxstats', self.sorted_assembly], stdout=subprocess.PIPE)
-		# awk_process = subprocess.Popen(awk, stdin=count_process.stdout, stdout=subprocess.PIPE)
-		# count_process.wait(); awk_process.wait(); awk_output = int(awk_process.communicate()[0])
-		# if awk_output > 20000: subsample_float = 0.35
-		# elif 20000 > awk_output > 15000: subsample_float = 0.45
-		# elif 15000 > awk_output > 10000: subsample_float = 0.65
-		# elif 10000 > awk_output > 5000: subsample_float = 0.85
-		# else: subsample_float = 1.00
-		# self.sequencepair_object.set_subsampled_fqcount(awk_output)
+		awk = ['awk', ' {i+=$3} END {print i}']
+		count_process = subprocess.Popen(['samtools', 'idxstats', self.sorted_assembly], stdout=subprocess.PIPE)
+		awk_process = subprocess.Popen(awk, stdin=count_process.stdout, stdout=subprocess.PIPE)
+		count_process.wait(); awk_process.wait(); awk_output = int(awk_process.communicate()[0])
+		if awk_output > 20000: subsample_float = 0.350
+		elif 20000 > awk_output > 15000: subsample_float = 0.450
+		elif 15000 > awk_output > 10000: subsample_float = 0.550
+		elif 10000 > awk_output > 5000: subsample_float = 0.650
+		else: subsample_float = 1.0
+		self.sequencepair_object.set_subsampled_fqcount(awk_output)
 
 		##
 		## Subsample reads
 		## Index the subsampled assembly
-		# if awk_output > 5000:
-		# 	if not self.sequencepair_object.get_broadflag():
-		# 		self.sequencepair_object.set_subsampleflag(subsample_float)
-		# 		self.sequencepair_object.set_automatic_DSPsubsample(True)
-		# 		self.subsample_assembly = os.path.join(self.sequence_path,'subsample.sam')
-		# 		self.subsample_index = os.path.join(self.sequence_path,'subsample.sam.bai')
-		# 		assem_obj = open(self.subsample_assembly,'w')
-		# 		subsample_process = subprocess.Popen(['samtools','view','-s',str(subsample_float),'-b', self.sorted_assembly], stdout=assem_obj)
-		# 		subsample_process.wait(); assem_obj.close()
-		# 		index_process = subprocess.Popen(['samtools','index',self.subsample_assembly]); index_process.wait()
-		# 	else:
-		# 		self.subsample_assembly = self.sorted_assembly
-		# else:
-
-		## todo debugging, disabled SAM subsampling for now
-		self.subsample_assembly = self.sorted_assembly
+		if not self.sequencepair_object.get_broadflag():
+			self.sequencepair_object.set_subsampleflag(subsample_float)
+			self.sequencepair_object.set_automatic_DSPsubsample(True)
+			self.subsample_assembly = os.path.join(self.sequence_path, 'subsample.sam')
+			self.subsample_index = os.path.join(self.sequence_path, 'subsample.sam.bai')
+			assem_obj = open(self.subsample_assembly, 'w')
+			subsample_process = subprocess.Popen(
+				['samtools', 'view', '-s', str(subsample_float), '-b', self.sorted_assembly], stdout=assem_obj)
+			subsample_process.wait(); assem_obj.close()
+			index_process = subprocess.Popen(['samtools', 'index', self.subsample_assembly]); index_process.wait()
+		else:
+			self.subsample_assembly = self.sorted_assembly
 
 		##
 		## Load into object, determine references to investigate
@@ -456,16 +451,9 @@ class ScanAtypical:
 		##
 		## Assign our target references (Top 3 sorted references, sorted by read count)
 		self.assembly_targets = sorted(assembly_refdat, key=itemgetter(1), reverse=True)[0:3]
-		global ASSEMBLY_OBJECT; ASSEMBLY_OBJECT = self.assembly_object
-
-		##
-		## Extract reads for each contig we're looking at so that the non-class bound version
-		## of our assembly_targets can be interacted with via a non-bound method in a processor pool
 		for contig in self.assembly_targets:
-			contig_reads = []
-			for read in self.assembly_object.fetch(reference=contig[0]):
-				contig_reads.append(read)
-			contig.append(contig_reads)
+			temp = self.subsample_assembly
+			contig.append(temp)
 
 		##
 		## Check for a mal-aligned sample
@@ -534,24 +522,21 @@ class ScanAtypical:
 
 		##
 		## Determine if the user's system has enough processors for the work pool
-		if THREADS >= 3: self.processor_pool = multiprocessing.Pool(3)
+		# if int(THREADS) >= 3: self.processor_pool = multiprocessing.Pool(3)
+		# else: self.processor_pool = multiprocessing.Pool(1)
+		if int(THREADS) >= 3: self.processor_pool = multiprocessing.Pool(3)
 		else: self.processor_pool = multiprocessing.Pool(1)
 
 		##
 		## for each worker we have, give it one 'contig' in our target_assembly to work over
-		try:
-			## make iterator for our processor pool to share
-			## run that iterator on our pool of worker processes
-			allele_iterator = iter(self.assembly_targets)
-			pool_output = self.processor_pool.imap(scan_reference_reads, allele_iterator)
-			## assign the output of each contig result to the respective dictionary
-			for contig_results in pool_output:
-				self.atypical_info[contig_results[0]] = contig_results[1]
-		except KeyboardInterrupt:
-			log.info('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Caught CTRL+C. Killing worker {}'.format(os.getpid())))
-			self.processor_pool.terminate()
-			self.processor_pool.join()
-			return
+		## make iterator for our processor pool to share
+		## run that iterator on our pool of worker processes
+		allele_iterator = iter(self.assembly_targets)
+		pool_output = self.processor_pool.map(scan_reference_reads, allele_iterator)
+		## assign the output of each contig result to the respective dictionary
+		for contig_results in pool_output:
+			self.atypical_info[contig_results[0]] = contig_results[1]
+		self.processor_pool.close()
 
 		## If broadflag = false, we subsampled
 		## remove the subsampled SAM file, retaining only the original
