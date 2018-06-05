@@ -1530,8 +1530,8 @@ class AlleleGenotyping:
 				for peak_position_error in [allele.get_nminuswarninglevel(), allele.get_npluswarninglevel()]:
 					if peak_position_error == 0: allele_confidence += 5; penfi.write('{}, {}\n'.format('Surrounding read ratio','+5'))
 					elif peak_position_error == 1: allele_confidence -= 5; penfi.write('{}, {}\n'.format('Surrounding read ratio', '-5'))
-					elif 2 >= peak_position_error > 1: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Surrounding read ratio','-10'))
-					elif peak_position_error >= 5: allele_confidence -= 25; penfi.write('{}, {}\n'.format('Surrounding read ratio','-25'))
+					elif 2 >= peak_position_error > 1: allele_confidence -= 7; penfi.write('{}, {}\n'.format('Surrounding read ratio','-7'))
+					elif peak_position_error >= 5: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Surrounding read ratio','-10'))
 					else: allele_confidence -= 15; penfi.write('{}, {}\n'.format('Surrounding read ratio','-15'))
 
 				##
@@ -1555,7 +1555,7 @@ class AlleleGenotyping:
 					allele_read_ratio = allele.get_totalreads() / self.sequencepair_object.get_totalseqreads()
 					if np.isclose([allele_read_ratio],[0.05],atol=0.05): context_penalty = 15
 					if np.isclose([allele_read_ratio],[0.15],atol=0.05): context_penalty = 10
-					if np.isclose([allele_read_ratio],[0.25],atol=0.05): context_penalty = 10
+					if np.isclose([allele_read_ratio],[0.25],atol=0.05): context_penalty = 7
 					if np.isclose([allele_read_ratio],[0.35],atol=0.05): context_penalty = 5
 					if np.isclose([allele_read_ratio],[0.45],atol=0.05): context_penalty = 5
 					if np.isclose([allele_read_ratio],[0.55],atol=0.05): context_penalty = 1
@@ -1580,8 +1580,8 @@ class AlleleGenotyping:
 
 				##
 				## Warning penalty.. if triggered, no confidence
-				if self.warning_triggered: allele_confidence -= 20; penfi.write('{}, {}\n'.format('Peak Inspection warning triggered','-20'))
-				if allele.get_ccguncertainty(): allele_confidence -= 30; penfi.write('{}, {}\n'.format('CCG Uncertainty','-30'))
+				if self.warning_triggered: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Peak Inspection warning triggered','-10'))
+				if allele.get_ccguncertainty(): allele_confidence -= 15; penfi.write('{}, {}\n'.format('CCG Uncertainty','-15'))
 				if self.sequencepair_object.get_alignmentwarning(): allele_confidence -= 15; penfi.write('{}, {}\n'.format('Low read count alignment warning','-15'))
 				if self.sequencepair_object.get_atypical_alignmentwarning(): allele_confidence -= 50; penfi.write('{}, {}\n'.format('Atypical re-alignment inaccurate','-50'))
 				if allele.get_fatalalignmentwarning(): allele_confidence -= 25; penfi.write('{}, {}\n'.format('Fatal low read count alignment warning','-25'))
