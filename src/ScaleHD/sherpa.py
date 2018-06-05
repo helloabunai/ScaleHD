@@ -90,7 +90,8 @@ class ScaleHD:
 				pass
 			if sys.version_info[2] < 13:
 				current_user_version = '{}.{}.{}'.format(sys.version_info[0], sys.version_info[1], sys.version_info[2])
-				log.error('{}{}{}{}{}.'.format(clr.red, 'shd__ ', clr.end, 'ScaleHD requires python 2.7.13! You are using: ', current_user_version))
+				log.error('{}{}{}{}{}.'.format(clr.red, 'shd__ ', clr.end, 'ScaleHD requires python2 2.7.13 or later!'
+																		   ' You are using: ', current_user_version))
 				sys.exit(2)
 
 		##
@@ -167,7 +168,7 @@ class ScaleHD:
 		self.instance_results = os.path.join(self.instance_rundir, 'InstanceReport.csv')
 		self.padded_distributions = os.path.join(self.instance_rundir, 'AlignedDistributions.csv')
 		self.header = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},' \
-					  '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},' \
+					  '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},' \
 					  '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
 			'SampleName', '' ,'Primary GTYPE', 'Status', 'Map (FW)', 'Map% (FW)', 'Purged (FW)', 'Map (RV)', 'Map% (RV)',
 			'Purged (RV)', 'BSlippage', 'Somatic Mosaicism', 'Variant Call', 'Variant Score', 'Intervening Sequence',
@@ -176,7 +177,7 @@ class ScaleHD:
 			'Intervening Sequence', 'Confidence', '', 'Exception Raised', 'Homozygous Haplotype',
 			'Neighbouring Peaks', 'Diminished Peaks', 'Novel Atypical', 'Alignment Warning', 'Atypical Alignment Warning',
 			'CCG Rewritten', 'CCG Zygosity Rewritten', 'CCG Uncertainty', 'CCT Uncertainty', 'SVM Failure',
-			'Differential Confusion', 'Missed Expansion', 'Peak Inspection Warning', 'Low Distribution Reads', 'Low Peak Reads'
+			'Differential Confusion', 'Missed Expansion', 'Heuristic Filtering Success', 'Peak Inspection Warning', 'Low Distribution Reads', 'Low Peak Reads'
 		)
 		padded_header = '{},{},{},{},{},N-VAL\n'.format('Filename','Allele','Genotype','Dist',' ,'*200)
 		with open(self.instance_results, 'w') as outfi: outfi.write(self.header); outfi.close()
@@ -319,10 +320,8 @@ class ScaleHD:
 				if self.instance_params.config_dict['instance_flags']['@quality_control']:
 					for seqfi in [current_seqpair.get_fwreads(), current_seqpair.get_rvreads()]:
 						if '_SUB_R' in seqfi:
-							try:
-								os.remove(seqfi)
-							except OSError:
-								pass
+							try: os.remove(seqfi)
+							except OSError: pass
 				#########################################
 				## Stage five!! Genotype distributions ##
 				#########################################
@@ -499,7 +498,8 @@ class ScaleHD:
 						 [sequencepair_object, 'get_atypical_zygrewrite'], [sequencepair_object, 'get_ccguncertainty'],
 						 [sequencepair_object, 'get_cctuncertainty'], [sequencepair_object, 'get_svm_failure'],
 						 [sequencepair_object, 'get_differential_confusion'], [sequencepair_object, 'get_missed_expansion'],
-						 [sequencepair_object, 'get_peakinspection_warning'], [sequencepair_object, 'get_distribution_readcount_warning'],
+						 [sequencepair_object, 'get_heuristicfilter'], [sequencepair_object, 'get_peakinspection_warning'],
+						 [sequencepair_object, 'get_distribution_readcount_warning'],
 						 [sequencepair_object, 'get_fatalreadallele']]
 
 		report_string = call_object_scraper(unparsed_info)
@@ -523,4 +523,5 @@ def main():
 		ScaleHD()
 	except KeyboardInterrupt:
 		log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Fatal: Keyboard Interrupt detected. Exiting.'))
+
 		sys.exit(2)

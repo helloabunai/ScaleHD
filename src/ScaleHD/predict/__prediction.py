@@ -373,25 +373,27 @@ class AlleleGenotyping:
 
 			## check if minor is n-1/n+1 AND third peak is np.close(minor)
 			skip_flag = False
-			if abs(majidx-minidx) == 1:
-				if np.isclose([minor], [tertiary], atol=minor*0.80):
-					skip_flag = True
-					allele_object.set_ccguncertainty(True)
-					self.sequencepair_object.set_ccguncertainty(True)
-			if minor == self.reverse_aggregate[allele_object.get_ccg()-1]:
-				skip_flag = True
-				allele_object.set_ccguncertainty(True)
-				self.sequencepair_object.set_ccguncertainty(True)
-			## skip the following block if so
-			if not skip_flag:
-				if abs_ratio < 0.05: pass
-				else:
-					for fod_peak in [majidx+1, minidx+1]:
-						if allele_object.get_ccg() not in [majidx+1, minidx]:
-							if fod_peak not in [self.sequencepair_object.get_primaryallele().get_ccg(),
-												self.sequencepair_object.get_secondaryallele().get_ccg()]:
-								allele_object.set_fodoverwrite(True)
-								allele_object.set_ccgval(int(fod_peak))
+			if not self.sequencepair_object.get_primaryallele().get_neighbouring_candidate():
+				if not self.sequencepair_object.get_secondaryallele().get_neighbouring_candidate():
+					if abs(majidx-minidx) == 1:
+						if np.isclose([minor], [tertiary], atol=minor*0.80):
+							skip_flag = True
+							allele_object.set_ccguncertainty(True)
+							self.sequencepair_object.set_ccguncertainty(True)
+					if minor == self.reverse_aggregate[allele_object.get_ccg()-1]:
+						skip_flag = True
+						allele_object.set_ccguncertainty(True)
+						self.sequencepair_object.set_ccguncertainty(True)
+					## skip the following block if so
+					if not skip_flag:
+						if abs_ratio < 0.05: pass
+						else:
+							for fod_peak in [majidx+1, minidx+1]:
+								if allele_object.get_ccg() not in [majidx+1, minidx]:
+									if fod_peak not in [self.sequencepair_object.get_primaryallele().get_ccg(),
+														self.sequencepair_object.get_secondaryallele().get_ccg()]:
+										allele_object.set_fodoverwrite(True)
+										allele_object.set_ccgval(int(fod_peak))
 
 			##
 			## Clean up distribution for erroneous peaks
@@ -619,26 +621,32 @@ class AlleleGenotyping:
 		## Heterozygous for CCG ##
 		##########################
 		if self.zygosity_state == 'HETERO' or self.zygosity_state == 'HOMO*' or self.zygosity_state == 'HOMO+':
+			existing_calls = []
 			for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
+				allele.set_totalreads(sum(target_distro))
 
-				if self.zygosity_state == 'HOMO+':
+				if self.zygosity_state == 'HOMO+' or self.zygosity_state == 'HOMO*':
 					for i in range(0, len(target_distro)):
 						if i != allele.get_cag() - 1:
 							removal = (target_distro[i] / 100) * 85
 							target_distro[i] -= removal
 
-				allele.set_totalreads(sum(target_distro))
 				allele.set_cagthreshold(0.50)
 				fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, 1, 'CAGHet')
 				while fod_failstate:
 					fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, 1, 'CAGHet', fod_recall=True)
 
-				if type(cag_indexes) == np.ndarray:
-					allele.set_fodcag(cag_indexes.flat[0])
-				else:
-					allele.set_fodcag(cag_indexes)
+				for item in cag_indexes:
+					if not item in existing_calls:
+						existing_calls.append(item)
+
+						if type(cag_indexes) == np.ndarray:
+							itemindex = np.where(cag_indexes == item)
+							allele.set_fodcag(cag_indexes.flat[itemindex])
+						else:
+							allele.set_fodcag(cag_indexes)
 
 		########################
 		## Homozygous for CCG ##
@@ -678,14 +686,17 @@ class AlleleGenotyping:
 			##
 			## Process each allele, getting the specific CCG distribution
 			## Re-set read count for the allele, due to subsampling
+			existing_calls = []
 			for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
 
-				for i in range(0, len(target_distro)):
-					if i != allele.get_cag() - 1:
-						removal = (target_distro[i] / 100) * 85
-						target_distro[i] -= removal
+				if not self.sequencepair_object.get_primaryallele().get_neighbouring_candidate():
+					if not self.sequencepair_object.get_secondaryallele().get_neighbouring_candidate():
+						for i in range(0, len(target_distro)):
+							if i != allele.get_cag() - 1:
+								removal = (target_distro[i] / 100) * 85
+								target_distro[i] -= removal
 
 				allele.set_totalreads(sum(target_distro))
 				allele.set_cagthreshold(0.50)
@@ -694,10 +705,17 @@ class AlleleGenotyping:
 				while fod_failstate:
 					fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, distance_threshold, 'CAGHom', est_dist=estimated_distance, fod_recall=True)
 
-				if type(cag_indexes) == np.ndarray:
-					allele.set_fodcag(cag_indexes.flat[0])
-				else:
-					allele.set_fodcag(cag_indexes)
+				## check that FOD didn't return more items than it was required for this allele
+				## only keep discrete values from the inferred total of all calls in the current sample
+				for item in cag_indexes:
+					if not item in existing_calls:
+						existing_calls.append(item)
+
+						if type(cag_indexes) == np.ndarray:
+							itemindex = np.where(cag_indexes == item)
+							allele.set_fodcag(cag_indexes.flat[itemindex])
+						else:
+							allele.set_fodcag(cag_indexes)
 
 		return pass_gtp
 
@@ -789,7 +807,7 @@ class AlleleGenotyping:
 
 		for item in [[primary_fod_cag, primary_dsp_cag, primary_allele], [secondary_fod_cag, secondary_dsp_cag, secondary_allele]]:
 			dimension_checker(item)
-			primary_fod_cag = primary_allele.get_fodcag(); secondary_fod_cag = secondary_allele.get_fodcag()
+			primary_fod_cag = [primary_allele.get_fodcag()]; secondary_fod_cag = [secondary_allele.get_fodcag()]
 
 		##
 		## Brute force zygosity
@@ -809,13 +827,14 @@ class AlleleGenotyping:
 			secondary_reads = secondary_target[secondary_allele.get_cag()-1]
 			diff = abs(primary_reads-secondary_reads)
 			pcnt = (diff/max([primary_reads, secondary_reads]))
+
 			## If read count is so close (and distance is atol=1)
 			## Neighbouring peak...
 			if 0.0 < pcnt < 0.20:
 				self.sequencepair_object.set_neighbouringpeaks(True)
 				pass_vld = ensure_integrity()
 				return pass_vld
-			elif np.isclose([pcnt], [0.25], atol=0.05):
+			if np.isclose([pcnt], [0.25], atol=0.05):
 				if 0.0 < pcnt <= 0.30:
 					self.sequencepair_object.set_neighbouringpeaks(True)
 					pass_vld = ensure_integrity()
@@ -825,7 +844,15 @@ class AlleleGenotyping:
 					self.sequencepair_object.set_secondary_allele(self.sequencepair_object.get_primaryallele())
 					##no need to call ensure_integrity as secondary allele is a copy of primary object
 					return True
-			elif primary_fod_cag.all() and secondary_fod_cag.all():
+
+			## fucky bug with homozygotes not filtering properly
+			## leaving unassigned value from FOD
+			try:
+				primary_fod_cag.all(); secondary_fod_cag.all()
+			except AttributeError:
+				secondary_fod_cag = primary_fod_cag
+
+			if primary_fod_cag == secondary_fod_cag:
 				self.sequencepair_object.set_homozygoushaplotype(True)
 				self.sequencepair_object.set_secondary_allele(self.sequencepair_object.get_primaryallele())
 				##no need to call ensure_integrity as secondary allele is a copy of primary object
@@ -1123,6 +1150,8 @@ class AlleleGenotyping:
 		pri_rvarray = self.sequencepair_object.get_primaryallele().get_rvarray()
 		sec_rvarray = self.sequencepair_object.get_secondaryallele().get_rvarray()
 		pri_fwarray = self.sequencepair_object.get_primaryallele().get_fwarray()
+		sec_fwarray = self.sequencepair_object.get_secondaryallele().get_fwarray()
+
 		predpath = self.sequencepair_object.get_predictpath()
 
 		def graph_subfunction(x, y, axis_labels, xticks, peak_index, predict_path, file_handle, prefix='', graph_type=None, neg_anchor=False):
@@ -1253,8 +1282,13 @@ class AlleleGenotyping:
 				##
 				## Data for this allele (peak detection graph)
 				temp_graphs = []
-				distribution_split = self.split_cag_target(allele.get_fwarray())
-				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
+
+				target_distro = []
+				if allele.get_header() == 'PRI':
+					target_distro = self.primary_original
+				if allele.get_header() == 'SEC':
+					target_distro = self.secondary_original
+
 				if self.zygosity_state == 'HOMO+':
 					for i in range(0, len(target_distro)):
 						if i != allele.get_cag() - 1:
@@ -1322,7 +1356,7 @@ class AlleleGenotyping:
 			peak_prefix = '(CCG{}) '.format(self.sequencepair_object.get_primaryallele().get_ccg())
 			altpeak_filename = 'CCG{}-Peak.pdf'.format(self.sequencepair_object.get_primaryallele().get_fodccg())
 			ccg_peaks = [int(pri_fodccg),int(sec_fodccg)]; cag_peaks = [int(pri_fodcag),int(sec_fodcag)]
-			distribution_split = self.split_cag_target(pri_fwarray); target_distro = distribution_split[target_ccg]
+			distribution_split = self.split_cag_target(pri_fwarray); target_distro = self.primary_original
 			## Subslice data
 			pri_cag = self.sequencepair_object.get_primaryallele().get_cag()
 			sec_cag = self.sequencepair_object.get_secondaryallele().get_cag()
@@ -1496,8 +1530,8 @@ class AlleleGenotyping:
 				for peak_position_error in [allele.get_nminuswarninglevel(), allele.get_npluswarninglevel()]:
 					if peak_position_error == 0: allele_confidence += 5; penfi.write('{}, {}\n'.format('Surrounding read ratio','+5'))
 					elif peak_position_error == 1: allele_confidence -= 5; penfi.write('{}, {}\n'.format('Surrounding read ratio', '-5'))
-					elif 2 >= peak_position_error > 1: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Surrounding read ratio','-10'))
-					elif peak_position_error >= 5: allele_confidence -= 25; penfi.write('{}, {}\n'.format('Surrounding read ratio','-25'))
+					elif 2 >= peak_position_error > 1: allele_confidence -= 7; penfi.write('{}, {}\n'.format('Surrounding read ratio','-7'))
+					elif peak_position_error >= 5: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Surrounding read ratio','-10'))
 					else: allele_confidence -= 15; penfi.write('{}, {}\n'.format('Surrounding read ratio','-15'))
 
 				##
@@ -1521,7 +1555,7 @@ class AlleleGenotyping:
 					allele_read_ratio = allele.get_totalreads() / self.sequencepair_object.get_totalseqreads()
 					if np.isclose([allele_read_ratio],[0.05],atol=0.05): context_penalty = 15
 					if np.isclose([allele_read_ratio],[0.15],atol=0.05): context_penalty = 10
-					if np.isclose([allele_read_ratio],[0.25],atol=0.05): context_penalty = 10
+					if np.isclose([allele_read_ratio],[0.25],atol=0.05): context_penalty = 7
 					if np.isclose([allele_read_ratio],[0.35],atol=0.05): context_penalty = 5
 					if np.isclose([allele_read_ratio],[0.45],atol=0.05): context_penalty = 5
 					if np.isclose([allele_read_ratio],[0.55],atol=0.05): context_penalty = 1
@@ -1546,8 +1580,8 @@ class AlleleGenotyping:
 
 				##
 				## Warning penalty.. if triggered, no confidence
-				if self.warning_triggered: allele_confidence -= 20; penfi.write('{}, {}\n'.format('Peak Inspection warning triggered','-20'))
-				if allele.get_ccguncertainty(): allele_confidence -= 30; penfi.write('{}, {}\n'.format('CCG Uncertainty','-30'))
+				if self.warning_triggered: allele_confidence -= 10; penfi.write('{}, {}\n'.format('Peak Inspection warning triggered','-10'))
+				if allele.get_ccguncertainty(): allele_confidence -= 15; penfi.write('{}, {}\n'.format('CCG Uncertainty','-15'))
 				if self.sequencepair_object.get_alignmentwarning(): allele_confidence -= 15; penfi.write('{}, {}\n'.format('Low read count alignment warning','-15'))
 				if self.sequencepair_object.get_atypical_alignmentwarning(): allele_confidence -= 50; penfi.write('{}, {}\n'.format('Atypical re-alignment inaccurate','-50'))
 				if allele.get_fatalalignmentwarning(): allele_confidence -= 25; penfi.write('{}, {}\n'.format('Fatal low read count alignment warning','-25'))
@@ -1557,6 +1591,10 @@ class AlleleGenotyping:
 				## i.e two peaks nearby, large difference between suspected but unsure whether homo or neighbour
 				if allele.get_differential_confusion():
 					allele_confidence -= 45; penfi.write('{}, {}\n'.format('Differential Confusion', '-45'))
+
+				## Heuristic filtering of DSP results state check
+				if not self.sequencepair_object.get_heuristicfilter():
+					allele_confidence -= 20; penfi.write('{}, {}\n'.format('Heuristic filtering of alleles did not assign a secondary allele','-20'))
 
 				##
 				## If reflabel CAG and FOD CAG differ.. no confidence

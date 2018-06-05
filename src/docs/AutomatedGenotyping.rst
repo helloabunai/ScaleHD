@@ -30,6 +30,26 @@ Once filtered, we then pass to the final stage, genotype confirmation via Densit
 
 After this, graphs are rendered, results are written to output, and whatever else.
 
+SNP Calling
+~~~~~~~~~~~
+
+In addition to our automated genotyping, we also run third party SNP Calling software to determine the presence of mutations in any given sample.
+
+This function will execute with both Freebayes and GATK, but will only append output from the chosen algorithm, as stated in the user's configuration XML document.
+
+The output will exist with two columns per allele; Variant Call and Variant Score.
+
+Variant Call will be structured as:
+
+::
+
+  {X} -> {Y} @ SNP_POS
+
+Where X is the base pair from the reference sequence, and Y is the mutated base pair present in the current sample. SNP_POS indicates the base pair position of the mutation within the sample reads.
+
+Variant Score returns the PHRED score for the current mutation; only mutations from the current contig are considered and the mutation with the highest PHRED score is selected for output in the InstanceReport table.
+
+
 References
 ~~~~~~~~~~
 

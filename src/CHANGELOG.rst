@@ -1,6 +1,21 @@
 .. _sect_changelog:
 
+Verson 0.316
+------------
+
+* Added some minor documentation for SNP Calling (_sect_genotyping)
+* Heuristic allele filtering engine has been completely rewritten to not be absolute garbage.
+* Parallelised the DSP module within ScaleHD to execute on multiple contigs of data at once, if enabled.
+* Parallelisation introduced issue with allele structure incrementing objects would behave improperly -- this is now fixed.
+* Disabled subsampling of aligned assemblies (due to multi-threading speedup; no longer required).
+* Implemented broad error catching around SNP calling libraries, instead of just exiting upon failure.
+* Fixed bug with PDF rendering of result distributions utilising an incorrect value for aligned read counts.
+* Fixed bug where atypical alleles which changed from CCG-homozygous to CCG-heterozygous were not identified.
+* Fixed error where the heuristic filtering engine suspects an expanded allele, but ended up calling a homozygous haplotype.
+* Casting issue where two alleles returned different dimension-shaped arrays for FOD genotype calling, was resolved.
+
 Version 0.314/5
+---------------
 
  * Fixed homozygous haplotype casting error
  * Fixed diminished alleles being skipped (or not flagged) in particular cases of read drop-off in homozygous expansions

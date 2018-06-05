@@ -63,6 +63,7 @@ class SequenceSample:
 		self.novel_atypical_structure = False
 		self.differential_confusion = False
 		self.missed_expansion = False
+		self.heuristicfilter_fail = False
 		self.original_fqcount = 0
 		self.subsampled_fqcount = 0
 
@@ -128,6 +129,7 @@ class SequenceSample:
 	def set_novel_atypical_structure(self, state): self.novel_atypical_structure = state
 	def set_differential_confusion(self, state): self.differential_confusion = state
 	def set_missed_expansion(self, state): self.missed_expansion = state
+	def set_heuristicfilter(self, state): self.heuristicfilter_fail = state
 	def set_original_fqcount(self, count): self.original_fqcount = count
 	def set_subsampled_fqcount(self, count): self.subsampled_fqcount = count
 
@@ -193,13 +195,13 @@ class SequenceSample:
 	def get_novel_atypical_structure(self): return self.novel_atypical_structure
 	def get_differential_confusion(self): return self.differential_confusion
 	def get_missed_expansion(self): return self.missed_expansion
+	def get_heuristicfilter(self): return self.heuristicfilter_fail
 	def get_original_fqcount(self): return self.original_fqcount
 	def get_subsampled_fqcount(self): return self.subsampled_fqcount
 
 	##
 	## Functions
 	def generate_sampletree(self):
-
 		for path in [self.sample_qcpath, self.sample_alignpath, self.sample_predictpath]:
 			try:
 				os.makedirs(path)
@@ -279,6 +281,7 @@ class IndividualAllele:
 		self.fatalalignmentwarning = False
 		self.distribution_readcount_warning = False
 		self.differential_confusion = False
+		self.neighbouring_candidate = False
 		self.ccg_uncertain = False
 
 	##
@@ -353,6 +356,7 @@ class IndividualAllele:
 	def set_fatalalignmentwarning(self, state): self.fatalalignmentwarning = state
 	def set_distribution_readcount_warning(self, state): self.distribution_readcount_warning = state
 	def set_differential_confusion(self, state): self.differential_confusion = state
+	def set_neighbouring_candidate(self, state): self.neighbouring_candidate = state
 	def set_ccguncertainty(self, state): self.ccg_uncertain = state
 
 	##
@@ -427,4 +431,5 @@ class IndividualAllele:
 	def get_fatalalignmentwarning(self): return self.fatalalignmentwarning
 	def get_distribution_readcount_warning(self): return self.distribution_readcount_warning
 	def get_differential_confusion(self): return self.differential_confusion
+	def get_neighbouring_candidate(self): return self.neighbouring_candidate
 	def get_ccguncertainty(self): return self.ccg_uncertain

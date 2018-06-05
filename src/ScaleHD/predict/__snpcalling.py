@@ -5,6 +5,8 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 import os
 import vcf
 import subprocess
+import logging as log
+from ..__backend import Colour as clr
 
 class DetermineMutations:
 	def __init__(self, sequencepair_object, instance_params):
@@ -28,6 +30,7 @@ class DetermineMutations:
 		:return: n/a
 		"""	
 		for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
+
 			## get data
 			fw_idx = allele.get_fwidx(); fw_assembly = allele.get_fwassembly()
 			header = allele.get_header(); predpath = self.sequencepair_object.get_predictpath()
@@ -47,7 +50,12 @@ class DetermineMutations:
 					picard_subprocess = subprocess.Popen([picard_string], shell=True,
 					 stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
 					picard_log = picard_subprocess.communicate(); picard_subprocess.wait()
-					##todo error checking in picard_log
+					if 'ERROR' in picard_log:
+						log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Failure in PICARD. Check sample output log.'))
+						logpath = os.path.join(predpath, 'PicardErrorLog.txt')
+						with open(logpath, 'w') as logfi:
+							logfi.write(picard_log[0])
+							logfi.write(picard_log[1])
 
 			# If allele is atypical then we generated our own reference for the INTV struct
 			# need to index and dict each specific reference for these types of alleles
@@ -58,17 +66,28 @@ class DetermineMutations:
 				picard_subprocess = subprocess.Popen([picard_string], shell=True,
 					stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 				picard_log = picard_subprocess.communicate(); picard_subprocess.wait()
-				##todo error checking in picard_log
+				if 'ERROR' in picard_log:
+					log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Failure in PICARD. Check sample output log.'))
+					logpath = os.path.join(predpath, 'PicardErrorLog.txt')
+					with open(logpath, 'w') as logfi:
+						logfi.write(picard_log[0])
+						logfi.write(picard_log[1])
 			
 			## freebayes haplotype caller
 			observation_threshold = (allele.get_totalreads()/100) * int(self.sequencepair_object.get_snpobservationvalue())
 			freebayes_output = os.path.join(predpath, '{}_FreeBayesVariantCall.vcf'.format(header))
-			freebayes_string = 'freebayes -f {} -C {} {}'.format(fw_idx, observation_threshold, fw_assembly)
+			freebayes_string = 'freebayes -f {} --legacy-gls -B 4000 -C {} {}'.format(
+				fw_idx, observation_threshold, fw_assembly)
 			freebayes_outfi = open(freebayes_output, 'w')
 			freebayes_subprocess = subprocess.Popen([freebayes_string], shell=True,
 													stdout=freebayes_outfi, stderr=subprocess.PIPE)
 			freebayes_log = freebayes_subprocess.communicate(); freebayes_subprocess.wait()
-			##todo error checking in freebayes_log
+			if 'error' in freebayes_log:
+				log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Failure in FreeBayes. Check sample output log.'))
+				logpath = os.path.join(predpath, 'FreeBayesErrorLog.txt')
+				with open(logpath, 'w') as logfi:
+					logfi.write(freebayes_log[0])
+					logfi.write(freebayes_log[1])
 			allele.set_freebayes_file(freebayes_output)
 			freebayes_outfi.close()
 
@@ -77,7 +96,13 @@ class DetermineMutations:
 			gatk_string = 'gatk HaplotypeCaller -R {} -I {} -O {}'.format(fw_idx, fw_assembly, gatk_output)
 			gatk_subprocess = subprocess.Popen([gatk_string], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			gatk_log = gatk_subprocess.communicate(); gatk_subprocess.wait()
-			##todo error checking in gatk_log
+			if 'ERROR' in gatk_log:
+				log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Failure in GATK. Check sample output log.'))
+				logpath = os.path.join(predpath, 'GATKErrorLog.txt')
+				with open(logpath, 'w') as logfi:
+					logfi.write(gatk_log[0])
+					logfi.write(gatk_log[1])
+
 			allele.set_gatk_file(gatk_output)
 
 	def scrape_relevance(self):
@@ -120,9 +145,9 @@ class DetermineMutations:
 				if allele.get_allelestatus() == 'Typical': origin = record.CHROM
 				if allele.get_allelestatus() == 'Atypical': origin = record.CHROM.split('CAG')[0][:-1]
 				if origin == target:
-					freebayes_matched.append(record)
+					gatk_matched.append(record)
 				else:
-					freebayes_unmatched.append(record)
+					gatk_unmatched.append(record)
 
 			## sort and remove records which are < user specified cutoff
 			## todo again generalise this code you absolute throbber
