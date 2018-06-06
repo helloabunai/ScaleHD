@@ -14,7 +14,7 @@ The Config Element deals with specifying any required sub-configs (elements), an
 <!-- CONFIG ELEMENT -->
 <!ELEMENT config          (instance_flags, demultiplex_flags, trim_flags, alignment_flags, prediction_flags)>
 <!ATTLIST config          data_dir CDATA #REQUIRED>
-<!ATTLIST config		  forward_reference CDATA #REQUIRED>
+<!ATTLIST config	  forward_reference CDATA #REQUIRED>
 <!ATTLIST config          reverse_reference CDATA #REQUIRED>
 
 <!-- INSTANCE_FLAGS ELEMENT -->

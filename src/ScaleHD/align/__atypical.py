@@ -596,7 +596,6 @@ class ScanAtypical:
 
 		## CCG in Top3 all equal?
 		if uniform_ccg == 2:
-
 			##top1-top2 CAG difference
 			if alpha_beta_CAGDiff == 1 and beta_theta_CAGDiff != 1:
 				if alpha_beta_CAGDiff == 1 and alpha_theta_CAGDiff == 1:
@@ -665,9 +664,16 @@ class ScanAtypical:
 				secondary_allele['Reference'] = sorted_info[1][0]
 				secondary_was_set = True
 
+			## cell line DNA, skewed expansion with broad peak
+			## theta is not neighbouring of beta, but beta is legitimate
+			if alpha_beta_CAGDiff > 1 and np.isclose([beta_estCAG], [theta_estCAG], atol=5):
+				secondary_allele = sorted_info[1][1]
+				secondary_allele['Reference'] = sorted_info[1][0]
+				secondary_allele['DiffConfuse'] = True
+				secondary_was_set = True
+
 		## CCG in Top3 not equal?
 		if uniform_ccg < 2:
-
 			## the CCG in #2,#3 match
 			if beta_estCCG == theta_estCCG:
 				## determine CAG distance
@@ -683,6 +689,12 @@ class ScanAtypical:
 						secondary_allele = sorted_info[1][1]
 						secondary_allele['Reference'] = sorted_info[1][0]
 						secondary_was_set = True
+				## theta is close to beta, but not neighbouring.. cell line DNA/broad expansion
+				if np.isclose([beta_theta_CAGDiff], [1], atol==5):
+					secondary_allele = sorted_info[1][1]
+					secondary_allele['Reference'] = sorted_info[1][0]
+					secondary_allele['DiffConfuse'] = True
+					secondary_was_set = True
 
 			## the CCG in #2,#3 don't match
 			if not beta_estCCG == theta_estCCG:
@@ -719,6 +731,16 @@ class ScanAtypical:
 						secondary_allele = sorted_info[1][1]
 						secondary_allele['Reference'] = sorted_info[1][0]
 						secondary_was_set = True
+				## all alleles different CCG
+				if alpha_estCCG != beta_estCCG and beta_estCCG != theta_estCCG:
+					## however, cag values on alpha/theta are close
+					## and CCG within 1, so probably misread by sequencing machine
+					## thus beta is legitimate
+					if np.isclose([theta_estCAG], [alpha_estCAG], atol=5):
+						if np.isclose([alpha_estCCG],[theta_estCCG], atol=2):
+							secondary_allele = sorted_info[1][1]
+							secondary_allele['Reference'] = sorted_info[1][0]
+							secondary_was_set = True
 
 		##
 		## For each of the alleles we've determined..
@@ -762,6 +784,10 @@ class ScanAtypical:
 		if temp_zyg[0] == temp_zyg[1]:
 			if temp_curr[0] != temp_zyg[0] or temp_curr[1] != temp_zyg[1]:
 				self.sequencepair_object.set_atypical_zygrewrite(True)
+
+		## potential homozygous haplotype
+		if primary_allele['Reference'] == secondary_allele['Reference']:
+			self.sequencepair_object.set_homozygoushaplotype(True)
 
 		self.sequencepair_object.set_heuristicfilter(secondary_was_set)
 		return primary_allele, secondary_allele, atypical_count

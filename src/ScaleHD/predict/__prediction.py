@@ -447,6 +447,7 @@ class AlleleGenotyping:
 			indv_minor = max(n for n in self.reverse_aggregate if n != major)
 			indv_majidx = int(np.where(self.reverse_aggregate == indv_major)[0][0])
 			indv_minidx = int(np.where(self.reverse_aggregate == indv_minor)[0][0])
+
 			if 1 < abs(indv_majidx-indv_minidx) < 10:
 				peak_count = 0
 				if abs_ratio < 0.05:
@@ -458,17 +459,26 @@ class AlleleGenotyping:
 						pmo_ratio = pmo/self.reverse_aggregate[peak]
 						ppo_ratio = ppo/self.reverse_aggregate[peak]
 						## calc ratio of peak+1/-1, if within range, add peak
+
 						if pmo_ratio and ppo_ratio < 0.2:
 							if 0.0 not in [pmo_ratio, ppo_ratio]:
 								peak_count += 1
+
 					## hotfix SVM results based on peak detection
 					if peak_count == 2 and not self.zygosity_state == 'HETERO':
 						if self.zygosity_state == 'HOMO+' or self.zygosity_state == 'HOMO*':
 							self.sequencepair_object.set_svm_failure(False)
 							pass
 						else:
-							self.zygosity_state = 'HETERO'
-							self.sequencepair_object.set_svm_failure(True)
+							## ratios dictate that peak may be legit
+							## check between major and minor for validity
+							suspect_ratio = indv_minor/indv_major
+							if suspect_ratio < 0.15:
+								pass
+							else:
+
+								self.zygosity_state = 'HETERO'
+								self.sequencepair_object.set_svm_failure(True)
 
 			## set distribution
 			allele_object.set_rvarray(self.reverse_aggregate)
@@ -623,6 +633,7 @@ class AlleleGenotyping:
 		if self.zygosity_state == 'HETERO' or self.zygosity_state == 'HOMO*' or self.zygosity_state == 'HOMO+':
 			existing_calls = []
 			for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
+
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
 				allele.set_totalreads(sum(target_distro))
@@ -638,15 +649,22 @@ class AlleleGenotyping:
 				while fod_failstate:
 					fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, 1, 'CAGHet', fod_recall=True)
 
-				for item in cag_indexes:
-					if not item in existing_calls:
-						existing_calls.append(item)
-
-						if type(cag_indexes) == np.ndarray:
-							itemindex = np.where(cag_indexes == item)
-							allele.set_fodcag(cag_indexes.flat[itemindex])
-						else:
-							allele.set_fodcag(cag_indexes)
+				## check that FOD didn't return more items than it was required for this allele
+				## only keep discrete values from the inferred total of all calls in the current sample				
+				if not self.sequencepair_object.get_homozygoushaplotype():
+					for item in cag_indexes:
+						gtype = (item, allele.get_ccg())
+						## However we can get the case where CAG match between alleles but CCG doesn't
+						## so we must add tuples instead of integers, and check the correct element against our observation
+						if not any(gtype[1] in obs_tuple for obs_tuple in existing_calls):
+							existing_calls.append(gtype)
+							if type(cag_indexes) == np.ndarray:
+								itemindex = np.where(cag_indexes == item)
+								allele.set_fodcag(cag_indexes.flat[itemindex])
+							else:
+								allele.set_fodcag(cag_indexes)
+				else:
+					allele.set_fodcag(cag_indexes)
 
 		########################
 		## Homozygous for CCG ##
@@ -688,6 +706,7 @@ class AlleleGenotyping:
 			## Re-set read count for the allele, due to subsampling
 			existing_calls = []
 			for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
+
 				distribution_split = self.split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
 
@@ -710,7 +729,6 @@ class AlleleGenotyping:
 				for item in cag_indexes:
 					if not item in existing_calls:
 						existing_calls.append(item)
-
 						if type(cag_indexes) == np.ndarray:
 							itemindex = np.where(cag_indexes == item)
 							allele.set_fodcag(cag_indexes.flat[itemindex])
@@ -1663,4 +1681,3 @@ class AlleleGenotyping:
 		self.allele_report = [self.sequencepair_object.get_primaryallele().get_allelereport(),
 							  self.sequencepair_object.get_secondaryallele().get_allelereport()]
 		return self.allele_report
-
