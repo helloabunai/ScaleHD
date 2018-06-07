@@ -690,7 +690,7 @@ class ScanAtypical:
 						secondary_allele['Reference'] = sorted_info[1][0]
 						secondary_was_set = True
 				## theta is close to beta, but not neighbouring.. cell line DNA/broad expansion
-				if np.isclose([beta_theta_CAGDiff], [1], atol==5):
+				if np.isclose([beta_theta_CAGDiff], [1], atol=5):
 					secondary_allele = sorted_info[1][1]
 					secondary_allele['Reference'] = sorted_info[1][0]
 					secondary_allele['DiffConfuse'] = True
