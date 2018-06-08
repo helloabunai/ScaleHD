@@ -583,6 +583,8 @@ class AlleleGenotyping:
 
 	def determine_cag(self):
 
+		print self.zygosity_state
+
 		##
 		## Constructs
 		pass_gtp = True
@@ -649,6 +651,8 @@ class AlleleGenotyping:
 				while fod_failstate:
 					fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, 1, 'CAGHet', fod_recall=True)
 
+				print 'raw', cag_indexes
+
 				## check that FOD didn't return more items than it was required for this allele
 				## only keep discrete values from the inferred total of all calls in the current sample				
 				if not self.sequencepair_object.get_homozygoushaplotype():
@@ -658,6 +662,12 @@ class AlleleGenotyping:
 						## so we must add tuples instead of integers, and check the correct element against our observation
 						if not any(gtype[1] in obs_tuple for obs_tuple in existing_calls):
 							existing_calls.append(gtype)
+							if type(cag_indexes) == np.ndarray:
+								itemindex = np.where(cag_indexes == item)
+								allele.set_fodcag(cag_indexes.flat[itemindex])
+							else:
+								allele.set_fodcag(cag_indexes)
+						else:
 							if type(cag_indexes) == np.ndarray:
 								itemindex = np.where(cag_indexes == item)
 								allele.set_fodcag(cag_indexes.flat[itemindex])
@@ -732,8 +742,10 @@ class AlleleGenotyping:
 						if type(cag_indexes) == np.ndarray:
 							itemindex = np.where(cag_indexes == item)
 							allele.set_fodcag(cag_indexes.flat[itemindex])
+							print 'd', cag_indexes.flat[itemindex]
 						else:
 							allele.set_fodcag(cag_indexes)
+							print 'e', cag_indexes
 
 		return pass_gtp
 
