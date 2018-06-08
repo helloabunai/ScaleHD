@@ -1474,7 +1474,7 @@ class AlleleGenotyping:
 				else: allele_confidence += 0; penfi.write('{}, {}\n'.format('Recall Count', '+0'))
 
 				if self.sequencepair_object.get_homozygoushaplotype():
-					allele_confidence -= 15; penfi.write('{}, {}\n'.format('Homozygous Haplotype','-15'))
+					allele_confidence -= 25; penfi.write('{}, {}\n'.format('Homozygous Haplotype','-25'))
 				elif self.sequencepair_object.get_neighbouringpeaks():
 					allele_confidence -= 25; penfi.write('{}, {}\n'.format('Neighbouring Peaks', '-25'))
 				else: allele_confidence += 0; penfi.write('{}, {}\n'.format('Normal Data','+0'))
