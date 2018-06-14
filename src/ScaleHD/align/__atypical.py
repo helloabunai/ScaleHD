@@ -554,9 +554,6 @@ class ScanAtypical:
 		sorted_info = sorted(self.atypical_info.iteritems(), key=lambda (x, y): y['TotalReads'], reverse=True)
 		if len(sorted_info) != 3: raise IndexError('< 3 references in sorted top; alignment failure?')
 
-		for item in sorted_info:
-			print item,'\n'
-
 		## Top1 always used
 		## Secondary reassigned after filtering with heuristics
 		primary_allele = sorted_info[0][1]; primary_allele['Reference'] = sorted_info[0][0]
@@ -599,62 +596,48 @@ class ScanAtypical:
 
 		## CCG in Top3 all equal?
 		if uniform_ccg == 2:
-			print '1'
 			##top1-top2 CAG difference
 			if alpha_beta_CAGDiff == 1 and beta_theta_CAGDiff != 1:
-				print '2'
 				if alpha_beta_CAGDiff == 1 and alpha_theta_CAGDiff == 1:
-					print '3'
 					if np.isclose([alpha_beta_ReadPcnt], [0.3], atol=0.1):
-						print '4'
 						## B.T.ReadPcnt > threshold.. beta == neighbouring
 						if np.isclose([beta_theta_ReadPcnt],[0.75],atol=0.1):
-							print '5'
 							secondary_allele = sorted_info[1][1]
 							secondary_allele['Reference'] = sorted_info[1][0]
 							secondary_allele['Neighbouring'] = True
 							secondary_was_set = True
 						## dropoff too small, homozygous haplotype
 						if 0 < beta_theta_ReadPcnt <= 0.64:
-							print '6'
 							secondary_allele = primary_allele.copy()
 							secondary_was_set = True
 					else:
-						print '7'
 						## B.T.ReadPcnt > threshold.. beta == neighbouring
 						if np.isclose([beta_theta_ReadPcnt],[0.75],atol=0.1):
-							print '8'
 							secondary_allele = sorted_info[1][1]
 							secondary_allele['Reference'] = sorted_info[1][0]
 							secondary_allele['Neighbouring'] = True
 							secondary_was_set = True
 						## dropoff too small, homozygous haplotype
 						if 0 < beta_theta_ReadPcnt <= 0.64:
-							print '9'
 							secondary_allele = primary_allele.copy()
 							secondary_allele['DiffConfuse'] = True
 							secondary_was_set = True
 				if alpha_beta_CAGDiff == 1 and alpha_theta_CAGDiff != 1:
-					print '10'
 					secondary_allele = sorted_info[2][1]
 					secondary_allele['Reference'] = sorted_info[2][0]
 					secondary_was_set = True
 
 			##top2-top3 CAG difference
 			if beta_theta_CAGDiff == 1 and alpha_beta_CAGDiff != 1:
-				print '11'
 				if 0.55 <= beta_theta_ReadPcnt < 1:
-					print '12'
 					secondary_allele = sorted_info[1][1]
 					secondary_allele['Reference'] = sorted_info[1][0]
 					secondary_was_set = True
 				if np.isclose([beta_theta_ReadPcnt],[0.45],atol=0.1):
-					print '13'
 					secondary_allele = sorted_info[1][1]
 					secondary_allele['Reference'] = sorted_info[1][0]
 					secondary_was_set = True
 				elif beta_theta_ReadPcnt <= 0.35:
-					print '14'
 					secondary_allele = sorted_info[1][1]
 					secondary_allele['Reference'] = sorted_info[1][0]
 					secondary_allele['DiffConfuse'] = True
@@ -662,17 +645,14 @@ class ScanAtypical:
 
 			##top1-top2-top3 all within 1
 			if beta_theta_CAGDiff == 1 and alpha_beta_CAGDiff == 1:
-				print '15'
 				if 0.55 <= alpha_beta_ReadPcnt < 1:
 					secondary_allele = primary_allele.copy()
 					secondary_was_set = True
 				elif np.isclose([alpha_beta_ReadPcnt],[0.45],atol=0.1):
-					print '16'
 					secondary_allele = sorted_info[1][1]
 					secondary_allele['Reference'] = sorted_info[1][0]
 					secondary_was_set = True
 				elif alpha_beta_ReadPcnt <= 0.35:
-					print '17'
 					secondary_allele = sorted_info[1][1]
 					secondary_allele['Reference'] = sorted_info[1][0]
 					secondary_allele['DiffConfuse'] = True
@@ -680,7 +660,6 @@ class ScanAtypical:
 
 			## Same CCG but out of step with order
 			if alpha_theta_CAGDiff == 1:
-				print '18'
 				secondary_allele = sorted_info[1][1]
 				secondary_allele['Reference'] = sorted_info[1][0]
 				secondary_allele['DiffConfuse'] = True
@@ -689,7 +668,6 @@ class ScanAtypical:
 			## cell line DNA, skewed expansion with broad peak
 			## theta is not neighbouring of beta, but beta is legitimate
 			if alpha_beta_CAGDiff > 1 and np.isclose([beta_estCAG], [theta_estCAG], atol=5):
-				print '19'
 				secondary_allele = sorted_info[1][1]
 				secondary_allele['Reference'] = sorted_info[1][0]
 				secondary_allele['DiffConfuse'] = True
@@ -697,29 +675,23 @@ class ScanAtypical:
 
 		## CCG in Top3 not equal?
 		if uniform_ccg < 2:
-			print '20'
 			## the CCG in #2,#3 match
 			if beta_estCCG == theta_estCCG:
-				print '21'
 				## determine CAG distance
 				## if "neighbours"
 				if beta_theta_CAGDiff == 1:
-					print '22'
 					## read dropoff percentage of #2 determines whether #2 or #3 is legitimate
 					if np.isclose([beta_theta_ReadPcnt], [0.15], atol=0.1):
-						print '23'
 						secondary_allele = sorted_info[1][1]
 						secondary_allele['Reference'] = sorted_info[1][0]
 						secondary_allele['DiffConfuse'] = True
 						secondary_was_set = True
 					else:
-						print '24'
 						secondary_allele = sorted_info[1][1]
 						secondary_allele['Reference'] = sorted_info[1][0]
 						secondary_was_set = True
 				## theta is close to beta, but not neighbouring.. cell line DNA/broad expansion
 				if np.isclose([beta_theta_CAGDiff], [1], atol=5):
-					print '25'
 					secondary_allele = sorted_info[1][1]
 					secondary_allele['Reference'] = sorted_info[1][0]
 					secondary_allele['DiffConfuse'] = True
@@ -727,39 +699,29 @@ class ScanAtypical:
 
 			## the CCG in #2,#3 don't match
 			if not beta_estCCG == theta_estCCG:
-				print '26'
 				## beta CCG match and alpha.CAG-beta.CAG == 1:
 				if alpha_estCCG == beta_estCCG:
-					print '27'
 					if alpha_beta_CAGDiff == 1:
-						print '28'
 						## large enough drop between alpha and beta rules out beta/theta
 						if np.isclose([alpha_beta_ReadPcnt],[0.75],atol=0.25):
-							print '29'
 							if abs(beta_estCCG - theta_estCCG) >= 1:
-								print '30'
 								if np.isclose([beta_theta_ReadPcnt], [0.15], atol=0.15):
-									print '31'
 									secondary_allele = sorted_info[2][1]
 									secondary_allele['Reference'] = sorted_info[2][0]
 									secondary_was_set = True
 								else:
-									print '32'
 									secondary_allele = primary_allele.copy()
 									secondary_allele['DiffConfuse'] = True
 									secondary_was_set = True
 							else:
-								print '33'
 								secondary_allele = primary_allele.copy()
 								secondary_was_set = True
 						## drop is small and alpha.CAG-beta.CAG == 1, thus slippage (theta real)
 						elif 0.25 <= alpha_beta_ReadPcnt <= 0.49:
-							print '34'
 							secondary_allele = sorted_info[2][1]
 							secondary_allele['Reference'] = sorted_info[2][0]
 							secondary_was_set = True
 						else:
-							print '35'
 							secondary_allele = sorted_info[1][1]
 							secondary_allele['Reference'] = sorted_info[1][0]
 							secondary_allele['DiffConfuse'] = True
@@ -767,22 +729,17 @@ class ScanAtypical:
 
 				## theta is slippage of alpha, beta is legitimate
 				if alpha_estCCG != beta_estCCG:
-					print '36'
 					if alpha_estCCG == theta_estCCG and alpha_theta_CAGDiff == 1:
-						print '37'
 						secondary_allele = sorted_info[1][1]
 						secondary_allele['Reference'] = sorted_info[1][0]
 						secondary_was_set = True
 				## all alleles different CCG
 				if alpha_estCCG != beta_estCCG and beta_estCCG != theta_estCCG:
-					print '38'
 					## however, cag values on alpha/theta are close
 					## and CCG within 1, so probably misread by sequencing machine
 					## thus beta is legitimate
 					if np.isclose([theta_estCAG], [alpha_estCAG], atol=5):
-						print '39'
 						if np.isclose([alpha_estCCG],[theta_estCCG], atol=2):
-							print '40'
 							secondary_allele = sorted_info[1][1]
 							secondary_allele['Reference'] = sorted_info[1][0]
 							secondary_was_set = True
@@ -835,9 +792,6 @@ class ScanAtypical:
 			self.sequencepair_object.set_homozygoushaplotype(True)
 
 		self.sequencepair_object.set_heuristicfilter(secondary_was_set)
-		print '\n\n\nsecondary was set :: ', secondary_was_set
-		print primary_allele
-		print secondary_allele
 		return primary_allele, secondary_allele, atypical_count
 
 	def create_genotype_label(self, input_reference):

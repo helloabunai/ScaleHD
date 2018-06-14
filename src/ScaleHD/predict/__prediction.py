@@ -583,8 +583,6 @@ class AlleleGenotyping:
 
 	def determine_cag(self):
 
-		print self.zygosity_state
-
 		##
 		## Constructs
 		pass_gtp = True
@@ -650,8 +648,6 @@ class AlleleGenotyping:
 				fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, 1, 'CAGHet')
 				while fod_failstate:
 					fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, 1, 'CAGHet', fod_recall=True)
-
-				print 'raw', cag_indexes
 
 				## check that FOD didn't return more items than it was required for this allele
 				## only keep discrete values from the inferred total of all calls in the current sample				
@@ -742,10 +738,8 @@ class AlleleGenotyping:
 						if type(cag_indexes) == np.ndarray:
 							itemindex = np.where(cag_indexes == item)
 							allele.set_fodcag(cag_indexes.flat[itemindex])
-							print 'd', cag_indexes.flat[itemindex]
 						else:
 							allele.set_fodcag(cag_indexes)
-							print 'e', cag_indexes
 
 		return pass_gtp
 
