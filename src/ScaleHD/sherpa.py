@@ -76,8 +76,10 @@ class ScaleHD:
 
 		##
 		## Set verbosity for CLI output
+		self.logfi = os.path.join(self.args.output[0], 'ScaleHDLog.txt')
 		if self.args.verbose:
-			log.basicConfig(format='%(message)s', level=log.DEBUG)
+			log.basicConfig(format='%(message)s', level=log.DEBUG, filename=self.logfi)
+			log.getLogger().addHandler(log.StreamHandler())
 			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'ScaleHD: Automated DNA micro-satellite genotyping.'))
 			log.info('{}{}{}{}'.format(clr.bold, 'shd__ ', clr.end, 'alastair.maxwell@glasgow.ac.uk\n'))
 		else:
@@ -144,6 +146,7 @@ class ScaleHD:
 		## In the future, replace with HTML based web-app, generated here?
 		## For now, just exit
 		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'ScaleHD pipeline completed; exiting.'))
+		os.rename(self.logfi, os.path.join(self.instance_rundir, 'ScaleHDLog.txt'))
 
 	def instance_data(self):
 
@@ -523,5 +526,4 @@ def main():
 		ScaleHD()
 	except KeyboardInterrupt:
 		log.error('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Fatal: Keyboard Interrupt detected. Exiting.'))
-
 		sys.exit(2)

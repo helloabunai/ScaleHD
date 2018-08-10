@@ -732,15 +732,23 @@ class AlleleGenotyping:
 
 				## check that FOD didn't return more items than it was required for this allele
 				## only keep discrete values from the inferred total of all calls in the current sample
-				for item in cag_indexes:
-					if not item in existing_calls:
-						existing_calls.append(item)
-						if type(cag_indexes) == np.ndarray:
-							itemindex = np.where(cag_indexes == item)
-							allele.set_fodcag(cag_indexes.flat[itemindex])
+				if not self.sequencepair_object.get_homozygoushaplotype():
+					for item in cag_indexes:
+						if not item in existing_calls:
+							existing_calls.append(item)
+							if type(cag_indexes) == np.ndarray:
+								itemindex = np.where(cag_indexes == item)
+								allele.set_fodcag(cag_indexes.flat[itemindex])
+							else:
+								allele.set_fodcag(cag_indexes)
 						else:
-							allele.set_fodcag(cag_indexes)
-
+							if type(cag_indexes) == np.ndarray:
+								itemindex = np.where(cag_indexes == item)
+								allele.set_fodcag(cag_indexes.flat[itemindex])
+							else:
+								allele.set_fodcag(cag_indexes)
+				else:
+					allele.set_fodcag(cag_indexes)
 		return pass_gtp
 
 	def genotype_validation(self):
@@ -752,49 +760,6 @@ class AlleleGenotyping:
 		secondary_allele = self.sequencepair_object.get_secondaryallele()
 		distribution_split = self.split_cag_target(primary_allele.get_fwarray())
 		ccg_zygstate = self.zygosity_state
-
-		##
-		## Subfunctions
-		def read_comparison(val1, val2):
-			if np.isclose(val1, val2, atol=1):
-				return val2
-			else:
-				return val1
-
-		def ensure_integrity():
-
-			##
-			## Ensure integrity
-			inner_pass = True
-			if not primary_dsp_ccg == int(primary_fod_ccg):
-				if read_comparison(primary_dsp_ccg, int(primary_fod_ccg)) == primary_fod_ccg:
-					self.sequencepair_object.get_primaryallele().set_fodccg(primary_dsp_ccg)
-					inner_pass = True
-				else:
-					inner_pass = False
-
-			if not primary_dsp_cag == int(primary_fod_cag):
-				if read_comparison(primary_dsp_cag, int(primary_fod_cag)) == primary_fod_cag:
-					self.sequencepair_object.get_primaryallele().set_fodcag(primary_dsp_cag)
-					inner_pass = True
-				else:
-					inner_pass = False
-
-			if not secondary_dsp_ccg == int(secondary_fod_ccg):
-				if read_comparison(secondary_dsp_ccg, int(secondary_fod_ccg)) == secondary_fod_ccg:
-					self.sequencepair_object.get_secondaryallele().set_fodccg(secondary_dsp_ccg)
-					inner_pass = True
-				else:
-					inner_pass = False
-
-			if not secondary_dsp_cag == int(secondary_fod_cag):
-				if read_comparison(secondary_dsp_cag, int(secondary_fod_cag)) == secondary_fod_cag:
-					self.sequencepair_object.get_secondaryallele().set_fodcag(secondary_dsp_cag)
-					inner_pass = True
-				else:
-					inner_pass = False
-
-			return inner_pass
 
 		##
 		## Primary Allele
@@ -816,22 +781,82 @@ class AlleleGenotyping:
 		## Double check fod peaks
 		def dimension_checker(input_list):
 
-			fod = input_list[0]
-			dsp = input_list[1]
-			allele = input_list[2]
+			## data
+			fod = input_list[0]; dsp = input_list[1];allele = input_list[2]
 
+			## casting
 			if type(fod) is np.ndarray:
 				fod = input_list[0].tolist()
 			elif type(fod) is not list:
 				fod = [input_list[0]]
 
+			## validity between DSP/FOD
 			for i in range(0, len(fod)):
 				if np.isclose([fod[i]], [dsp], atol=1.0):
 					allele.set_fodcag(fod[i])
 
-		for item in [[primary_fod_cag, primary_dsp_cag, primary_allele], [secondary_fod_cag, secondary_dsp_cag, secondary_allele]]:
+		for item in [[primary_fod_cag, primary_dsp_cag, primary_allele],
+					 [secondary_fod_cag, secondary_dsp_cag, secondary_allele]]:
 			dimension_checker(item)
 			primary_fod_cag = [primary_allele.get_fodcag()]; secondary_fod_cag = [secondary_allele.get_fodcag()]
+
+		##
+		## Subfunctions
+		def read_comparison(val1, val2):
+			if np.isclose(val1, val2, atol=1):
+				return val2
+			else:
+				return val1
+
+		def ensure_integrity():
+
+			##
+			## Ensure integrity
+			inner_pass = True
+			try:
+				if not primary_dsp_ccg == int(primary_fod_ccg):
+					if read_comparison(primary_dsp_ccg, int(primary_fod_ccg)) == primary_fod_ccg:
+						self.sequencepair_object.get_primaryallele().set_fodccg(primary_dsp_ccg)
+						inner_pass = True
+					else:
+						inner_pass = False
+			except TypeError:
+				self.sequencepair_object.get_primaryallele().set_fodccg(primary_dsp_ccg)
+				inner_pass = True
+
+			try:
+				if not primary_dsp_cag == int(primary_fod_cag):
+					if read_comparison(primary_dsp_cag, int(primary_fod_cag)) == primary_fod_cag:
+						self.sequencepair_object.get_primaryallele().set_fodcag(primary_dsp_cag)
+						inner_pass = True
+					else:
+						inner_pass = False
+			except TypeError:
+				self.sequencepair_object.get_primaryallele().set_fodcag(primary_dsp_cag)
+				inner_pass = True
+
+			try:
+				if not secondary_dsp_ccg == int(secondary_fod_ccg):
+					if read_comparison(secondary_dsp_ccg, int(secondary_fod_ccg)) == secondary_fod_ccg:
+						self.sequencepair_object.get_secondaryallele().set_fodccg(secondary_dsp_ccg)
+						inner_pass = True
+					else:
+						inner_pass = False
+			except TypeError:
+				self.sequencepair_object.get_secondaryallele().set_fodccg(secondary_dsp_ccg)
+				inner_pass = True
+
+			try:
+				if not secondary_dsp_cag == int(secondary_fod_cag):
+					if read_comparison(secondary_dsp_cag, int(secondary_fod_cag)) == secondary_fod_cag:
+						self.sequencepair_object.get_secondaryallele().set_fodcag(secondary_dsp_cag)
+						inner_pass = True
+					else:
+						inner_pass = False
+			except TypeError:
+				self.sequencepair_object.get_secondaryallele().set_fodcag(secondary_dsp_cag)
+
+			return inner_pass
 
 		##
 		## Brute force zygosity

@@ -1,5 +1,12 @@
 .. _sect_changelog:
 
+Version 0.317
+-------------
+
+* Minor genotyping bugfixes
+* Added file I/O of u.x. stdout log for easier troubleshooting
+* stuff to go here...
+
 Verson 0.316
 ------------
 

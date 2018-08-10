@@ -41,7 +41,7 @@ Here is an example configuration file:
 	<demultiplex_flags forward_adapter="GCGACCCTGG" forward_position="5P" reverse_adapter="GCAGCGGCTG" reverse_position="5P" error_rate="0" min_overlap="10" min_length="" max_length=""/>
 	<trim_flags	trim_type="Adapter" quality_threshold="5" adapter_flag="-a" adapter="ACACTCTTTCCCTACACGACGCTCTTCCGATC" error_tolerance="0.5"/>
 	<alignment_flags min_seed_length="19" band_width="100" seed_length_extension="1.5" seed_occurrence="20" skip_seed_with_occurrence="500" chain_drop="0.50" seeded_chain_drop="0" seq_match_score="1" mismatch_penalty="4" indel_penalty="6,6" gap_extend_penalty="1,1" prime_clipping_penalty="5,5" unpaired_pairing_penalty="17"/>
-	<prediction_flags snp_observation_threshold="2" algorithm_utilisation="freebayes" quality_cutoff="1000"/>
+	<prediction_flags snp_observation_threshold="2" algorithm_utilisation="freebayes" quality_cutoff="10000"/>
   </config>
 
 Within the **<config>** branch, there are three attributes to which the user must assign a value. *data_dir* must point to your input folder, consisting of an even number of input data files (see: :ref:`sect_dataassume`). *forward_reference* points to a .fasta reference file, for which alignment is carried out on forward reads. *reverse_reference* points to a .fasta reference file, for reverse alignment.
@@ -97,7 +97,7 @@ The VCF "QUAL" is described in the latest specification as:
     wrong). If ALT is ‘.’ (no variant) then this is −10log10 prob(variant), and if ALT is not ‘.’ this is −10log10
     prob(no variant). If unknown, the missing value should be specified. (Numeric)
 
-The user can control the Phred-scaled score lower limit for a valid SNP to be included with ScaleHD output via this option.
+The user can control the Phred-scaled score lower limit for a valid SNP to be included with ScaleHD output via this option. Through testing, I have found that a cutoff of 150000 is a good place to start.
 
 
 

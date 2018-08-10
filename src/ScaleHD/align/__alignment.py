@@ -36,8 +36,12 @@ def purge_alignment_map(alignment_outdir, alignment_outfile):
 	postpurge_readcount = subprocess.Popen(['samtools', 'flagstat', purged_assembly],
 							 stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
 	postmapped_pcnt = [x for x in (postpurge_readcount[0].split('\n')) if '%' in x]
-	postaln_pcnt = str(postmapped_pcnt[0]).split('(')[1].rsplit('%')[0]
-	postaln_count = postmapped_pcnt[0].split(' +')[0]; post_purge = (postaln_count, postaln_pcnt)
+	try:
+		postaln_pcnt = str(postmapped_pcnt[0]).split('(')[1].rsplit('%')[0]
+		postaln_count = postmapped_pcnt[0].split(' +')[0]
+		post_purge = (postaln_count, postaln_pcnt)
+	except IndexError:
+		raise Exception('No reads aligned at all in this sample. Cannot progress.')
 
 	## both flagstat output for writing to report file
 	flagstat_output = (prepurge_readcount, postpurge_readcount)
