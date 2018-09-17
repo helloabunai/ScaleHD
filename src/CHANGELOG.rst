@@ -3,9 +3,12 @@
 Version 0.317
 -------------
 
-* Minor genotyping bugfixes
+* Minor genotype graph render bugfixes
 * Added file I/O of u.x. stdout log for easier troubleshooting
-* stuff to go here...
+* Fixed minor bugs to do with SNP calling I/O paths and me being a bad programmer when hungry
+* Added sanitisation stage to check for a user attempting to demultiplex files which have already been demultiplexed
+* Minor tweaks for Windows 10 Linux Subsystem support
+* Refactoring config backend interpreter to make it less dumpster-fire-awful
 
 Verson 0.316
 ------------

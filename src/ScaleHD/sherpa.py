@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.316
+__version__ = 0.317
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -77,6 +77,11 @@ class ScaleHD:
 		##
 		## Set verbosity for CLI output
 		self.logfi = os.path.join(self.args.output[0], 'ScaleHDLog.txt')
+		## create logdir
+		if not os.path.exists(self.args.output[0]):
+			print 'making {}'.format(self.args.output[0])
+			os.makedirs(self.args.output[0])
+
 		if self.args.verbose:
 			log.basicConfig(format='%(message)s', level=log.DEBUG, filename=self.logfi)
 			log.getLogger().addHandler(log.StreamHandler())

@@ -1,5 +1,5 @@
 #/usr/bin/python
-__version__ = 0.316
+__version__ = 0.317
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -23,7 +23,12 @@ def purge_alignment_map(alignment_outdir, alignment_outfile):
 	## Readcount on pre-purged assembly (100% of aligned reads present)
 	prepurge_readcount = subprocess.Popen(['samtools', 'flagstat', alignment_outfile],
 							  stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+
 	premapped_pcnt = [x for x in (prepurge_readcount[0].split('\n')) if '%' in x]
+	try:
+		str(premapped_pcnt[0]).split('(')[1].rsplit('%')[0]
+	except IndexError:
+		log.critical('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Alignment file was empty -- did you demultiplex a demultiplexed file?'))
 	prealn_pcnt = str(premapped_pcnt[0]).split('(')[1].rsplit('%')[0]
 	prealn_count = premapped_pcnt[0].split(' +')[0]; pre_purge = (prealn_count, prealn_pcnt)
 
@@ -121,7 +126,6 @@ class SeqAlign:
 			target_outfi = open(target_output, 'w')
 			seqtk_process = subprocess.Popen(['seqtk', 'sample', '-s100', target_file, str(self.subsample_flag)], stdout=target_outfi)
 			seqtk_process.wait(); target_outfi.close()
-			#self.sequencepair_object.set_avoidfurthersubsample(True) -- not required currently
 			return target_output
 		else:
 			return target_file
@@ -144,7 +148,7 @@ class SeqAlign:
 
 		self.subsample_flag = 1.0
 		if not self.broad_flag:
-			if awk_output > 100000: self.subsample_flag = 0.25
+			if awk_output > 100000: self.subsample_flag = 0.254
 			elif 100000 > awk_output > 50000: self.subsample_flag = 0.5
 			elif 50000 > awk_output > 25000: self.subsample_flag = 0.75
 
@@ -355,7 +359,7 @@ class ReferenceIndex:
 		## Be paranoid, check existence/validity of reference.. again
 		reference_root = self.reference.split('/')[-1].split('.')[0]
 		if os.path.isfile(self.reference):
-			if not (self.reference.endswith('.fa') or self.reference.endswith('.fas') or self.reference.endswith('.fasta')):
+			if not (self.reference.endswith('.fa') or self.reference.endswith('.fasta')):
 				log.critical('{}{}{}{}'.format(clr.red,'shd__ ',clr.end,'Specified reference does not exist/is not fasta.'))
 		##
 		## Path to store indexes for this reference

@@ -277,3 +277,37 @@ If this still refuses to work, you can look into installing these dependencies v
 
   brew tap homebrew/science && brew install python numpy scipy matplotlib
 
+ScaleHD on Windows
+~~~~~~~~~~~~~~~~~~
+
+Natively, ScaleHD has no support for Windows operating systems. However, with Windows 10, Microsoft has provided a way by which to run a unix environment on your Windows computer.
+This allows ScaleHD to run on Windows machines, through this Linux Subsystem Layer. The Linux Subsystem is only available for Windows 10, versions 1709 and later. Other versions of Windows are not supported.
+
+To install the Linux Subsystem:
+
+Open PowerShell (search for the application in the start menu), and type the following command:
+
+::
+
+  Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
+
+This will require a reboot of your system to complete.
+
+Once complete, you need to choose a linux distribution to install to your newly installed unix subsystem. Unfortunately you must do this
+via the Windows Store, because yay for unnecessary homogenisation. Open the Windows Store, and search for your distribution. We have tested ScaleHD on Windows 10 only in ubuntu 18.04.
+
+Once installed, you can open a command prompt (cmd.exe) to begin. Launch your installed distribution's shell. For our example:
+
+::
+
+  ubuntu1804
+
+This changes your prompt from a Windows shell to the Ubuntu Bash environment. From here, you can follow ScaleHD installation instructions as above.
+
+
+
+
+
+
+
+

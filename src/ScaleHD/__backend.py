@@ -1,5 +1,5 @@
 #/usr/bin/python
-__version__ = 0.316
+__version__ = 0.317
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -145,7 +145,6 @@ class ConfigReader(object):
 		If all pass, guarantees that the settings dictionary is full of valid settings!
 		"""
 		trigger = False
-
 		##
 		## Main configuration instance settings
 
@@ -161,14 +160,14 @@ class ConfigReader(object):
 		if not os.path.isfile(forward_reference):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified forward reference file could not be found.'))
 			trigger = True
-		if not (forward_reference.endswith('.fa') or forward_reference.endswith('.fas') or forward_reference.endswith('.fasta')):
+		if not (forward_reference.endswith('.fa') or forward_reference.endswith('.fasta')):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified forward reference file is not a fa/fas file.'))
 			trigger = True
 		reverse_reference = self.config_dict['@reverse_reference']
 		if not os.path.isfile(reverse_reference):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified reverse reference file could not be found.'))
 			trigger = True
-		if not (reverse_reference.endswith('fa') or reverse_reference.endswith('.fas') or reverse_reference.endswith('.fasta')):
+		if not (reverse_reference.endswith('fa') or reverse_reference.endswith('.fasta')):
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified reverse reference file is not a fa/fas file.'))
 			trigger = True
 		if forward_reference.split('/')[-1] == reverse_reference.split('/')[-1]:
@@ -480,7 +479,6 @@ def sanitise_inputs(parsed_arguments):
 			if not check_input_files('.xml',xmlfile):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'Specified config file is not an XML file.'))
 				trigger = True
-
 	return trigger
 
 def extract_data(input_data_directory):

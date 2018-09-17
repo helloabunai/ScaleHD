@@ -1,3 +1,3 @@
-__version__ = 0.316
+__version__ = 0.317
 from sherpa import main
 main()
