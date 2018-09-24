@@ -47,7 +47,6 @@ setup(
 
 		# Specific version of the python interpreter that are supported
 		# by this package. Python 3 not support at this time.
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
 
 		## And so on
