@@ -20,3 +20,23 @@ a CAG repeat size of over 31. As a genotyping platform, ScaleHD will expose this
 Thus, this branch of ScaleHD will mask allele sizes from the end user, throughout intermediate files and processing stages, and the end genotype results.
 
 If you don't have a need for this functionality, don't use this version of the application.
+
+Due to the requirements of masking alleles, certain third party software output has to be culled in order to maintain this behaviour:
+
+Quality Control
+----
+
+In the SeqQC stage of ScaleHD-ALSPAC, we are unable to produce a copy of cutadapt trimming reports as output for each sample.
+We continue to check the output of cutadapt, for warnings or error messages that would need to be passed on to the end user. However, this is done entirely in-memory.
+
+FastQC would also compromise allele masking, and there is no realistic way to alter the output of this software. So, byebye FastQC (utilisation culled).
+
+Sequence Alignment
+----
+
+todo! lmaoOOo
+
+Genotyping & SNP Calling
+----
+
+todo! lmaoOOo
