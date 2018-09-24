@@ -79,7 +79,6 @@ class ScaleHD:
 		self.logfi = os.path.join(self.args.output[0], 'ScaleHDLog.txt')
 		## create logdir
 		if not os.path.exists(self.args.output[0]):
-			print 'making {}'.format(self.args.output[0])
 			os.makedirs(self.args.output[0])
 
 		if self.args.verbose:
