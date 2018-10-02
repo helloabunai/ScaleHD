@@ -34,9 +34,13 @@ FastQC would also compromise allele masking, and there is no realistic way to al
 Sequence Alignment
 ----
 
-todo! lmaoOOo
+Sequence alignment files are not written to disk and kept within memory objects and/or temporary files so that the end user is unable to manually inspect alignment assemblies.
+Instead of producing the sequence alignment as output of this stage, instead the required information (i.e. read count distributions) are passed straight to the next stage.
+
+Incase the end user unexpectedly quits the program during any given stage, a purging function is ran on the output folder in order to delete any compromising data before it can be viewed.
 
 Genotyping & SNP Calling
 ----
 
-todo! lmaoOOo
+Genotype results are masked, so as to not compromise integrity. The reference labels saved to output summary CSV are edited as "31+", if applicable.
+For graphs rendered of read count distributions, any reads aligned to CAG31 or above are summed, and placed into CAG31. This obfuscates the true genotype of any disease-associated allele present.
