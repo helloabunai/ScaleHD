@@ -107,6 +107,7 @@ class ScaleHD:
 			sys.exit(2)
 		try:
 			self.instance_rundir = sanitise_outputs(self.args.jobname, self.args.output)
+			os.rename(self.logfi, os.path.join(self.instance_rundir, 'ScaleHDLog.txt'))
 		except Exception, e:
 			log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, e))
 			sys.exit(2)
@@ -150,7 +151,6 @@ class ScaleHD:
 		## In the future, replace with HTML based web-app, generated here?
 		## For now, just exit
 		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'ScaleHD pipeline completed; exiting.'))
-		os.rename(self.logfi, os.path.join(self.instance_rundir, 'ScaleHDLog.txt'))
 
 	def instance_data(self):
 
