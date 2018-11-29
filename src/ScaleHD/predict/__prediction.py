@@ -904,10 +904,6 @@ class AlleleGenotyping:
 				secondary_fod_cag = primary_fod_cag
 
 			if primary_fod_cag == secondary_fod_cag:
-				print 'b'
-				print primary_reads
-				print secondary_reads
-				print pcnt
 
 				self.sequencepair_object.set_homozygoushaplotype(True)
 				self.sequencepair_object.set_secondary_allele(self.sequencepair_object.get_primaryallele())
