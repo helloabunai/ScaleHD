@@ -1,5 +1,13 @@
 .. _sect_changelog:
 
+Version 0.318
+-------------
+
+* Minor distribution scraping errors for homozygous haplotypes
+* Logging bugfix with file going missing because i'm bad at my job
+* SNP Calling masking for ScaleHD-ALSPAC
+* Framework for simplified 95%C.I. output (feature not implemented in this version; undergoing testing)
+
 Version 0.317
 -------------
 
