@@ -1,5 +1,5 @@
 #/usr/bin/python
-__version__ = 0.318
+__version__ = 0.319
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -59,7 +59,7 @@ def extract_repeat_distributions(sample_root, alignment_outdir, alignment_outfil
 	## Scrapes repeat distribution from alignment
 	sorted_assembly = '{}{}'.format(alignment_outdir, '/assembly_sorted.bam')
 	view_subprocess = subprocess.Popen(['samtools', 'view', '-bS', '-@', str(THREADS), alignment_outfile], stdout=subprocess.PIPE)
-	sort_subprocess = subprocess.Popen(['samtools', 'sort', '-@', str(THREADS), '-', '-o', sorted_assembly], stdin=view_subprocess.stdout)
+	sort_subprocess = subprocess.Popen(['samtools', 'sort', '-@', str(THREADS), '-', '-o', sorted_assembly], stdin=view_subprocess.stdout, stderr=subprocess.PIPE)
 	view_subprocess.wait(); sort_subprocess.wait()
 
 	##

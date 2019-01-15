@@ -1,6 +1,15 @@
 .. _sect_changelog:
 
-Version 0.318
+Version 0.319
+-------------
+
+* Updated dependencies to latest versions (see :ref:`_sect_reqpack`)
+* Minor tweaks to (syntax) interaction with updated versions of dependencies
+* Fixed Matplotlib font missing warning spam on certain systems
+* Fixed SKLearn ConvergenceWarnings spam
+* Fixed Samtools memory block merging spam
+
+Version 0.319
 -------------
 
 * Minor distribution scraping errors for homozygous haplotypes

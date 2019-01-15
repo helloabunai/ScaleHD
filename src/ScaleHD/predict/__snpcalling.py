@@ -1,5 +1,5 @@
 #/usr/bin/python
-__version__ = 0.318
+__version__ = 0.319
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 import os
@@ -28,7 +28,7 @@ class DetermineMutations:
 		Simple workflow function which calls various third party tools in order to call SNPs within the alignment
 		which we created earlier on within the pipeline.
 		:return: n/a
-		"""	
+		"""
 		for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 
 			## get data
@@ -48,7 +48,7 @@ class DetermineMutations:
 					## picard dict creation
 					picard_string = 'picard {} {}'.format(fw_idx, dict_path)
 					picard_subprocess = subprocess.Popen([picard_string], shell=True,
-					 stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
+					 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 					picard_log = picard_subprocess.communicate(); picard_subprocess.wait()
 					if 'ERROR' in picard_log:
 						log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Failure in PICARD. Check sample output log.'))
@@ -72,7 +72,7 @@ class DetermineMutations:
 					with open(logpath, 'w') as logfi:
 						logfi.write(picard_log[0])
 						logfi.write(picard_log[1])
-			
+
 			## freebayes haplotype caller
 			observation_threshold = (allele.get_totalreads()/100) * int(self.sequencepair_object.get_snpobservationvalue())
 			freebayes_output = os.path.join(predpath, '{}_FreeBayesVariantCall.vcf'.format(header))

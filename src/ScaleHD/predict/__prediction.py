@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.318
+__version__ = 0.319
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -76,7 +76,7 @@ class AlleleGenotyping:
 		## Classifier object and relevant parameters for our CCG prediction
 		svc_object = svm.LinearSVC(C=1.0, loss='ovr', penalty='l2', dual=False,
 								   tol=1e-4, multi_class='crammer_singer', fit_intercept=True,
-								   intercept_scaling=1, verbose=0, random_state=0, max_iter=-1)
+								   intercept_scaling=1, verbose=0, random_state=0, max_iter=100000)
 
 		##
 		## Take raw training data (CCG zygosity data) into DataLoader model object
@@ -114,9 +114,11 @@ class AlleleGenotyping:
 		## Predict the zygstate of these reshapen, normalised 20D CCG arrays using SVM object earlier
 		## Results from self.classifier are #encoded; so convert with our self.encoder.inverse_transform
 		## Depreciation warning started appearing on perfectly valid label arrays..
+		## ConvergenceWarning started appearing on perfectly valid model when SKL updated xd
 		## TODO investigate in future
 		import warnings
-		warnings.filterwarnings("ignore", category=DeprecationWarning)
+		with warnings.catch_warnings():
+    		warnings.simplefilter("ignore")
 		forward_zygstate = str(self.encoder.inverse_transform(self.classifier.predict(forward_reshape)))
 		reverse_zygstate = str(self.encoder.inverse_transform(self.classifier.predict(reverse_reshape)))
 
@@ -650,7 +652,7 @@ class AlleleGenotyping:
 					fod_failstate, cag_indexes = self.peak_detection(allele, target_distro, 1, 'CAGHet', fod_recall=True)
 
 				## check that FOD didn't return more items than it was required for this allele
-				## only keep discrete values from the inferred total of all calls in the current sample				
+				## only keep discrete values from the inferred total of all calls in the current sample
 				if not self.sequencepair_object.get_homozygoushaplotype():
 					for item in cag_indexes:
 						gtype = (item, allele.get_ccg())
@@ -1210,6 +1212,11 @@ class AlleleGenotyping:
 
 			#seaborn palette
 			sns.set(style='darkgrid')
+
+			## force fonts because matplotlib spam on some people's systems?
+			plt.rcParams['pdf.fonttype']=42
+			plt.rcParams['ps.fonttype']=42
+			mpll = log.getLogger('matplotlib'); mpll.setLevel(log.WARNING)
 
 			x = np.linspace(x[0],x[1],x[2])
 			fig, ax = plt.subplots(figsize=(10, 6)); plt.title(prefix+self.sequencepair_object.get_label())

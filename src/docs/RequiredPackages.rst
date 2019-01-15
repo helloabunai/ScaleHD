@@ -9,22 +9,23 @@ Python Packages
 ~~~~~~~~~~~~~~~
 
 All software packages have an accompanying version number listed. These are the versions of each package from which ScaleHD was developed. Newer versions may function fine, but are not tested. It is highly recommended to avoid older versions, and if possible, use the exact same version as during development. If you do not want to overwrite any packages of which you have a newer version, please see the sub-section in :ref:`detailed-install` about utilising virtual environments.
+As of ScaleHD version 0.319, dependencies have been updated to the latest available stable versions (at the time of writing). Syntax interaction for a few dependencies had changed, so ScaleHD may not function properly with versions other than that listed here.
 
- * cutadapt (1.9.1)
+ * cutadapt (1.18)
  * generatr (0.252)
- * batchadapt (0.1)
- * lxml (4.0.0)
- * matplotlib (1.3.1)
- * numpy (1.13.1)
- * pandas (0.14.1)
- * peakutils (1.0.3)
- * seaborn (0.8.1)
+ * batchadapt (0.21)
+ * lxml (4.3.0)
+ * matplotlib (2.2.3)
+ * numpy (1.16.0)
+ * pandas (0.23.4)
+ * peakutils (1.3.0)
+ * seaborn (0.9.0)
  * PyPDF2 (1.26.0)
- * pysam (0.9.1.4)
- * regex (2017.1.17)
- * reportlab (3.3.0)
- * scipy (0.17.1)
- * sklearn (0.19.1)
+ * pysam (0.15.2)
+ * regex (2018.11.22)
+ * reportlab (3.5.12)
+ * scipy (1.2.0)
+ * sklearn (0.20.2)
 
 Third Party Binaries
 ~~~~~~~~~~~~~~~~~~~~
@@ -32,13 +33,13 @@ Third Party Binaries
 ScaleHD also uses third party binaries to carry out certain functions. These binaries are expected to exist on your system $PATH variable, so they can be called by a UNIX subprocess without invoking a shell (as this is a huge security risk and generally bad design, and anyone who uses shells within a subprocess should feel bad about themselves). For more information on how to put binaries on your $PATH, please see the section :ref:`installation`. As the user can select which stages of ScaleHD to run, only the binaries utilised in each selected stage will be required. *However, for peace of mind it is recommended to just provide all required third party binaries on your $PATH anyway*. As with python dependencies, a software version is listed. Newer versions of dependencies may work with ScaleHD; using older versions is not recommended.
 
  * Java (1.8.0_20)
- * FastQC (0.9.2)
- * SeqTK (1.2-r101-dirty)
- * BWA-MEM (0.7.15-r1140)
- * Samtools (1.3.1)
- * Picard (2.18.3)
- * GATK (4.0.3.0)
- * FreeBayes (v1.1.0-60-gc15b070)
+ * FastQC (0.11.7)
+ * SeqTK (1.3-r106)
+ * BWA-MEM (0.7.17-r1188)
+ * Samtools (1.9)
+ * Picard (2.18.23)
+ * GATK (4.0.12.0)
+ * FreeBayes (v1.2.0-2-g29c4002)
 
 .. _installation:
 
@@ -51,7 +52,7 @@ As I have developed the software on OS X, and most of the end-users in our lab w
 
 .. _quick-install:
 
-Quick Instructions 
+Quick Instructions
 ~~~~~~~~~~~~~~~~~~
 
 If you know your way around a terminal, these instructions are for you.
@@ -66,7 +67,7 @@ This will install all python dependencies for you. Depending on your user privil
 
 .. _detailed-install:
 
-Detailed Instructions 
+Detailed Instructions
 ~~~~~~~~~~~~~~~~~~~~~
 
 If you're new to UNIX, bioinformatics, or command line interfaces in general, these instructions are for you. We will install ScaleHD from a completely clean install, step-by-step. This means, we assume your UNIX operating system has no dependencies installed at all, and requires everything installed from scratch. We assume absolutely zero knowledge of any techniques required to install and use ScaleHD, so it will be very in-depth. Let's begin!
@@ -204,11 +205,11 @@ The user must create a unix script, which handles input arguments and launches t
 ::
 
   java -jar /Users/alastairm/Documents/Builds/Picard/picard.jar CreateSequenceDictionary REFERENCE=$1 OUTPUT=$2
-  
+
 As usual, replace the literal directory with your own Builds path. Save this as a file (with no extension) called 'picard'. Include this in the same folder as the Picard JAR, so that your ~/Builds/Picard folder looks like:
 
 | Builds
-| ├── Picard          
+| ├── Picard
 | │   ├── picard ##the binary script we just made
 | │   ├── picard.jar ##the download jar archive
 
@@ -217,10 +218,10 @@ Then, make our script executable:
 ::
 
   chmod +x /Users/alastairm/Documents/Builds/Picard/picard
-  
+
 Once made executable, add the Picard folder to your $PATH. Picard is now set-up for ScaleHD.
 
-  
+
 GATK (4.0.3.0)
 ~~~~~~~~~~~~~~
 
@@ -249,7 +250,7 @@ When colleagues were testing the software, these were the most common issues enc
 
  * LibXML headers missing
 
-For this issue, you are missing the libxml2-dev and libxslt-dev libraries from your system. These packages should be installed as part of lxml, which is included in the setup script for ScaleHD, and should have been installed automatically. However, you can check if you are missing this package by opening a terminal, launching the Python interpreter (run the command 'python'), and then trying the command 'import lxml'. If this fails, then you know the package did not install properly, for whatever reason. 
+For this issue, you are missing the libxml2-dev and libxslt-dev libraries from your system. These packages should be installed as part of lxml, which is included in the setup script for ScaleHD, and should have been installed automatically. However, you can check if you are missing this package by opening a terminal, launching the Python interpreter (run the command 'python'), and then trying the command 'import lxml'. If this fails, then you know the package did not install properly, for whatever reason.
 
 To remedy this, you can install lxml 'manually' from pip:
 
@@ -303,11 +304,3 @@ Once installed, you can open a command prompt (cmd.exe) to begin. Launch your in
   ubuntu1804
 
 This changes your prompt from a Windows shell to the Ubuntu Bash environment. From here, you can follow ScaleHD installation instructions as above.
-
-
-
-
-
-
-
-
