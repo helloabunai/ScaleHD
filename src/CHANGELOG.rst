@@ -1,6 +1,6 @@
 .. _sect_changelog:
 
-Version 0.319
+Version 0.320
 -------------
 
 * Updated dependencies to latest versions (see :ref:`_sect_reqpack`)
@@ -9,7 +9,7 @@ Version 0.319
 * Fixed SKLearn ConvergenceWarnings spam
 * Fixed Samtools memory block merging spam
 
-Version 0.319
+Version 0.318
 -------------
 
 * Minor distribution scraping errors for homozygous haplotypes
@@ -27,7 +27,7 @@ Version 0.317
 * Minor tweaks for Windows 10 Linux Subsystem support
 * Refactoring config backend interpreter to make it less dumpster-fire-awful
 
-Verson 0.316
+Version 0.316
 ------------
 
 * Added some minor documentation for SNP Calling (_sect_genotyping)
