@@ -113,12 +113,6 @@ class AlleleGenotyping:
 		##
 		## Predict the zygstate of these reshapen, normalised 20D CCG arrays using SVM object earlier
 		## Results from self.classifier are #encoded; so convert with our self.encoder.inverse_transform
-		## Depreciation warning started appearing on perfectly valid label arrays..
-		## ConvergenceWarning started appearing on perfectly valid model when SKL updated xd
-		## TODO investigate in future
-		import warnings
-		with warnings.catch_warnings():
-    		warnings.simplefilter("ignore")
 		forward_zygstate = str(self.encoder.inverse_transform(self.classifier.predict(forward_reshape)))
 		reverse_zygstate = str(self.encoder.inverse_transform(self.classifier.predict(reverse_reshape)))
 
