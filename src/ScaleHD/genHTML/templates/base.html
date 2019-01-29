@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+
+<html>
+
+	<head>
+		<link rel="stylesheet" type="text/css" href="gridism.css" />
+		<link rel="stylesheet" type="text/css" href="scalehd.css" />
+		<title>ScaleHD</title>
+
+	</head>
+
+	<body data-shd_version="{shd_version}">
+
+		<header>
+			<div class="grid" style="height: 100%;">
+				<!-- Top left 'home' version button-->
+				<div id="leftHeader" class="unit one-quarter">
+					<a class="home" href="#" data-title="ScaleHD"><strong>ScaleHD</strong> Version {shd_version}</a>
+				</div>
+
+				<!-- Right hand panel header -->
+				<div id="rightHeader" class="unit three-quarters">
+					<p class="alignleft">ScaleHD - Automated Huntington Disease genotyping</p>
+					<p class="alignright"><a class="contact" href="mailto:alastair.maxwell@glasgow.ac.uk"><strong>@</strong></a>  |  <a class="help" href="#" data-title="Help"><strong>?</strong></a></p>
+					<div style="clear: both;"></div>
+				</div>
+			</div>
+		</header>
+
+		<main>
+			<div class="grid">
+				<div id="sideNav" class="unit one-quarter">
+					<p id="jobLabel">Job Label: {instance_label}</p>
+					<ul id="sequence_sample_list">
+						<!-- SAMPLE LIST INSERTED HERE -->
+						{SAMPLE_LIST}
+					</ul>
+					<button class='toTopButton' onclick='scrollToTop()'><span>Scroll to top</span></button>
+				</div>
+				<div id="main-view" class="unit three-quarters">
+
+					<!-- WELCOME LANDING PAGE HTML -->
+					<div id="welcome">
+						<h2>Welcome to ScaleHD!</h2>
+						<p>Find all your processed samples for {instance_label} on the left.</p>
+						<br>
+						<p>Click on a sample to the left in order to view the output for that sequence.</p>
+						<p>Clicking on subheadings will scroll you to the relevant section of ScaleHD output.</p>
+						<br>
+						<p>Help for navigating this output is found by clicking <strong>'?'</strong>.<br>
+							Contact me with comments/questions/threats by pressing <strong>'@'</strong> at the top right.</a></p>
+						<p>If you wish to return to this landing page, you can click the ScaleHD version at the top left.</p>
+						<br>
+
+						<h2>Summary results for {instance_label}</h2>
+						<p>Here's a brief summary of the genotyping results for this instance of ScaleHD.</p>
+
+						<div id="footer">
+							<img src="img/footer.png" alt="UoG + CHDI"><br/>
+							<a class="footer" href="https://www.gla.ac.uk/">Developed at The University of Glasgow, Scotland</a> | <a class="footer" href="https://chdifoundation.org/">Funded by CHDI Foundation, USA</a>
+						</div>
+					</div>
+
+					<!-- HELP PAGE DIV, HIDDEN AT LOAD -->
+					<div id="help">
+						<h2>HELP</h2>
+						<p> haha to do help help help</p>
+					</div>
+
+					<!-- SEQUENCE DATA GOES HERE -->
+					<div id="sequence_data">
+						{SEQDATA}
+					</div>
+
+
+				</div>
+			</div>
+		</main>
+
+	<script type="text/javascript" src="jquery.js"></script>
+	<script type="text/javascript" src="scalehd.js"></script>
+	</body>
+
+</html>

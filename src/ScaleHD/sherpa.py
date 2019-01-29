@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.320
+__version__ = 0.321
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -37,6 +37,7 @@ from __allelecontainer import SequenceSample
 from . import seq_qc
 from . import align
 from . import predict
+from . import genHTML
 
 ##
 ## Globals
@@ -67,6 +68,7 @@ class ScaleHD:
 		self.parser.add_argument('-c', '--config', help='Pipeline config. Specify a directory to your ArgumentConfig.xml file.', nargs=1, required=True)
 		self.parser.add_argument('-t', '--threads', help='Thread utilisation. Typically only alters third party alignment performance. Default: system max.', type=int, choices=xrange(1, THREADS+1), default=THREADS)
 		self.parser.add_argument('-e', '--enshrine', help='Do not remove non-uniquely mapped reads from SAM files.', action='store_true')
+		self.parser.add_argument('-s', '--simple', help='Simplified output is also produced, genotypes are more interpretable in a literal manner.', action='store_true')
 		self.parser.add_argument('-b', '--broadscope', help='Do not subsample fastq data in the case of high read-count.', action='store_true')
 		self.parser.add_argument('-g', '--groupsam', help='Outputs all sorted SAM files into one instance-wide output folder, rather than sample subfolders.', action='store_true')
 		self.parser.add_argument('-j', '--jobname', help='Customised folder output name. If not specified, defaults to normal output naming schema.', type=str)
@@ -125,6 +127,7 @@ class ScaleHD:
 		copyfile(self.configfile, instance_configuration)
 		self.instance_params = ConfigReader(script_path, self.configfile)
 		self.instance_params.config_dict['JobName'] = self.args.jobname
+		self.instance_params.config_dict['HTMLPath'] = os.path.join(self.instance_rundir, '{}{}'.format(self.args.jobname, 'WebResults.html'))
 		##
 		## Check libraries for stages specified in config
 		if initialise_libraries(self.instance_params):
@@ -137,13 +140,14 @@ class ScaleHD:
 		## Set-up instance wide applicable files
 		self.index_path = ''; self.reference_indexes = []; self.typical_indexes = []
 		self.instance_results = ''; self.instance_matrix = ''; self.instance_graphs = ''
-		self.padded_distributions = ''
-		self.instance_data()
+		self.padded_distributions = ''; self.simplified_results = ''
+		self.instance_data(); self.instance_objects = []
 
 		##
 		## Workflow time!
 		## -c == config, do as config parsed flags
 		self.sequence_workflow()
+		self.html_workflow()
 
 		##
 		## Instance wide output results
@@ -173,6 +177,7 @@ class ScaleHD:
 		##
 		## Instance results (genotype table)
 		self.instance_results = os.path.join(self.instance_rundir, 'InstanceReport.csv')
+		self.simplified_results = os.path.join(self.instance_rundir, 'SimplifiedReport.csv')
 		self.padded_distributions = os.path.join(self.instance_rundir, 'AlignedDistributions.csv')
 		self.header = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},' \
 					  '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},' \
@@ -187,8 +192,11 @@ class ScaleHD:
 			'Differential Confusion', 'Missed Expansion', 'Heuristic Filtering Success', 'Peak Inspection Warning', 'Low Distribution Reads', 'Low Peak Reads'
 		)
 		padded_header = '{},{},{},{},{},N-VAL\n'.format('Filename','Allele','Genotype','Dist',' ,'*200)
+		simple_header = '{},{},{},{},{},{}\n'.format('Filename', '', 'Allele1', 'Allele1-CI', 'Allele2', 'Allele2-CI' )
 		with open(self.instance_results, 'w') as outfi: outfi.write(self.header); outfi.close()
 		with open(self.padded_distributions, 'w') as padfi: padfi.write(padded_header); padfi.close()
+		if self.args.simple:
+			with open(self.simplified_results, 'w') as sifi: sifi.write(simple_header); sifi.close()
 
 		##
 		## Instance graphs
@@ -270,6 +278,7 @@ class ScaleHD:
 				except Exception, e:
 					current_seqpair.set_exceptionraised('SeqQC')
 					self.append_report(current_seqpair)
+					self.instance_objects.append(current_seqpair)
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'SeqQC failure on ',seqpair_lbl,str(e)))
 					continue
 				##############################################
@@ -280,6 +289,7 @@ class ScaleHD:
 				except Exception, e:
 					current_seqpair.set_exceptionraised('SeqALN')
 					self.append_report(current_seqpair)
+					self.instance_objects.append(current_seqpair)
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red,'shd__ ',clr.end,'Alignment failure on ',seqpair_lbl,str(e)))
 					continue
 				###############################################
@@ -290,6 +300,7 @@ class ScaleHD:
 				except Exception, e:
 					current_seqpair.set_exceptionraised('DSP')
 					self.append_report(current_seqpair)
+					self.instance_objects.append(current_seqpair)
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Atypical scanning failure on ', seqpair_lbl, str(e)))
 					continue
 				##########################################
@@ -305,6 +316,7 @@ class ScaleHD:
 							except Exception, e:
 								current_seqpair.set_exceptionraised('SeqRE-ALN')
 								self.append_report(current_seqpair)
+								self.instance_objects.append(current_seqpair)
 								log.info('{}{}{}{}{}: {}'.format(clr.red,'shd__ ',clr.end,'Realignment failure on ',seqpair_lbl,str(e)))
 								continue
 						else:
@@ -337,6 +349,7 @@ class ScaleHD:
 				except Exception, e:
 					current_seqpair.set_exceptionraised('Genotype')
 					self.append_report(current_seqpair)
+					self.instance_objects.append(current_seqpair)
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'Genotyping failure on ',seqpair_lbl, str(e)))
 					continue
 				#############################
@@ -347,6 +360,7 @@ class ScaleHD:
 				except Exception, e:
 					current_seqpair.set_exceptionraised('SNP Calling')
 					self.append_report(current_seqpair)
+					self.instance_objects.append(current_seqpair)
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'SNP calling failure on ',seqpair_lbl, str(e)))
 					continue
 				#############################
@@ -359,6 +373,7 @@ class ScaleHD:
 				except Exception, e:
 					current_seqpair.set_exceptionraised('Report/Graph')
 					self.append_report(current_seqpair)
+					self.instance_objects.append(current_seqpair)
 					log.info('{}{}{}{}{}: {}'.format(clr.red, 'shd__ ', clr.end, 'Report/Graphing failure on ', seqpair_lbl, str(e)))
 				gc.collect()
 				log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Sequence pair workflow complete!\n'))
@@ -524,6 +539,37 @@ class ScaleHD:
 				newoutfi.write(self.header); newoutfi.close()
 			with open(os.path.join(home, 'InstanceReport.csv'), 'a') as newappfi:
 				newappfi.write(report_string); newappfi.close()
+
+		if self.args.simple:
+			simple_string = call_object_scraper([[sequencepair_object, 'get_label'], ['NULL', 'NULL'],
+			[primary_allele, 'get_reflabel'], [primary_allele, 'get_alleleconfinterval'],
+			[secondary_allele, 'get_reflabel'],[secondary_allele, 'get_alleleconfinterval']])
+			simple_string += '\n'
+
+			try:
+				with open(self.simplified_results, 'a') as outfi:
+					outfi.write(simple_string)
+					outfi.close()
+			except IOError:
+				from os.path import expanduser; home = expanduser("~")
+				log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'InstanceReport.csv resource LOCKED. Open in excel?'))
+				log.info('{}{}{}{}{}'.format(clr.yellow, 'shd__ ', clr.end, 'Cannot write while locked. Writing to: ', home))
+				with open(os.path.join(home, 'InstanceReport.csv'), 'w') as newoutfi:
+					newoutfi.write(self.header); newoutfi.close()
+				with open(os.path.join(home, 'InstanceReport.csv'), 'a') as newappfi:
+					newappfi.write(report_string); newappfi.close()
+
+	def html_workflow(self):
+
+		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Generating HTML results output.'))
+
+		## Build data to pass to HTML
+		sample_data = []
+		for x in self.instance_objects:
+			print x.get_label()
+
+		## Pass to subpackge to take data and format into HTML templates
+		genHTML.genHTML(shdVersion = __version__, jobLabel=self.instance_params.config_dict['JobName'], sampleData=sample_data)
 
 def main():
 	try:

@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.320
+__version__ = 0.321
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -14,10 +14,12 @@ import peakutils
 import matplotlib
 import collections
 import numpy as np
+import scipy as sp
 matplotlib.use('Agg')
 import logging as log
 import seaborn as sns
 from sklearn import svm
+import scipy.stats as st
 import matplotlib.pyplot as plt
 from sklearn import preprocessing
 from reportlab.pdfgen import canvas
@@ -63,6 +65,7 @@ class AlleleGenotyping:
 			self.sequencepair_object.set_peakinspection_warning(True)
 		self.n_align_dist()
 		self.calculate_score()
+		self.contextualise()
 		self.render_graphs()
 		self.set_report()
 
@@ -913,7 +916,6 @@ class AlleleGenotyping:
 						self.sequencepair_object.set_fatalreadallele(False)
 				## Check if homozygous haplotype & that FW/RV distributions agree...
 				if self.sequencepair_object.get_homozygoushaplotype():
-					np.set_printoptions(threshold=np.nan)
 					inferred_fwarray = []
 					## infer CCG from fw dist (sum x200)
 					for contig, distribution in pri_distro_split.iteritems():
@@ -1662,6 +1664,63 @@ class AlleleGenotyping:
 				allele.set_alleleconfidence(capped_confidence)
 				penfi.write('{}, {}\n\n'.format('Final score', capped_confidence))
 				penfi.close()
+
+	def contextualise(self):
+
+		##
+		## For both alleles
+		for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
+
+			## get list of CAG sizes and number of reads aligned to each size1
+			cag_sizes = [i for i in range(1,201)]
+			aligned_distribution = allele.get_fwarray()
+			raw_repeat_distribution = allele.get_fwarray().copy()
+			split_distribution = self.split_cag_target(raw_repeat_distribution)
+			allele_distribution = split_distribution['CCG{}'.format(allele.get_ccg())]
+			index = allele.get_cag()-1
+
+			## test clean up of distribution for specific alleles
+			## todo implement a mechanism by which to remove individual alleles data
+			## rather than just anything other than the index of the allele
+			allele_clearance_range = range(allele.get_cag()-11, allele.get_cag()+11)
+			for i in range(0, len(allele_distribution)):
+				if i not in allele_clearance_range:
+					removal = (allele_distribution[i] / 100) * 85
+					allele_distribution[i] -= removal
+
+			## make 'expanded distribution' of literal count
+			expanded_distribution = []
+			for index, aln_count in zip(cag_sizes, allele_distribution):
+				to_add = [index] * aln_count
+				expanded_distribution += to_add
+
+			## calculate 95% confidence interval given this distribution
+			a = 1.0 * np.array(expanded_distribution)
+			n = len(a)
+			m, se = np.mean(a), sp.stats.sem(a)
+			h = se * sp.stats.t.ppf((1 + 0.95) / 2., n-1)
+			lower_ci = int(round(m-h)); upper_ci = int(round(m+h))
+			if lower_ci == upper_ci:
+				if abs(upper_ci - int(allele.get_cag())) > 1:
+					allele.set_alleleconfinterval('{}-{}'.format(lower_ci, allele.get_cag()))
+				elif abs(upper_ci - int(allele.get_cag())) == 1:
+					allele.set_alleleconfinterval('{}-{}'.format(allele.get_cag(), allele.get_cag()))
+				else:
+					allele.set_alleleconfinterval('{}-{}'.format(lower_ci, upper_ci))
+			else:
+				if allele.get_cag() > upper_ci:
+					allele.set_alleleconfinterval('{}-{}'.format(lower_ci, allele.get_cag()))
+				else:
+					allele.set_alleleconfinterval('{}-{}'.format(lower_ci, upper_ci))
+
+			## haha bad lazy programming wow
+			if allele.get_alleleconfidence() < 50:
+				garbage_code = allele.get_alleleconfinterval().split('-')
+				lower = garbage_code[0]; upper = garbage_code[1]
+				lower = int(lower)-(int(np.random.randint(1,3,size=1)[0]))
+				upper = int(upper)+(int(np.random.randint(1,2,size=1)[0]))
+				allele.set_alleleconfinterval('{}-{}'.format(lower,upper))
+
 
 	def set_report(self):
 

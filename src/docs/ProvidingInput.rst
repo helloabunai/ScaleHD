@@ -16,6 +16,8 @@ ScaleHD is a Command Line Interface (CLI) based application, and users will inte
 +----------------+---------------+---------------------------------------------------------+
 | -t {integer}   | --threads     | Number of CPU threads to use (def: system max).         |
 +----------------+---------------+---------------------------------------------------------+
+| -s             | --simple      | Enable simple 95% confidence interval genotyping output.|
++----------------+---------------+---------------------------------------------------------+
 | -e             | --enshrine    | Do not remove non-uniquely mapped read from SAM files.  |
 +----------------+---------------+---------------------------------------------------------+
 | -b             | --broadscope  | Do not subsample fastq data with high read counts.      |
@@ -50,7 +52,7 @@ Within the **<config>** branch, there are three attributes to which the user mus
 
 **<demultiplex_flags>** provides input arguments for demultiplexing, if chosen. These are arguments for Batchadapt, which is a simple wrapper I wrote for a colleague to run Cutadapt (http://cutadapt.readthedocs.io/en/stable/) on a folder of input sample pairs. x_position flags must be '5P', '3P' or 'AP'. Adapter strings must only contain A,T,G,C. Other arguments are positive integers, only.
 
-**<trim_flags>** is for specifying options that get passed to cutadapt for sequence adapter/quality trimming. For an explanation of these flags, you can find the cutadapt documentation at: http://cutadapt.readthedocs.io/en/stable/. 
+**<trim_flags>** is for specifying options that get passed to cutadapt for sequence adapter/quality trimming. For an explanation of these flags, you can find the cutadapt documentation at: http://cutadapt.readthedocs.io/en/stable/.
 
 .. note::
     *forward_adapter* and *reverse_adapter* are quite important, and you should carefully select how much adapter you wish to trim from your sequences. Incorrect trimming can have a notable downstream effect on the quality of resultant alignments, and thus, genotypes.
@@ -98,7 +100,3 @@ The VCF "QUAL" is described in the latest specification as:
     prob(no variant). If unknown, the missing value should be specified. (Numeric)
 
 The user can control the Phred-scaled score lower limit for a valid SNP to be included with ScaleHD output via this option. Through testing, I have found that a cutoff of 150000 is a good place to start.
-
-
-
-
