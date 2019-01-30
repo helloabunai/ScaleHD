@@ -96,7 +96,12 @@ setup(
                               'train/polyglutamine.csv',
                               'train/likelihood_matrix.csv',
                               'train/raw_matrix.csv',
-							  'config/config.dtd']},
+							  'config/config.dtd'
+							  'genHTML/gridism.css'
+							  'genHTML/scalehd.css',
+							  'genHTML/jquery.js',
+							  'genHTML/scalehd.css',
+							  'genHTML/img/footer.png']},
 	include_package_data=True,
 
 	# Executable scripts require an entry point to allow cython to generate

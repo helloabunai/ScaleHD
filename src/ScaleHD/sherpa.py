@@ -127,7 +127,7 @@ class ScaleHD:
 		copyfile(self.configfile, instance_configuration)
 		self.instance_params = ConfigReader(script_path, self.configfile)
 		self.instance_params.config_dict['JobName'] = self.args.jobname
-		self.instance_params.config_dict['HTMLPath'] = os.path.join(self.instance_rundir, '{}{}'.format(self.args.jobname, 'WebResults.html'))
+		self.instance_params.config_dict['HTMLPath'] = os.path.join(self.instance_rundir, '{}{}'.format(self.args.jobname, 'WebResults'))
 		##
 		## Check libraries for stages specified in config
 		if initialise_libraries(self.instance_params):
@@ -370,6 +370,7 @@ class ScaleHD:
 					self.collate_graphs(current_seqpair)
 					current_seqpair.set_exceptionraised('N/A')
 					self.append_report(current_seqpair)
+					self.instance_objects.append(current_seqpair)
 				except Exception, e:
 					current_seqpair.set_exceptionraised('Report/Graph')
 					self.append_report(current_seqpair)
@@ -561,15 +562,13 @@ class ScaleHD:
 
 	def html_workflow(self):
 
-		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Generating HTML results output.'))
-
-		## Build data to pass to HTML
-		sample_data = []
-		for x in self.instance_objects:
-			print x.get_label()
+		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Generating HTML results output..'))
 
 		## Pass to subpackge to take data and format into HTML templates
-		genHTML.genHTML(shdVersion = __version__, jobLabel=self.instance_params.config_dict['JobName'], sampleData=sample_data)
+		genHTML.genHTML(scalehdResults = self.instance_objects,
+		 shdVersion = __version__,
+		 jobLabel=self.instance_params.config_dict['JobName'],
+		 outputPath=self.instance_params.config_dict['HTMLPath'])
 
 def main():
 	try:
