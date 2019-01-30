@@ -35,6 +35,7 @@ class SequenceSample:
 		self.forward_trimmed = ''
 
 		self.trim_report = []
+		self.fqc_report = []
 		self.align_report = []
 		self.atypical_report = ''
 		self.genotype_report = ''
@@ -102,6 +103,7 @@ class SequenceSample:
 	def set_fwtrimmed(self, reads): self.forward_trimmed = reads
 
 	def set_trimreport(self, report): self.trim_report = report
+	def set_fqcreport(self, report): self.fqc_report = report
 	def set_alignreport(self, report): self.align_report = report
 	def set_atypicalreport(self, report): self.atypical_report = report
 	def set_genotypereport(self, report): self.genotype_report = report
@@ -169,6 +171,7 @@ class SequenceSample:
 	def get_fwtrimmed(self): return self.forward_trimmed
 
 	def get_trimreport(self): return self.trim_report
+	def get_fqcreport(self): return self.fqc_report
 	def get_alignreport(self): return self.align_report
 	def get_atypicalreport(self): return self.atypical_report
 	def get_genotypereport(self): return self.genotype_report

@@ -160,9 +160,9 @@ class genHTML:
             if x.get_label() == currSample:
                 targetObject = x
 
-        ## Sample QC path for extraction..
-        sample_qcpath = targetObject.get_qcpath()
-        ## Get the trimming report produced (check if it exists..)
+        ##################################################################
+        ## Check for Trimming report! scrape data and format if present ##
+        ##################################################################
         forwardTrimReport = targetObject.get_trimreport()[0]; forwardTrimString = ''
         reverseTrimReport = targetObject.get_trimreport()[1]; reverseTrimString = ''
         try:
@@ -178,12 +178,25 @@ class genHTML:
         except Exception, e:
             reverseTrimString = 'We could not find a reverse trimming report! Exception raised: {}'.format(e)
 
-        ## apply data to template
+        ################################################################
+        ## Check for FastQC report! scrape data and format if present ##
+        ################################################################
+        forwardFQCReport = targetObject.get_fqcreport()[0]; forwardFQCString = ''
+        try:
+            with open(forwardFQCReport, 'r') as infi:
+                forwardFQCString=infi.read()
+            forwardFQCString = self.format_fastqc(forwardFQCString)
+        except Exception, e:
+            forwardFQCReport = 'We could not find a forward FastQC report! Exception raised: {}'.format(e)
+
+        ###################################################################
+        ## Apply scraped and formatted data into HTML template for SeqQC ##
+        ###################################################################
         qc_template = os.path.join(self.TEMPLATES_BASE, 'seqqc.html')
         f = open(qc_template, 'r')
         qc_return = ''
         for line in f:
-            line = line.format(FORWARD_TRIM=forwardTrimString, REVERSE_TRIM=reverseTrimString)
+            line = line.format(FORWARD_TRIM=forwardTrimString, REVERSE_TRIM=reverseTrimString, FASTQC=forwardFQCReport)
             qc_return = '{0}{1}'.format(qc_return, line)
         f.close()
 
@@ -194,14 +207,19 @@ class genHTML:
         ## Trimming template
         trim_template = os.path.join(self.TEMPLATES_BASE, 'trim.html')
 
-        ## First get technical summary
+        ## First get technical summary; replace python newline with HTML break, remove start/end breaks
         techSummary = rawData.split('=== Summary ===')[0]
+        techSummary = techSummary.replace('\n', '<br />').lstrip('<br />').rstrip('<br />')
 
-        ## Trimming Summary
+        ## Trimming Summary; replace python newline with HTML break, remove start/end breaks
         trimSummary = rawData.split('=== Summary ===')[1].split('=== Adapter 1 ===')[0]
+        trimSummary = trimSummary.replace('\n', '<br />').lstrip('<br />').rstrip('<br />')
+        trimSummary = trimSummary.replace('<br /><br />', '<br />')
 
-        ## Adapter summary
-        adapterSummary = rawData.split('=== Adapter 1 ===')[1]
+        ## Adapter summary; replace python newline with HTML break, remove start/end breaks
+        adapterSummary = rawData.split('=== Adapter 1 ===')[1].split('Overview of removed sequences')[0]
+        adapterSummary = adapterSummary.replace('\n', '<br />').lstrip('<br />').rstrip('<br />')
+        adapterSummary = adapterSummary.replace(';', '<br />')
 
         trim_return = ''
         f = open(trim_template, 'r')
@@ -212,6 +230,24 @@ class genHTML:
 
         ## Return formatted trimming report
         return trim_return
+
+    def format_fastqc(self, rawData):
+
+        ## FastQC templates
+        fastqc_template = os.path.join(self.TEMPLATES_BASE, 'fastqc.html')
+
+        ## just fuckin lump it all in there for now and figure out what you want to format next
+        temp_FastQC_ALL = rawData
+
+        fqc_return = ''
+        f = open(fastqc_template, 'r')
+        for line in f:
+            line = line.format(FASTQC=temp_FastQC_ALL)
+            fqc_return = '{0}{1}'.format(fqc_return, line)
+        f.close()
+
+        ## return formatted FastQC report
+        return fqc_return
 
     def get_sampleALN(self, currSample):
         return "testALN"

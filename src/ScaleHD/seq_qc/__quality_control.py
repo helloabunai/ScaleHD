@@ -27,6 +27,7 @@ class SeqQC:
 		self.instance_params = instance_params
 		self.trimming_errors = False
 		self.trimming_report = []
+		self.fastqc_report = []
 		if stage.lower()=='validate': self.verify_input()
 		if stage.lower()=='trim':
 			self.execute_trimming()
@@ -153,8 +154,12 @@ class SeqQC:
 		fastqc_process = subprocess.Popen(['fastqc','--quiet','--extract','-t',THREADS,'-o',fastqc_outdir,fqfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		fastqc_process.wait()
 
-	def get_trimreport(self):
-		return self.trimming_report
+		target = fqfile.split('/')[-1].split('.')[0]
+		reportDir = os.path.join(fastqc_outdir,'{}_fastqc'.format(target),'fastqc_data.txt')
+		self.fastqc_report.append(reportDir)
+
+	def get_qcreports(self):
+		return [self.trimming_report, self.fastqc_report]
 
 class BatchadaptWrapper:
 	def __init__(self, instance_params):

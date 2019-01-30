@@ -69,6 +69,7 @@ class ScaleHD:
 		self.parser.add_argument('-t', '--threads', help='Thread utilisation. Typically only alters third party alignment performance. Default: system max.', type=int, choices=xrange(1, THREADS+1), default=THREADS)
 		self.parser.add_argument('-e', '--enshrine', help='Do not remove non-uniquely mapped reads from SAM files.', action='store_true')
 		self.parser.add_argument('-s', '--simple', help='Simplified output is also produced, genotypes are more interpretable in a literal manner.', action='store_true')
+		self.parser.add_argument('-p', '--purge', help='After processing all samples, remove all output EXCEPT for the HTML based report', action='store_true')
 		self.parser.add_argument('-b', '--broadscope', help='Do not subsample fastq data in the case of high read-count.', action='store_true')
 		self.parser.add_argument('-g', '--groupsam', help='Outputs all sorted SAM files into one instance-wide output folder, rather than sample subfolders.', action='store_true')
 		self.parser.add_argument('-j', '--jobname', help='Customised folder output name. If not specified, defaults to normal output naming schema.', type=str)
@@ -145,9 +146,9 @@ class ScaleHD:
 
 		##
 		## Workflow time!
-		## -c == config, do as config parsed flags
-		self.sequence_workflow()
-		self.html_workflow()
+		self.sequence_workflow() # seqqc, seqaln, genotype, snpcalling
+		self.html_workflow() # render HTML output
+		if self.args.purge: self.one_night_a_year() # delete non-HTML output if specified
 
 		##
 		## Instance wide output results
@@ -386,7 +387,9 @@ class ScaleHD:
 			log.info('{}{}{}{}'.format(clr.yellow,'shd__ ',clr.end,'Executing sequence quality control workflow..'))
 			if seq_qc.SeqQC(sequencepair_object, self.instance_params, 'validate'):
 				log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,'Initialising trimming..'))
-				sequencepair_object.set_trimreport(seq_qc.SeqQC(sequencepair_object,self.instance_params,'trim').get_trimreport())
+				trim_reports, fqc_reports = seq_qc.SeqQC(sequencepair_object, self.instance_params, 'trim').get_qcreports()
+				sequencepair_object.set_trimreport(trim_reports)
+				sequencepair_object.set_fqcreport(fqc_reports)
 				gc.collect()
 				log.info('{}{}{}{}'.format(clr.green,'shd__ ',clr.end,'Trimming complete!'))
 
@@ -569,6 +572,10 @@ class ScaleHD:
 		 shdVersion = __version__,
 		 jobLabel=self.instance_params.config_dict['JobName'],
 		 outputPath=self.instance_params.config_dict['HTMLPath'])
+
+	def one_night_a_year(self):
+
+		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Purging non-HTML output haha not implement yet you dummy what a moron'))
 
 def main():
 	try:
