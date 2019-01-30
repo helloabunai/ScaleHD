@@ -170,13 +170,13 @@ class genHTML:
                 forwardTrimString=infi.read()
             forwardTrimString = self.format_trimming(forwardTrimString)
         except Exception, e:
-            forwardTrimString = 'We could not find a forward trimming report! Exception raised: {}'.format(e)
+            forwardTrimString = 'We could not find/process a forward trimming report! Exception raised: {}'.format(e)
         try:
             with open(reverseTrimReport, 'r') as infi:
                 reverseTrimString=infi.read()
             reverseTrimString = self.format_trimming(reverseTrimString)
         except Exception, e:
-            reverseTrimString = 'We could not find a reverse trimming report! Exception raised: {}'.format(e)
+            reverseTrimString = 'We could not find/process a reverse trimming report! Exception raised: {}'.format(e)
 
         ################################################################
         ## Check for FastQC report! scrape data and format if present ##
@@ -187,7 +187,7 @@ class genHTML:
                 forwardFQCString=infi.read()
             forwardFQCString = self.format_fastqc(forwardFQCString)
         except Exception, e:
-            forwardFQCReport = 'We could not find a forward FastQC report! Exception raised: {}'.format(e)
+            forwardFQCString = 'We could not find/process a FastQC report! Exception raised: {}'.format(e)
 
         ###################################################################
         ## Apply scraped and formatted data into HTML template for SeqQC ##
@@ -196,7 +196,7 @@ class genHTML:
         f = open(qc_template, 'r')
         qc_return = ''
         for line in f:
-            line = line.format(FORWARD_TRIM=forwardTrimString, REVERSE_TRIM=reverseTrimString, FASTQC=forwardFQCReport)
+            line = line.format(FORWARD_TRIM=forwardTrimString, REVERSE_TRIM=reverseTrimString, FASTQC=forwardFQCString)
             qc_return = '{0}{1}'.format(qc_return, line)
         f.close()
 
@@ -242,7 +242,7 @@ class genHTML:
         fqc_return = ''
         f = open(fastqc_template, 'r')
         for line in f:
-            line = line.format(FASTQC=temp_FastQC_ALL)
+            line = line.format(FASTQCREPORT=rawData)
             fqc_return = '{0}{1}'.format(fqc_return, line)
         f.close()
 
