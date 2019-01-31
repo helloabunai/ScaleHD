@@ -97,6 +97,11 @@ setup(
                               'train/likelihood_matrix.csv',
                               'train/raw_matrix.csv',
 							  'config/config.dtd',
+							  'genHTML/gridism.css',
+							  'genHTML/scalehd.css',
+							  'genHTML/jquery.js',
+							  'genHTML/scalehd.js',
+							  'genHTML/chart.js',
 							  'genHTML/img/footer.png']},
 	include_package_data=True,
 

@@ -90,6 +90,7 @@ class genHTML:
     def get_javascript(self):
         jquery_path = os.path.join(self.WEB_BASE, 'jquery.js')
         scalehd_path = os.path.join(self.WEB_BASE, 'scalehd.js')
+        chart_path = os.path.join(self.WEB_BASE, 'chart.js')
         js_string = ''
 
         ## jquery scripts
@@ -99,6 +100,11 @@ class genHTML:
         f.close()
         ## scalehd scripts
         f = open(scalehd_path, 'r')
+        for line in f:
+            js_string += line
+        f.close()
+        ## anychart scripts
+        f = open(chart_path, 'r')
         for line in f:
             js_string += line
         f.close()
@@ -196,7 +202,7 @@ class genHTML:
         f = open(qc_template, 'r')
         qc_return = ''
         for line in f:
-            line = line.format(FORWARD_TRIM=forwardTrimString, REVERSE_TRIM=reverseTrimString, FASTQC=forwardFQCString)
+            line = line.format(ID=currSample, FORWARD_TRIM=forwardTrimString, REVERSE_TRIM=reverseTrimString, FASTQC=forwardFQCString)
             qc_return = '{0}{1}'.format(qc_return, line)
         f.close()
 

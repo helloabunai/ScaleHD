@@ -7,7 +7,7 @@
 		<title>ScaleHD</title>
 	</head>
 
-	<body data-shd_version="{shd_version}">
+	<body data-shd_version="{shd_version}" data-instance_label="{instance_label}">
 
 		<header>
 			<div class="grid" style="height: 100%;">
@@ -53,9 +53,12 @@
 						<h2>Summary results for {instance_label}</h2>
 						<p>Here's a brief summary of the genotyping results for this instance of ScaleHD.</p>
 
-						<div id="footer">
-							{FOOTERIMG}
-							<a class="footer" href="https://www.gla.ac.uk/">Developed at The University of Glasgow, Scotland</a> | <a class="footer" href="https://chdifoundation.org/">Funded by CHDI Foundation, USA</a>
+						<div class="chart-container">
+							<canvas id="{instance_label}CAGSummaryChart" width="750" height="500"></canvas>
+						</div>
+						<br />
+						<div class='chart-container'>
+							<canvas id="{instance_label}CCGSummaryChart" width="750" height="500"></canvas>
 						</div>
 					</div>
 
@@ -70,7 +73,10 @@
 						{SEQDATA}
 					</div>
 
-
+					<div id="footer">
+						{FOOTERIMG}
+						<a class="footer" href="https://www.gla.ac.uk/">Developed at The University of Glasgow, Scotland</a> | <a class="footer" href="https://chdifoundation.org/">Funded by CHDI Foundation, USA</a>
+					</div>
 				</div>
 			</div>
 		</main>

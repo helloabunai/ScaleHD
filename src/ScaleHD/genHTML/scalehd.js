@@ -3,6 +3,7 @@
 /////////////
 
 var scaleHDVersion = $('body').data('shd_version')
+var instanceLabel = $('body').data('instance_label')
 var allParents = document.getElementsByClassName('sequence_sample_link')
 
 ///////////////
@@ -13,6 +14,8 @@ $(document).ready(function(){
 	// Only for document load events
 	// hide #help on load, so that #welcome is the landing page
 	$('#help').hide();
+	summaryCAGChart(instanceLabel);
+	summaryCCGChart(instanceLabel);
 });
 
 // Function for clicking on a sequence sample
@@ -21,7 +24,7 @@ function showSequence(identifier){
 	$('#welcome').hide();
 	var seqHead = $('div.sequence[data-sequenceid='+ identifier +']')
 	seqHead.show();
-	$('html,body').animate({scrollTop: seqHead.offset().top - 50}, 'fast')
+	//$('html,body').animate({scrollTop: seqHead.offset().top - 50}, 'fast')
 }
 
 // Function to change HTML header text if sample/substage link pressed
@@ -69,6 +72,7 @@ $('.sequence_sample_link').click(function(event){
 	<div style=\"clear: both;\"></div>\n\
 	"
 	changeHeader(rightCandidate)
+	$('html,body').animate({scrollTop: 0},'fast');
 });
 
 // When the #home div button is pressed
@@ -151,3 +155,113 @@ $('.sequence_sample_sublink').click(function(event)
 	var header = $('h3[data-sequenceid=' + identifier + '][data-title=' + title + ']');
 	$('html,body').animate({scrollTop: header.offset().top - 50},'slow');
 });
+
+////////////////
+// Chart Test //
+////////////////
+
+// CAG Summary
+function summaryCAGChart(identifier)
+{
+	var target = identifier + 'CAGSummaryChart';
+	var ctx = document.getElementById(target).getContext('2d');
+	var myChart = new Chart(ctx, {
+	    type: 'bar',
+	    data: {
+	        labels: ["Red", "Blue", "Yellow", "Green", "Purple", "Orange"],
+	        datasets: [{
+	            label: '# of alleles',
+	            data: [12, 19, 3, 5, 2, 3],
+	            backgroundColor: [
+	                'rgba(255, 99, 132, 0.2)',
+	                'rgba(54, 162, 235, 0.2)',
+	                'rgba(255, 206, 86, 0.2)',
+	                'rgba(75, 192, 192, 0.2)',
+	                'rgba(153, 102, 255, 0.2)',
+	                'rgba(255, 159, 64, 0.2)'
+	            ],
+	            borderColor: [
+	                'rgba(255,99,132,1)',
+	                'rgba(54, 162, 235, 1)',
+	                'rgba(255, 206, 86, 1)',
+	                'rgba(75, 192, 192, 1)',
+	                'rgba(153, 102, 255, 1)',
+	                'rgba(255, 159, 64, 1)'
+	            ],
+	            borderWidth: 1
+	        }]
+	    },
+	    options: {
+				responsive: false,
+				title: {
+            display: true,
+            text: 'CAG test'
+        },
+	      scales: {
+	   			yAxes: [{
+	        	ticks: {
+	          	beginAtZero:true
+	            }
+	           }]
+	        }
+	    }
+	});
+}
+
+// CCG Summary
+function summaryCCGChart(identifier)
+{
+	var target = identifier + 'CCGSummaryChart';
+	var ctx = document.getElementById(target).getContext('2d');
+	var myChart = new Chart(ctx, {
+	    type: 'bar',
+	    data: {
+	        labels: ["Red", "Blue", "Yellow", "Green", "Purple", "Orange", "test1", "test2", "test3", "test4", "test5"],
+	        datasets: [{
+	            label: '# of alleles',
+	            data: [12, 19, 3, 5, 2, 3, 20, 14, 9, 8, 12],
+	            backgroundColor: [
+	                'rgba(255, 99, 132, 0.2)',
+	                'rgba(54, 162, 235, 0.2)',
+	                'rgba(255, 206, 86, 0.2)',
+	                'rgba(75, 192, 192, 0.2)',
+	                'rgba(153, 102, 255, 0.2)',
+	                'rgba(255, 159, 64, 0.2)',
+									'#666666',
+									'#666666',
+									'#666666',
+									'#666666',
+									'#666666'
+	            ],
+	            borderColor: [
+	                'rgba(255,99,132,1)',
+	                'rgba(54, 162, 235, 1)',
+	                'rgba(255, 206, 86, 1)',
+	                'rgba(75, 192, 192, 1)',
+	                'rgba(153, 102, 255, 1)',
+	                'rgba(255, 159, 64, 1)',
+									'#666666',
+									'#666666',
+									'#666666',
+									'#666666',
+									'#666666'
+	            ],
+	            borderWidth: 1
+	        }]
+	    },
+			options: {
+				responsive: false,
+				title: {
+            display: true,
+            text: 'CCG test'
+        },
+	      scales: {
+	   			yAxes: [{
+	        	ticks: {
+	          	beginAtZero:true
+	            }
+	           }]
+	        }
+	    }
+	});
+}
