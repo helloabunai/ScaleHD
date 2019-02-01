@@ -5,7 +5,10 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 ## imports
 import os
 import pkg_resources
+from shutil import move
 from shutil import copyfile
+from tempfile import mkstemp
+from os import fdopen, remove
 from ..__backend import mkdir_p
 
 class genHTML:
@@ -35,6 +38,8 @@ class genHTML:
         ## items to be filled with generated HTML strings from templates
         ## before being placed into their respective HTML locations
         base_template = os.path.join(self.TEMPLATES_BASE, 'base.html')
+        cag_summary = self.get_summary('CAG'); ccg_summary = self.get_summary('CCG')
+        allelesummary_javascript = self.implement_summaries(jobLabel, cag_summary, ccg_summary) #send summary data to scalehd.JS file
         styling_str = self.get_styling() #CSS
         script_str = self.get_javascript() #Javascript
         version_str = shdVersion # Get ScaleHD versionx
@@ -67,6 +72,76 @@ class genHTML:
     def get_processed_samples(self):
         for individual in self.instance_objects:
             self.SAMPLES.append(individual.get_label())
+
+    def get_summary(self, triplet):
+
+        ## CAG
+        cag_blank = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        if triplet == 'CAG':
+            for individual in self.instance_objects:
+                primary_cag = individual.get_primaryallele().get_cag()
+                secondary_cag = individual.get_secondaryallele().get_cag()
+                for allele in [primary_cag, secondary_cag]:
+                    index = 0
+                    while index < len(cag_blank):
+                        if index == allele:
+                            cag_blank[index] += 1
+                        index += 1
+
+            return cag_blank
+
+        ## CCG
+        ccg_blank = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        if triplet == 'CCG':
+            for individual in self.instance_objects:
+                primary_ccg = individual.get_primaryallele().get_ccg()
+                secondary_ccg = individual.get_secondaryallele().get_ccg()
+                for allele in [primary_ccg, secondary_ccg]:
+                    index = 0
+                    while index < len(ccg_blank):
+                        if index == allele:
+                            ccg_blank[index] += 1
+                        index += 1
+
+            return ccg_blank
+
+    def implement_summaries(self, jobLabel, cag_summary, ccg_summary):
+
+        ## Target/Templates
+        scalehdbase_path = os.path.join(self.TEMPLATES_BASE, 'scalehd_base.js')
+        scalehd_out_path = os.path.join(self.WEB_BASE, 'scalehd.js')
+        template_path = os.path.join(self.TEMPLATES_BASE, 'alleleSummary.js')
+
+        ## CAG Summary
+        f = open(template_path, 'r')
+        cag_output = f.read()
+        cag_output = cag_output.replace('{TRIPLET_TYPE}','CAGSummaryChart')
+        cag_output = cag_output.replace('{LABELS}',"['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79', '80', '81', '82', '83', '84', '85', '86', '87', '88', '89', '90', '91', '92', '93', '94', '95', '96', '97', '98', '99', '100', '101', '102', '103', '104', '105', '106', '107', '108', '109', '110', '111', '112', '113', '114', '115', '116', '117', '118', '119', '120', '121', '122', '123', '124', '125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139', '140', '141', '142', '143', '144', '145', '146', '147', '148', '149', '150', '151', '152', '153', '154', '155', '156', '157', '158', '159', '160', '161', '162', '163', '164', '165', '166', '167', '168', '169', '170', '171', '172', '173', '174', '175', '176', '177', '178', '179', '180', '181', '182', '183', '184', '185', '186', '187', '188', '189', '190', '191', '192', '193', '194', '195', '196', '197', '198', '199']")
+        cag_output = cag_output.replace('{TRIPLET_DISTRIBUTION}', str(cag_summary))
+        cag_output = cag_output.replace('{BACKGROUND_COLOUR}', '\"#006110\"')
+        cag_output = cag_output.replace('{BORDER_COLOUR}', '\"#009419\"')
+        cag_output = cag_output.replace('{CHART_TITLE}', '\"CAG allele distribution for {}\"'.format(jobLabel))
+        f.close()
+
+        ## CCG Summary
+        f = open(template_path, 'r')
+        ccg_output = f.read()
+        ccg_output = ccg_output.replace('{TRIPLET_TYPE}','CCGSummaryChart')
+        ccg_output = ccg_output.replace('{LABELS}', "['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20']")
+        ccg_output = ccg_output.replace('{TRIPLET_DISTRIBUTION}', str(ccg_summary))
+        ccg_output = ccg_output.replace('{BACKGROUND_COLOUR}', '\"#e100bb\"')
+        ccg_output = ccg_output.replace('{BORDER_COLOUR}', '\"#94007b\"')
+        ccg_output = ccg_output.replace('{CHART_TITLE}', '\"CCG allele distribution for {}\"'.format(jobLabel))
+        f.close()
+
+        ## write to scalehd.js
+        f = open(scalehdbase_path, 'r')
+        all_output = f.read()
+        all_output = all_output.replace('{CAG_FUNCTION}', cag_output)
+        all_output = all_output.replace('{CCG_FUNCTION}', ccg_output)
+        f.close()
+        with open(scalehd_out_path, 'w') as outfi:
+            outfi.write(all_output)
 
     def get_styling(self):
         gridism_path = os.path.join(self.WEB_BASE, 'gridism.css')

@@ -220,8 +220,8 @@ a.sequence_sample_sublink:hover, a.sequence_sample_sublink:focus
 
 #welcome
 {
-  padding-right: 30px;
-  padding-left: 30px;
+  padding-right: 20px;
+  padding-left: 20px;
 }
 
 .toTopButton
@@ -305,7 +305,7 @@ input[type='checkbox'] {
 }
 
 .lbl-toggle {
-  display: block;;
+  display: block;
 
   font-weight: bold;
   font-family: monospace;
