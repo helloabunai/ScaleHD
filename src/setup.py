@@ -86,7 +86,8 @@ setup(
 					  'reportlab',
 					  'generatr',
 					  'batchadapt',
-					  'pyvcf'
+					  'pyvcf',
+					  'fadapa'
 					  ],
 
     # These are the data files to be included in the package

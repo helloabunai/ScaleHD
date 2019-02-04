@@ -6,6 +6,7 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 import os
 import pkg_resources
 from shutil import move
+from fadapa import Fadapa
 from shutil import copyfile
 from tempfile import mkstemp
 from os import fdopen, remove
@@ -76,7 +77,7 @@ class genHTML:
     def get_summary(self, triplet):
 
         ## CAG
-        cag_blank = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        cag_blank = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         if triplet == 'CAG':
             for individual in self.instance_objects:
                 try:
@@ -122,7 +123,7 @@ class genHTML:
         f = open(template_path, 'r')
         cag_output = f.read()
         cag_output = cag_output.replace('{TRIPLET_TYPE}','CAGSummaryChart')
-        cag_output = cag_output.replace('{LABELS}',"['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79', '80', '81', '82', '83', '84', '85', '86', '87', '88', '89', '90', '91', '92', '93', '94', '95', '96', '97', '98', '99', '100', '101', '102', '103', '104', '105', '106', '107', '108', '109', '110', '111', '112', '113', '114', '115', '116', '117', '118', '119', '120', '121', '122', '123', '124', '125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139', '140', '141', '142', '143', '144', '145', '146', '147', '148', '149', '150', '151', '152', '153', '154', '155', '156', '157', '158', '159', '160', '161', '162', '163', '164', '165', '166', '167', '168', '169', '170', '171', '172', '173', '174', '175', '176', '177', '178', '179', '180', '181', '182', '183', '184', '185', '186', '187', '188', '189', '190', '191', '192', '193', '194', '195', '196', '197', '198', '199']")
+        cag_output = cag_output.replace('{LABELS}',"['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79', '80', '81', '82', '83', '84', '85', '86', '87', '88', '89', '90', '91', '92', '93', '94', '95', '96', '97', '98', '99', '100', '101', '102', '103', '104', '105', '106', '107', '108', '109', '110', '111', '112', '113', '114', '115', '116', '117', '118', '119', '120', '121', '122', '123', '124', '125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139', '140', '141', '142', '143', '144', '145', '146', '147', '148', '149', '150', '151', '152', '153', '154', '155', '156', '157', '158', '159', '160', '161', '162', '163', '164', '165', '166', '167', '168', '169', '170', '171', '172', '173', '174', '175', '176', '177', '178', '179', '180', '181', '182', '183', '184', '185', '186', '187', '188', '189', '190', '191', '192', '193', '194', '195', '196', '197', '198', '199', '200']")
         cag_output = cag_output.replace('{TRIPLET_DISTRIBUTION}', str(cag_summary))
         cag_output = cag_output.replace('{BACKGROUND_COLOUR}', '\"#006110\"')
         cag_output = cag_output.replace('{BORDER_COLOUR}', '\"#009419\"')
@@ -184,7 +185,7 @@ class genHTML:
         for line in f:
             js_string += line
         f.close()
-        ## anychart scripts
+        ## chart.js scripts
         f = open(chart_path, 'r')
         for line in f:
             js_string += line
@@ -226,13 +227,40 @@ class genHTML:
         f = open(seqdata_template, 'r')
         for sequence in self.SAMPLES:
 
+            targetObject = None
+            ## Select object from instance results
+            for x in self.instance_objects:
+                if x.get_label() == sequence:
+                    targetObject = x
+
+            ## HEADLINE INFORMATION
+            primary_cag = ''; primary_ccg = ''; primary_structurelabel = ''; primary_structure = ''; primary_confidence = ''
+            secondary_cag = ''; secondary_ccg = ''; secondary_structurelabel = ''; secondary_structure = ''; secondary_confidence = ''
+
+            try:
+                primary_allele = targetObject.get_primaryallele()
+                primary_cag = primary_allele.get_cag(); primary_ccg = primary_allele.get_ccg()
+                primary_structurelabel = primary_allele.get_allelestatus(); primary_structure = primary_allele.get_allelegenotype()
+                primary_confidence = primary_allele.get_alleleconfidence()
+
+                secondary_allele = targetObject.get_secondaryallele()
+                secondary_cag = secondary_allele.get_cag(); secondary_ccg = secondary_allele.get_ccg()
+                secondary_structurelabel = secondary_allele.get_allelestatus(); secondary_structure = secondary_allele.get_allelegenotype()
+                secondary_confidence = secondary_allele.get_alleleconfidence()
+            except AttributeError:
+                pass ## skip over samples that failed genotyping
+
             ## replace with results from ScaleHD for the current sample
             test_seqqc = self.get_sampleQC(sequence)
             test_seqaln = self.get_sampleALN(sequence)
             test_gtype = self.get_sampleGTYPE(sequence)
 
             for line in f:
-                line = line.format(ID=sequence, SEQ_QC=test_seqqc, SEQ_ALN=test_seqaln, GTYPE=test_gtype)
+                line = line.format(
+                ID=sequence,
+                A1_CAG=primary_cag, A1_CCG=primary_ccg, A1_STRUCTURELABEL=primary_structurelabel, A1_STRUCTURE=primary_structure, A1_CONFIDENCE=primary_confidence,
+                A2_CAG=secondary_cag, A2_CCG=secondary_ccg, A2_STRUCTURELABEL=secondary_structurelabel, A2_STRUCTURE=secondary_structure, A2_CONFIDENCE=secondary_confidence,
+                SEQ_QC=test_seqqc, SEQ_ALN=test_seqaln, GTYPE=test_gtype)
                 return_str = '{0}{1}'.format(return_str, line)
             f.seek(0)
         f.close()
@@ -270,9 +298,7 @@ class genHTML:
         ################################################################
         forwardFQCReport = targetObject.get_fqcreport()[0]; forwardFQCString = ''
         try:
-            with open(forwardFQCReport, 'r') as infi:
-                forwardFQCString=infi.read()
-            forwardFQCString = self.format_fastqc(forwardFQCString)
+            forwardFQCString = self.format_fastqc(forwardFQCReport, currSample)
         except Exception, e:
             forwardFQCString = 'We could not find/process a FastQC report! Exception raised: {}'.format(e)
 
@@ -318,18 +344,55 @@ class genHTML:
         ## Return formatted trimming report
         return trim_return
 
-    def format_fastqc(self, rawData):
+    def format_fastqc(self, rawDataPath, currSample):
 
         ## FastQC templates
         fastqc_template = os.path.join(self.TEMPLATES_BASE, 'fastqc.html')
 
         ## just fuckin lump it all in there for now and figure out what you want to format next
-        temp_FastQC_ALL = rawData
+        fqc_object = Fadapa(rawDataPath)
+        print '\n hello we are attempting to format FastQC data'
+
+        ## Module status data
+        module_summary = fqc_object.summary()
+        module_stats = module_summary[1][0]; module_pbsq = module_summary[2][0]; module_ptsq = module_summary[3][0];
+        module_psqs = module_summary[4][0]; module_pbsc = module_summary[5][0]; module_psgcc = module_summary[6][0];
+        module_pbnc = module_summary[7][0]; module_seqlendist = module_summary[8][0]; module_seqdup = module_summary[9][0];
+        module_overrep = module_summary[10][0]; module_adapter = module_summary[11][0]
+
+        ## Basic statistics data
+        basic_stats = fqc_object.clean_data('Basic Statistics')
+        file_name = basic_stats[1][1]; file_type = basic_stats[2][1]; encoding = basic_stats[3][1]
+        total_sequences = basic_stats[4][1]; poor_quality = basic_stats[5][1]; seq_len = basic_stats[6][1]
+        gc_pcnt = basic_stats[7][1]
+
+        ## Per Base Pair Sequence Quality
+        ## blue line - mean quality
+        ## yellow box (lower quart to upper quart)
+        ## error bars (10th pcnt to 90th pcnt)
+        ## red line - median value
+        ##print fqc_object.clean_data('Per base sequence quality')
+
+        ## Per Base Pair N Content
+
+        ## Sequence Length Distribution
+
+
+        print 'sending >>> ', currSample
 
         fqc_return = ''
         f = open(fastqc_template, 'r')
         for line in f:
-            line = line.format(FASTQCREPORT=rawData)
+            line = line.format(
+            MODULE_STATS = module_stats, MODULE_PBSQ = module_pbsq, MODULE_PTSQ = module_ptsq,
+            MODULE_PSQS = module_psqs, MODULE_PBSC = module_pbsc, MODULE_PSGCC = module_psgcc,
+            MODULE_PBNC = module_pbnc, MODULE_SEQLENDIST = module_seqlendist, MODULE_SEQDUP = module_seqdup,
+            MODULE_OVERREP = module_overrep, MODULE_ADAPTER = module_adapter,
+            FQC_FILENAME = file_name, FQC_FILETYPE = file_type, FQC_ENCODING = encoding,
+            FQC_TOTALSEQ = total_sequences, FQC_POORQUAL = poor_quality, FQC_SEQLEN = seq_len,
+            FQC_GCPCNT = gc_pcnt,
+            FASTQCREPORT = 'hello working on it'
+            )
             fqc_return = '{0}{1}'.format(fqc_return, line)
         f.close()
 

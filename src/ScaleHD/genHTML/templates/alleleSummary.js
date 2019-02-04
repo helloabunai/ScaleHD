@@ -1,43 +1,74 @@
-function {TRIPLET_TYPE}(identifier)
-{
+function {TRIPLET_TYPE}(identifier){
 	var target = identifier + "{TRIPLET_TYPE}";
 	var ctx = document.getElementById(target).getContext('2d');
-	var myChart = new Chart(ctx, {
+	var gradient = ctx.createLinearGradient(0,0,0,600);
+	gradient.addColorStop(0, '#009419');
+	gradient.addColorStop(1, '#001504');
+	var myChart = new Chart(ctx,{
 	    type: 'bar',
-	    data: {
+	    data:
+			{
 	        labels: {LABELS},
-	        datasets: [{
+	        datasets:
+					[{
 	            label: '# of alleles present',
 	            data: {TRIPLET_DISTRIBUTION},
-	            fillColor: {BACKGROUND_COLOUR},
-	            strokeColor:{BORDER_COLOUR},
-	            borderWidth: 1
+	            backgroundColor: gradient,
+							hoverBackgroundColor: gradient,
+							hoverBorderWidth: 2,
+							hoverBorderColor: '#001504'
 	        }]
 	    },
-	    options: {
+	    options:
+			{
+				// Prevents graphs resizing
 				responsive: false,
-				title: {
+				// Title colour/text
+				title:
+				{
             display: true,
+						fontColor: '#000000',
+						fontSize: 15,
+						fontFamily: 'Product Sans',
             text: {CHART_TITLE}
         },
-				legend:{
+				// Prevent legend from rendering
+				legend:
+				{
 					display: false
 				},
-	      scales: {
-	   			yAxes: [{
-	        	ticks: {
-	          	beginAtZero:true,
+				// X/Y Axes settings
+	      scales:
+				{
+					//Y Axis
+	   			yAxes:
+					[{
+						gridlines:
+						{
+							display: true
+						},
+	        	ticks:
+						{
+	          	beginAtZero:false,
 							precision:0
-	            }
-						}],
-					xAxes: [{
-						ticks: {
-							max:200,
-							min:0,
-							stepSize: 20
-							}
-						}]
-	        }
-	    }
-	});
-}
+	          }
+					}],
+					//X Axis
+					xAxes:
+					[{
+						gridlines:
+						{
+							display: false,
+						},
+						ticks:
+						{
+							autoSkip: true,
+							beginAtZero: false,
+							stepSize: 20,
+							maxTicksLimit: 11
+						}
+					}]
+				}
+			 }
+		 });
+	 }

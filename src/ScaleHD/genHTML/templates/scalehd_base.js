@@ -24,7 +24,6 @@ function showSequence(identifier){
 	$('#welcome').hide();
 	var seqHead = $('div.sequence[data-sequenceid='+ identifier +']')
 	seqHead.show();
-	//$('html,body').animate({scrollTop: seqHead.offset().top - 50}, 'fast')
 }
 
 // Function to change HTML header text if sample/substage link pressed
@@ -71,6 +70,7 @@ $('.sequence_sample_link').click(function(event){
 	<p class=\"alignright\"><a class=\"contact\" href=\"mailto:alastair.maxwell@glasgow.ac.uk\"><strong>@</strong></a>  |  <a class=\"help\" href=\"#\" data-title=\"Help\"><strong>?</strong></a></p>\n\
 	<div style=\"clear: both;\"></div>\n\
 	"
+
 	changeHeader(rightCandidate)
 	$('html,body').animate({scrollTop: 0},'fast');
 });
