@@ -79,14 +79,17 @@ class genHTML:
         cag_blank = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         if triplet == 'CAG':
             for individual in self.instance_objects:
-                primary_cag = individual.get_primaryallele().get_cag()
-                secondary_cag = individual.get_secondaryallele().get_cag()
-                for allele in [primary_cag, secondary_cag]:
-                    index = 0
-                    while index < len(cag_blank):
-                        if index == allele:
-                            cag_blank[index] += 1
-                        index += 1
+                try:
+                    primary_cag = individual.get_primaryallele().get_cag()
+                    secondary_cag = individual.get_secondaryallele().get_cag()
+                    for allele in [primary_cag, secondary_cag]:
+                        index = 0
+                        while index < len(cag_blank):
+                            if index == allele:
+                                cag_blank[index] += 1
+                            index += 1
+                except AttributeError: ##skip over samples that have no genotype (i.e. failed)
+                    pass
 
             return cag_blank
 
@@ -94,14 +97,17 @@ class genHTML:
         ccg_blank = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         if triplet == 'CCG':
             for individual in self.instance_objects:
-                primary_ccg = individual.get_primaryallele().get_ccg()
-                secondary_ccg = individual.get_secondaryallele().get_ccg()
-                for allele in [primary_ccg, secondary_ccg]:
-                    index = 0
-                    while index < len(ccg_blank):
-                        if index == allele:
-                            ccg_blank[index] += 1
-                        index += 1
+                try:
+                    primary_ccg = individual.get_primaryallele().get_ccg()
+                    secondary_ccg = individual.get_secondaryallele().get_ccg()
+                    for allele in [primary_ccg, secondary_ccg]:
+                        index = 0
+                        while index < len(ccg_blank):
+                            if index == allele:
+                                ccg_blank[index] += 1
+                            index += 1
+                except AttributeError:
+                    pass
 
             return ccg_blank
 
@@ -127,7 +133,7 @@ class genHTML:
         f = open(template_path, 'r')
         ccg_output = f.read()
         ccg_output = ccg_output.replace('{TRIPLET_TYPE}','CCGSummaryChart')
-        ccg_output = ccg_output.replace('{LABELS}', "['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20']")
+        ccg_output = ccg_output.replace('{LABELS}', "['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20']")
         ccg_output = ccg_output.replace('{TRIPLET_DISTRIBUTION}', str(ccg_summary))
         ccg_output = ccg_output.replace('{BACKGROUND_COLOUR}', '\"#e100bb\"')
         ccg_output = ccg_output.replace('{BORDER_COLOUR}', '\"#94007b\"')
