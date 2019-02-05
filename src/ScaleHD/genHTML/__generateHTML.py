@@ -43,7 +43,7 @@ class genHTML:
         allelesummary_javascript = self.implement_summaries(jobLabel, cag_summary, ccg_summary) #send summary data to scalehd.JS file
         styling_str = self.get_styling() #CSS
         script_str = self.get_javascript() #Javascript
-        version_str = shdVersion # Get ScaleHD versionx
+        version_str = shdVersion # Get ScaleHD version
         instancelabel_str = jobLabel # Get ScaleHD jobLabel
         lists_str = self.get_lists_html() # Get sample list of which SHD processed
         analysis_str = self.get_seqdata() # Get SubStage information for each sample
@@ -172,7 +172,7 @@ class genHTML:
     def get_javascript(self):
         jquery_path = os.path.join(self.WEB_BASE, 'jquery.js')
         scalehd_path = os.path.join(self.WEB_BASE, 'scalehd.js')
-        chart_path = os.path.join(self.WEB_BASE, 'chart.js')
+        chart_path = os.path.join(self.WEB_BASE, 'Chart.js')
         js_string = ''
 
         ## jquery scripts
@@ -185,7 +185,7 @@ class genHTML:
         for line in f:
             js_string += line
         f.close()
-        ## chart.js scripts
+        ## canvas.js scripts
         f = open(chart_path, 'r')
         for line in f:
             js_string += line
@@ -351,7 +351,6 @@ class genHTML:
 
         ## just fuckin lump it all in there for now and figure out what you want to format next
         fqc_object = Fadapa(rawDataPath)
-        print '\n hello we are attempting to format FastQC data'
 
         ## Module status data
         module_summary = fqc_object.summary()
@@ -371,15 +370,15 @@ class genHTML:
         ## yellow box (lower quart to upper quart)
         ## error bars (10th pcnt to 90th pcnt)
         ## red line - median value
-        ##print fqc_object.clean_data('Per base sequence quality')
+        fqc_pbsq_data = fqc_object.clean_data('Per base sequence quality')
 
         ## Per Base Pair N Content
+        fqc_pbnc_data = fqc_object.clean_data('Per base N content')
 
         ## Sequence Length Distribution
+        fqc_seqlen_data = fqc_object.clean_data('Sequence Length Distribution')
 
-
-        print 'sending >>> ', currSample
-
+        ## FastQC html template file with data inserted
         fqc_return = ''
         f = open(fastqc_template, 'r')
         for line in f:
@@ -390,8 +389,7 @@ class genHTML:
             MODULE_OVERREP = module_overrep, MODULE_ADAPTER = module_adapter,
             FQC_FILENAME = file_name, FQC_FILETYPE = file_type, FQC_ENCODING = encoding,
             FQC_TOTALSEQ = total_sequences, FQC_POORQUAL = poor_quality, FQC_SEQLEN = seq_len,
-            FQC_GCPCNT = gc_pcnt,
-            FASTQCREPORT = 'hello working on it'
+            FQC_GCPCNT = gc_pcnt
             )
             fqc_return = '{0}{1}'.format(fqc_return, line)
         f.close()

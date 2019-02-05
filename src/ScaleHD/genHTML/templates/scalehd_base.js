@@ -1,7 +1,6 @@
 /////////////
 // GLOBALS //
 /////////////
-
 var scaleHDVersion = $('body').data('shd_version')
 var instanceLabel = $('body').data('instance_label')
 var allParents = document.getElementsByClassName('sequence_sample_link')
@@ -9,7 +8,6 @@ var allParents = document.getElementsByClassName('sequence_sample_link')
 ///////////////
 // FUNCTIONS //
 ///////////////
-
 $(document).ready(function(){
 	// Only for document load events
 	// hide #help on load, so that #welcome is the landing page
@@ -29,6 +27,56 @@ function showSequence(identifier){
 // Function to change HTML header text if sample/substage link pressed
 function changeHeader(replaceRight){
 	$('#rightHeader').html(replaceRight)
+}
+
+// Function to render lineGraphs within samples when called upon
+function lineGraph(identifier, suffix)
+{
+	var target_id = identifier + suffix;
+	var target_element = document.getElementById(target_id)
+	var ctx = target_element.getContext('2d');
+
+	console.log(target_element.attributes)
+
+	var chart = new Chart(ctx, {
+	  type: 'line',
+	  data: {
+	    labels: [1500,1600,1700,1750,1800,1850,1900,1950,1999,2050],
+	    datasets: [{
+	        data: [86,114,106,106,107,111,133,221,783,2478],
+	        label: "Africa",
+	        borderColor: "#3e95cd",
+	        fill: false
+	      }, {
+	        data: [282,350,411,502,635,809,947,1402,3700,5267],
+	        label: "Asia",
+	        borderColor: "#8e5ea2",
+	        fill: false
+	      }, {
+	        data: [168,170,178,190,203,276,408,547,675,734],
+	        label: "Europe",
+	        borderColor: "#3cba9f",
+	        fill: false
+	      }, {
+	        data: [40,20,10,16,24,38,74,167,508,784],
+	        label: "Latin America",
+	        borderColor: "#e8c3b9",
+	        fill: false
+	      }, {
+	        data: [6,3,2,2,7,26,82,172,312,433],
+	        label: "North America",
+	        borderColor: "#c45850",
+	        fill: false
+	      }
+	    ]
+	  },
+	  options: {
+	    title: {
+	      display: true,
+	      text: 'World population per region (in millions)'
+	    }
+	  }
+	});
 }
 
 // Function to clear sample links back to white when called
@@ -63,6 +111,13 @@ $('.sequence_sample_link').click(function(event){
 	var identifier = $(event.target).data('sequenceid');
 	clearSampleColour(identifier)
 	showSequence(identifier);
+
+	// render FastQC PBSQ graph
+	lineGraph(identifier, '_FQC_PBSQ');
+	// render FastQC PBNC graph
+	lineGraph(identifier, '_FQC_PBNC');
+	// render FastQC seqlen graph
+	lineGraph(identifier, '_FQC_SEQLENDIST');
 
 	// Update header to be "SAMPLE | LANDING_STRING"
 	rightCandidate = "\
@@ -132,6 +187,12 @@ $('.sequence_sample_sublink').click(function(event)
 
 	//Actually show the sequence on the rightPanel
 	showSequence(identifier);
+	// render FastQC PBSQ graph
+	lineGraph(identifier, '_FQC_PBSQ');
+	// render FastQC PBNC graph
+	lineGraph(identifier, '_FQC_PBNC');
+	// render FastQC seqlen graph
+	lineGraph(identifier, '_FQC_SEQLENDIST');
 
 	// PARENT COLOURING
 	// If the user directly selects a sub-stage sublink..
@@ -156,9 +217,9 @@ $('.sequence_sample_sublink').click(function(event)
 	$('html,body').animate({scrollTop: header.offset().top - 50},'slow');
 });
 
-////////////////
-// Chart Test //
-////////////////
+////////////////////
+// Summary Charts //
+////////////////////
 
 // CAG Summary
 {CAG_FUNCTION}

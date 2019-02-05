@@ -1,7 +1,6 @@
 /////////////
 // GLOBALS //
 /////////////
-
 var scaleHDVersion = $('body').data('shd_version')
 var instanceLabel = $('body').data('instance_label')
 var allParents = document.getElementsByClassName('sequence_sample_link')
@@ -9,7 +8,6 @@ var allParents = document.getElementsByClassName('sequence_sample_link')
 ///////////////
 // FUNCTIONS //
 ///////////////
-
 $(document).ready(function(){
 	// Only for document load events
 	// hide #help on load, so that #welcome is the landing page
@@ -29,6 +27,56 @@ function showSequence(identifier){
 // Function to change HTML header text if sample/substage link pressed
 function changeHeader(replaceRight){
 	$('#rightHeader').html(replaceRight)
+}
+
+// Function to render lineGraphs within samples when called upon
+function lineGraph(identifier, suffix)
+{
+	var target_id = identifier + suffix;
+	var target_element = document.getElementById(target_id)
+	var ctx = target_element.getContext('2d');
+
+	console.log(target_element.attr('data-test'))
+
+	var chart = new Chart(ctx, {
+	  type: 'line',
+	  data: {
+	    labels: [1500,1600,1700,1750,1800,1850,1900,1950,1999,2050],
+	    datasets: [{
+	        data: [86,114,106,106,107,111,133,221,783,2478],
+	        label: "Africa",
+	        borderColor: "#3e95cd",
+	        fill: false
+	      }, {
+	        data: [282,350,411,502,635,809,947,1402,3700,5267],
+	        label: "Asia",
+	        borderColor: "#8e5ea2",
+	        fill: false
+	      }, {
+	        data: [168,170,178,190,203,276,408,547,675,734],
+	        label: "Europe",
+	        borderColor: "#3cba9f",
+	        fill: false
+	      }, {
+	        data: [40,20,10,16,24,38,74,167,508,784],
+	        label: "Latin America",
+	        borderColor: "#e8c3b9",
+	        fill: false
+	      }, {
+	        data: [6,3,2,2,7,26,82,172,312,433],
+	        label: "North America",
+	        borderColor: "#c45850",
+	        fill: false
+	      }
+	    ]
+	  },
+	  options: {
+	    title: {
+	      display: true,
+	      text: 'World population per region (in millions)'
+	    }
+	  }
+	});
 }
 
 // Function to clear sample links back to white when called
@@ -64,14 +112,19 @@ $('.sequence_sample_link').click(function(event){
 	clearSampleColour(identifier)
 	showSequence(identifier);
 
+	// render FastQC PBSQ graph
+	lineGraph(identifier, '_FQC_PBSQ');
+	// render FastQC PBNC graph
+	lineGraph(identifier, '_FQC_PBNC');
+	// render FastQC seqlen graph
+	lineGraph(identifier, '_FQC_SEQLENDIST');
+
 	// Update header to be "SAMPLE | LANDING_STRING"
 	rightCandidate = "\
 	<p class=\"alignleft\">" + identifier + " | ScaleHD results" + "</p>\n\
 	<p class=\"alignright\"><a class=\"contact\" href=\"mailto:alastair.maxwell@glasgow.ac.uk\"><strong>@</strong></a>  |  <a class=\"help\" href=\"#\" data-title=\"Help\"><strong>?</strong></a></p>\n\
 	<div style=\"clear: both;\"></div>\n\
 	"
-
-	TEST_BOX(identifier);
 
 	changeHeader(rightCandidate)
 	$('html,body').animate({scrollTop: 0},'fast');
@@ -134,6 +187,12 @@ $('.sequence_sample_sublink').click(function(event)
 
 	//Actually show the sequence on the rightPanel
 	showSequence(identifier);
+	// render FastQC PBSQ graph
+	lineGraph(identifier, '_FQC_PBSQ');
+	// render FastQC PBNC graph
+	lineGraph(identifier, '_FQC_PBNC');
+	// render FastQC seqlen graph
+	lineGraph(identifier, '_FQC_SEQLENDIST');
 
 	// PARENT COLOURING
 	// If the user directly selects a sub-stage sublink..
@@ -158,9 +217,9 @@ $('.sequence_sample_sublink').click(function(event)
 	$('html,body').animate({scrollTop: header.offset().top - 50},'slow');
 });
 
-////////////////
-// Chart Test //
-////////////////
+////////////////////
+// Summary Charts //
+////////////////////
 
 // CAG Summary
 function CAGSummaryChart(identifier){
@@ -315,72 +374,3 @@ function CCGSummaryChart(identifier){
 		 });
 	 }
 
-
-// test box Plot
-function randomValues(count, min, max) {
-  const delta = max - min;
-  return Array.from({length: count}).map(() => Math.random() * delta + min);
-}
-
-const boxplotData = {
-  // define label tree
-  labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
-  datasets: [{
-    label: 'Dataset 1',
-    backgroundColor: 'rgba(255,0,0,0.5)',
-    borderColor: 'red',
-    borderWidth: 1,
-    outlierColor: '#999999',
-    padding: 10,
-    itemRadius: 0,
-    outlierColor: '#999999',
-    data: [
-      randomValues(100, 0, 100),
-      randomValues(100, 0, 20),
-      randomValues(100, 20, 70),
-      randomValues(100, 60, 100),
-      randomValues(40, 50, 100),
-      randomValues(100, 60, 120),
-      randomValues(100, 80, 100)
-    ]
-  }, {
-    label: 'Dataset 2',
-    backgroundColor:  'rgba(0,0,255,0.5)',
-    borderColor: 'blue',
-    borderWidth: 1,
-    outlierColor: '#999999',
-    padding: 10,
-    itemRadius: 0,
-    outlierColor: '#999999',
-    data: [
-      randomValues(100, 60, 100),
-      randomValues(100, 0, 100),
-      randomValues(100, 0, 20),
-      randomValues(100, 20, 70),
-      randomValues(40, 60, 120),
-      randomValues(100, 20, 100),
-      randomValues(100, 80, 100)
-    ]
-  }]
-};
-
-function TEST_BOX(identifier){
-	var target = "FQC_PBSQ_" + identifier;
-	console.log(target)
-	var ctx = document.getElementById(target).getContext('2d');
-	var myChart = new Chart(ctx, {
-    type: 'boxplot',
-    data: boxplotData,
-    options: {
-      responsive: true,
-      legend: {
-        position: 'top',
-      },
-      title: {
-        display: true,
-        text: 'Chart.js Box Plot Chart'
-      }
-    }
-  });
-
-};
