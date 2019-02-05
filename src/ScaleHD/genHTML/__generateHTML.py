@@ -302,6 +302,11 @@ class genHTML:
         except Exception, e:
             forwardFQCString = 'We could not find/process a FastQC report! Exception raised: {}'.format(e)
 
+        ####################################################################################################
+        ## WEDNESDAY CONTINUE HERE :: Get FastQC graph data and append it to attribute tags in seqqc.html ##
+        ####################################################################################################
+        print 'hi continue here wednesday'
+
         ###################################################################
         ## Apply scraped and formatted data into HTML template for SeqQC ##
         ###################################################################

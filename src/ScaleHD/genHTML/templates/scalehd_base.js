@@ -36,7 +36,7 @@ function lineGraph(identifier, suffix)
 	var target_element = document.getElementById(target_id)
 	var ctx = target_element.getContext('2d');
 
-	console.log(target_element.attributes)
+	var data_get_test = target_element.getAttribute("data-test")
 
 	var chart = new Chart(ctx, {
 	  type: 'line',
@@ -73,7 +73,7 @@ function lineGraph(identifier, suffix)
 	  options: {
 	    title: {
 	      display: true,
-	      text: 'World population per region (in millions)'
+	      text: data_get_test
 	    }
 	  }
 	});
