@@ -12,8 +12,8 @@ $(document).ready(function(){
 	// Only for document load events
 	// hide #help on load, so that #welcome is the landing page
 	$('#help').hide();
-	CAGSummaryChart(instanceLabel);
-	CCGSummaryChart(instanceLabel);
+	barGraph(instanceLabel, 'CAGSummaryChart');
+	barGraph(instanceLabel, 'CCGSummaryChart');
 });
 
 // Function for clicking on a sequence sample
@@ -29,6 +29,92 @@ function changeHeader(replaceRight){
 	$('#rightHeader').html(replaceRight)
 }
 
+// Function to render barGraphs within summaries and samples when called
+function barGraph(identifier, triplet)
+{
+	var target_id = identifier + triplet;
+	var target_element = document.getElementById(target_id)
+	var ctx = target_element.getContext('2d');
+	var gradient = ctx.createLinearGradient(0,0,0,600);
+	gradient.addColorStop(0, '#009419');
+	gradient.addColorStop(1, '#001504');
+
+	// get data from JSON attribute
+	var data_title = target_element.getAttribute('data-title')
+	var data_labels = target_element.getAttribute('data-labels')
+	var data_values = target_element.getAttribute('data-values')
+	// replace single quotes from python strings to double quotes (JSON A BITCH)
+	data_labels = data_labels.replace(/'/g, '"')
+	data_values = data_values.replace(/'/g, '"')
+
+	var chart = new Chart(ctx,
+	{
+		type: 'bar',
+		data:
+		{
+				labels: JSON.parse(data_labels),
+				datasets:
+				[{
+						label: '# of alleles present',
+						data: JSON.parse(data_values),
+						backgroundColor: gradient,
+						hoverBackgroundColor: gradient,
+						hoverBorderWidth: 2,
+						hoverBorderColor: '#001504'
+				}]
+		},
+		options:
+		{
+			// Title colour/text
+			title:
+			{
+					display: true,
+					fontColor: '#000000',
+					fontSize: 15,
+					fontFamily: 'Product Sans',
+					text: data_title
+			},
+			// Prevent legend from rendering
+			legend:
+			{
+				display: false
+			},
+			// X/Y Axes settings
+			scales:
+			{
+				//Y Axis
+				yAxes:
+				[{
+					gridlines:
+					{
+						display: true
+					},
+					ticks:
+					{
+						beginAtZero:false,
+						precision:0
+					}
+				}],
+				//X Axis
+				xAxes:
+				[{
+					gridlines:
+					{
+						display: false,
+					},
+					ticks:
+					{
+						autoSkip: true,
+						beginAtZero: false,
+						stepSize: 20,
+						maxTicksLimit: 11
+					}
+				}]
+			}
+		 }
+	});
+}
+
 // Function to render lineGraphs within samples when called upon
 function lineGraph(identifier, suffix)
 {
@@ -36,46 +122,63 @@ function lineGraph(identifier, suffix)
 	var target_element = document.getElementById(target_id)
 	var ctx = target_element.getContext('2d');
 
-	var data_get_test = target_element.getAttribute("data-test")
+	//data from chart attributes since i'm too fuckin dumb to pass it
+	//any other way!! fuck web servers!! apparently!!
+	var data_title = target_element.getAttribute("data-title")
+	var data_labels = target_element.getAttribute("data-labels")
+	var data_values = target_element.getAttribute("data-values")
+	var data_descr = target_element.getAttribute("data-descr")
+	var data_xaxis = target_element.getAttribute("data-xaxis")
+	var data_yaxis = target_element.getAttribute("data-yaxis")
+	// replace single quotes from python strings to double quotes (JSON A BITCH)
+	data_labels = data_labels.replace(/'/g, '"')
+	data_values = data_values.replace(/'/g, '"')
 
-	var chart = new Chart(ctx, {
+	var chart = new Chart(ctx,
+	{
 	  type: 'line',
-	  data: {
-	    labels: [1500,1600,1700,1750,1800,1850,1900,1950,1999,2050],
-	    datasets: [{
-	        data: [86,114,106,106,107,111,133,221,783,2478],
-	        label: "Africa",
-	        borderColor: "#3e95cd",
-	        fill: false
-	      }, {
-	        data: [282,350,411,502,635,809,947,1402,3700,5267],
-	        label: "Asia",
-	        borderColor: "#8e5ea2",
-	        fill: false
-	      }, {
-	        data: [168,170,178,190,203,276,408,547,675,734],
-	        label: "Europe",
-	        borderColor: "#3cba9f",
-	        fill: false
-	      }, {
-	        data: [40,20,10,16,24,38,74,167,508,784],
-	        label: "Latin America",
-	        borderColor: "#e8c3b9",
-	        fill: false
-	      }, {
-	        data: [6,3,2,2,7,26,82,172,312,433],
-	        label: "North America",
-	        borderColor: "#c45850",
-	        fill: false
-	      }
-	    ]
+	  data:
+		{
+	    labels: JSON.parse(data_labels),
+	    datasets:
+			[{
+	        data: JSON.parse(data_values),
+	        label: data_descr,
+	        borderColor: "#009419",
+	        fill: true
+	     }]
 	  },
-	  options: {
-	    title: {
+	  options:
+		{
+	    title:
+			{
 	      display: true,
-	      text: data_get_test
-	    }
-	  }
+	      text: data_title
+	    },
+			legend:
+			{
+				display: false
+			},
+			scales:
+			{
+				yAxes:
+				[{
+					scaleLabel:
+					{
+		        display: true,
+		        labelString: data_yaxis
+					}
+				}],
+				xAxes:
+				[{
+					scaleLabel:
+					{
+		        display: true,
+		        labelString: data_xaxis
+					}
+				}]
+			}
+		}
 	});
 }
 
@@ -216,13 +319,3 @@ $('.sequence_sample_sublink').click(function(event)
 	var header = $('h3[data-sequenceid=' + identifier + '][data-title=' + title + ']');
 	$('html,body').animate({scrollTop: header.offset().top - 50},'slow');
 });
-
-////////////////////
-// Summary Charts //
-////////////////////
-
-// CAG Summary
-{CAG_FUNCTION}
-
-// CCG Summary
-{CCG_FUNCTION}
