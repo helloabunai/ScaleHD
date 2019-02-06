@@ -359,7 +359,7 @@ class ScaleHD:
 				try:
 					self.snp_calling(current_seqpair)
 				except Exception, e:
-					current_seqpair.set_exceptionraised('SNP Calling')
+					current_seqpair.set_exceptionraised('SNPCalling')
 					self.append_report(current_seqpair)
 					self.instance_objects.append(current_seqpair)
 					log.info('{}{}{}{}{}: {}\n'.format(clr.red, 'shd__ ', clr.end, 'SNP calling failure on ',seqpair_lbl, str(e)))
@@ -566,7 +566,6 @@ class ScaleHD:
 	def html_workflow(self):
 
 		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Generating HTML results output..'))
-
 		## Pass to subpackge to take data and format into HTML templates
 		genHTML.genHTML(scalehdResults = self.instance_objects,
 		 shdVersion = __version__,

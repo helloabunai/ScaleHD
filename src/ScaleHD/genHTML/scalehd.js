@@ -30,10 +30,14 @@ function changeHeader(replaceRight){
 }
 
 // Function to render barGraphs within summaries and samples when called
-function barGraph(identifier, triplet)
+function barGraph(identifier, suffix)
 {
-	var target_id = identifier + triplet;
+	var target_id = identifier + suffix;
 	var target_element = document.getElementById(target_id)
+	// quit if null i.e. no data i.e. sample failed
+	if (target_element === null){
+		return;
+	}
 	var ctx = target_element.getContext('2d');
 	var gradient = ctx.createLinearGradient(0,0,0,600);
 	gradient.addColorStop(0, '#009419');
@@ -41,8 +45,11 @@ function barGraph(identifier, triplet)
 
 	// get data from JSON attribute
 	var data_title = target_element.getAttribute('data-title')
+	var data_label = target_element.getAttribute('data-descr')
 	var data_labels = target_element.getAttribute('data-labels')
 	var data_values = target_element.getAttribute('data-values')
+	var data_xaxis = target_element.getAttribute('data-xaxis')
+	var data_yaxis = target_element.getAttribute('data-yaxis')
 	// replace single quotes from python strings to double quotes (JSON A BITCH)
 	data_labels = data_labels.replace(/'/g, '"')
 	data_values = data_values.replace(/'/g, '"')
@@ -55,7 +62,7 @@ function barGraph(identifier, triplet)
 				labels: JSON.parse(data_labels),
 				datasets:
 				[{
-						label: '# of alleles present',
+						label: data_label,
 						data: JSON.parse(data_values),
 						backgroundColor: gradient,
 						hoverBackgroundColor: gradient,
@@ -93,6 +100,11 @@ function barGraph(identifier, triplet)
 					{
 						beginAtZero:false,
 						precision:0
+					},
+					scaleLabel:
+					{
+						display: true,
+						labelString: data_yaxis
 					}
 				}],
 				//X Axis
@@ -108,6 +120,11 @@ function barGraph(identifier, triplet)
 						beginAtZero: false,
 						stepSize: 20,
 						maxTicksLimit: 11
+					},
+					scaleLabel:
+					{
+						display: true,
+						labelString: data_xaxis
 					}
 				}]
 			}
@@ -215,12 +232,12 @@ $('.sequence_sample_link').click(function(event){
 	clearSampleColour(identifier)
 	showSequence(identifier);
 
-	// render FastQC PBSQ graph
+	// render Quality Control Graphs
 	lineGraph(identifier, '_FQC_PBSQ');
-	// render FastQC PBNC graph
 	lineGraph(identifier, '_FQC_PBNC');
-	// render FastQC seqlen graph
 	lineGraph(identifier, '_FQC_SEQLENDIST');
+	// render Genotype Graphs
+	barGraph(identifier, '_CCGDIST');
 
 	// Update header to be "SAMPLE | LANDING_STRING"
 	rightCandidate = "\
@@ -239,6 +256,8 @@ $('.home').click(function(event){
 	$('div.sequence').hide();
 	$('#help').hide();
 	$('#welcome').show();
+	barGraph(instanceLabel, 'CAGSummaryChart');
+	barGraph(instanceLabel, 'CCGSummaryChart');
 
 	rightCandidate = "\
 	<p class=\"alignleft\">ScaleHD - Automated Huntington Disease genotyping</p>\n\
@@ -290,12 +309,12 @@ $('.sequence_sample_sublink').click(function(event)
 
 	//Actually show the sequence on the rightPanel
 	showSequence(identifier);
-	// render FastQC PBSQ graph
+	// render quality control graphs
 	lineGraph(identifier, '_FQC_PBSQ');
-	// render FastQC PBNC graph
 	lineGraph(identifier, '_FQC_PBNC');
-	// render FastQC seqlen graph
 	lineGraph(identifier, '_FQC_SEQLENDIST');
+	// render genotype graphs
+	barGraph(identifier, '_CCGDIST');
 
 	// PARENT COLOURING
 	// If the user directly selects a sub-stage sublink..

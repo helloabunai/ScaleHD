@@ -4,6 +4,7 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ## imports
 import os
+import numpy as np
 import pkg_resources
 from shutil import move
 from fadapa import Fadapa
@@ -59,13 +60,15 @@ class genHTML:
         output = ''
 
         for line in f:
-            line = line.format(CSS=styling_str,
-                               SAMPLE_LIST=lists_str, shd_version=version_str,
-                               instance_label=instancelabel_str,
-                               CAG_TITLE = allele_dict['CAG_TITLE'], CAG_LABELS = allele_dict['CAG_LABELS'], CAG_VALUES = allele_dict['CAG_VALUES'],
-                               CCG_TITLE = allele_dict['CCG_TITLE'], CCG_LABELS = allele_dict['CCG_LABELS'], CCG_VALUES = allele_dict['CCG_VALUES'],
-                               FOOTERIMG = footer_str,
-                               SEQDATA=analysis_str, JAVASCRIPT=script_str)
+            line = line.format(
+            CSS=styling_str,
+            SAMPLE_LIST=lists_str, shd_version=version_str,
+            instance_label=instancelabel_str,
+            CAG_TITLE = allele_dict['CAG_TITLE'], CAG_DESCR=allele_dict['CAG_DESCR'], CAG_LABELS = allele_dict['CAG_LABELS'], CAG_VALUES = allele_dict['CAG_VALUES'], CAG_X = allele_dict['CAG_X'], CAG_Y = allele_dict['CAG_Y'],
+            CCG_TITLE = allele_dict['CCG_TITLE'], CCG_DESCR=allele_dict['CCG_DESCR'], CCG_LABELS = allele_dict['CCG_LABELS'], CCG_VALUES = allele_dict['CCG_VALUES'], CCG_X = allele_dict['CCG_X'], CCG_Y = allele_dict['CCG_Y'],
+            FOOTERIMG = footer_str,
+            SEQDATA=analysis_str, JAVASCRIPT=script_str
+            )
             output = '{0}{1}'.format(output, line)
         f.close()
 
@@ -124,13 +127,19 @@ class genHTML:
 
         ## CAG Summary
         allele_dict['CAG_TITLE'] = 'CAG allele distribution for {}'.format(jobLabel)
+        allele_dict['CAG_DESCR'] = '# of alleles present'
         allele_dict['CAG_LABELS'] = str(cag_labels)
         allele_dict['CAG_VALUES'] = str(cag_summary)
+        allele_dict['CAG_X'] = 'CAG Repeat size'
+        allele_dict['CAG_Y'] = 'Allele count'
 
         ## CCG Summary
         allele_dict['CCG_TITLE'] = 'CCG allele distribution for {}'.format(jobLabel)
+        allele_dict['CCG_DESCR'] = '# of alleles present'
         allele_dict['CCG_LABELS'] = str(ccg_labels)
         allele_dict['CCG_VALUES'] = str(ccg_summary)
+        allele_dict['CCG_X'] = 'CCG Repeat size'
+        allele_dict['CCG_Y'] = 'Allele count'
 
         return allele_dict
 
@@ -220,6 +229,11 @@ class genHTML:
             ## HEADLINE INFORMATION
             primary_cag = ''; primary_ccg = ''; primary_structurelabel = ''; primary_structure = ''; primary_confidence = ''
             secondary_cag = ''; secondary_ccg = ''; secondary_structurelabel = ''; secondary_structure = ''; secondary_confidence = ''
+            exceptions = targetObject.get_exceptionraised(); passfail=''
+            if exceptions == 'N/A':
+                passfail = 'completed'
+            else:
+                passfail = 'incompleted (exception raised on {})'.format(exceptions)
 
             try:
                 primary_allele = targetObject.get_primaryallele()
@@ -235,16 +249,16 @@ class genHTML:
                 pass ## skip over samples that failed genotyping
 
             ## replace with results from ScaleHD for the current sample
-            test_seqqc = self.get_sampleQC(sequence)
-            test_seqaln = self.get_sampleALN(sequence)
-            test_gtype = self.get_sampleGTYPE(sequence)
+            sample_seqqc = self.get_sampleQC(sequence)
+            sample_seqaln = self.get_sampleALN(sequence)
+            sample_gtype = self.get_sampleGTYPE(sequence)
 
             for line in f:
                 line = line.format(
-                ID=sequence,
+                ID=sequence, PASSFAIL=passfail,
                 A1_CAG=primary_cag, A1_CCG=primary_ccg, A1_STRUCTURELABEL=primary_structurelabel, A1_STRUCTURE=primary_structure, A1_CONFIDENCE=primary_confidence,
                 A2_CAG=secondary_cag, A2_CCG=secondary_ccg, A2_STRUCTURELABEL=secondary_structurelabel, A2_STRUCTURE=secondary_structure, A2_CONFIDENCE=secondary_confidence,
-                SEQ_QC=test_seqqc, SEQ_ALN=test_seqaln, GTYPE=test_gtype)
+                SEQ_QC=sample_seqqc, SEQ_ALN=sample_seqaln, GTYPE=sample_gtype)
                 return_str = '{0}{1}'.format(return_str, line)
             f.seek(0)
         f.close()
@@ -258,6 +272,12 @@ class genHTML:
         for x in self.instance_objects:
             if x.get_label() == currSample:
                 targetObject = x
+
+        ##
+        ## If the sample failed, there won't be any data to collect
+        ## so just return a simple string to be placed in the data's stead
+        if targetObject.get_exceptionraised() == 'SeqQC':
+            return '<p> No Quality Control results! ScaleHD workflow failed!</p>'
 
         ##################################################################
         ## Check for Trimming report! scrape data and format if present ##
@@ -444,4 +464,48 @@ class genHTML:
         return "testALN"
 
     def get_sampleGTYPE(self, currSample):
-        return "testGTYPE"
+
+        targetObject = None
+        ## Select object from instance results
+        for x in self.instance_objects:
+            if x.get_label() == currSample:
+                targetObject = x
+        gtype_data = {}
+
+        ##
+        ## If the sample failed, there won't be any data to collect
+        ## so just return a simple string to be placed in the data's stead
+        if targetObject.get_exceptionraised() in ['SeqALN','SeqRE-ALN','DSP','Genotype','SNPCalling']:
+            return '<p> No Genotype results! ScaleHD workflow failed/incomplete!</p>'
+
+        ###############################################
+        ## Data for CCG distribution for this sample ##
+        ###############################################
+        ccg_labels = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20']
+        primary_allele = targetObject.get_primaryallele(); secondary_allele = targetObject.get_secondaryallele()
+        pri_rvarray = primary_allele.get_rvarray(); sec_rvarray = primary_allele.get_rvarray()
+        allele_super = [0] + np.asarray([a + b for a, b in zip(pri_rvarray,sec_rvarray)]).tolist() ## 0 added to offset label indexing from 0
+
+        gtype_data['CCGDIST_TITLE'] = 'CCG Distribution for {}'.format(currSample)
+        gtype_data['CCGDIST_DESCR'] = '# of reads present'
+        gtype_data['CCGDIST_LABELS'] = str(ccg_labels)
+        gtype_data['CCGDIST_VALUES'] = str(allele_super)
+        gtype_data['CCGDIST_X'] = 'CCG Repeat Size'
+        gtype_data['CCGDIST_Y'] = 'Number of reads'
+
+        ###################################################################
+        ## Apply scraped and formatted data into HTML template for SeqQC ##
+        ###################################################################
+        gtype_template = os.path.join(self.TEMPLATES_BASE, 'seqGTYPE.html')
+        f = open(gtype_template, 'r')
+        gtype_return = ''
+        for line in f:
+            line = line.format(
+            ID=currSample,
+            CCGDIST_TITLE = gtype_data['CCGDIST_TITLE'], CCGDIST_DESCR = gtype_data['CCGDIST_DESCR'], CCGDIST_LABELS = gtype_data['CCGDIST_LABELS'],
+            CCGDIST_VALUES = gtype_data['CCGDIST_VALUES'], CCGDIST_X = gtype_data['CCGDIST_X'], CCGDIST_Y = gtype_data['CCGDIST_Y']
+            )
+            gtype_return = '{0}{1}'.format(gtype_return, line)
+        f.close()
+
+        return gtype_return
