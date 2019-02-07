@@ -199,6 +199,7 @@ function lineGraph(identifier, suffix)
 	});
 }
 
+// Function to render Box/Whisker/Line overlay graph
 function boxGraph(identifier, suffix)
 {
 	var target_id = identifier + suffix;
@@ -229,7 +230,7 @@ function boxGraph(identifier, suffix)
 					label: data_descr,
 					backgroundColor: '#dcdcdc',
 					borderColor: '#009419',
-					borderWidth: 1,
+					borderWidth: 2,
 					outlierColor: '#999999',
 					padding: 10,
 					itemRadius: 0,
@@ -240,7 +241,7 @@ function boxGraph(identifier, suffix)
 					type: "line",
 					label: "Mean PHRED score",
 					borderColor: '#94007b',
-					borderWidth: 1,
+					borderWidth: 2,
 					fill: false,
 					data: JSON.parse(data_meanval)
 				}]
@@ -257,6 +258,11 @@ function boxGraph(identifier, suffix)
 	        display: true,
 	        text: data_title
 	      },
+				tooltips:
+				{
+					mode: "index",
+					intersect: true
+				},
 				scales:
 				{
 					yAxes:
