@@ -41,7 +41,7 @@ function barGraph(identifier, suffix)
 	var ctx = target_element.getContext('2d');
 	var gradient = ctx.createLinearGradient(0,0,0,600);
 	gradient.addColorStop(0, '#009419');
-	gradient.addColorStop(1, '#001504');
+	gradient.addColorStop(1, '#002f08');
 
 	// get data from JSON attribute
 	var data_title = target_element.getAttribute('data-title')
@@ -199,6 +199,87 @@ function lineGraph(identifier, suffix)
 	});
 }
 
+function boxGraph(identifier, suffix)
+{
+	var target_id = identifier + suffix;
+	var target_element = document.getElementById(target_id)
+	var ctx = target_element.getContext('2d');
+
+	// data from attributes will go here
+	var data_title = target_element.getAttribute("data-title")
+	var data_labels = target_element.getAttribute("data-labels")
+	var data_values = target_element.getAttribute("data-values")
+	var data_meanval = target_element.getAttribute("data-meanval")
+	var data_descr = target_element.getAttribute("data-descr")
+	var data_xaxis = target_element.getAttribute("data-xaxis")
+	var data_yaxis = target_element.getAttribute("data-yaxis")
+	// replace single quotes from python strings to double quotes (JSON A BITCH)
+	data_labels = data_labels.replace(/'/g, '"')
+	data_values = data_values.replace(/'/g, '"')
+	data_meanval = data_meanval.replace(/'/g, '"')
+
+	var chart = new Chart(ctx,
+		{
+	    type: 'boxplot',
+	    data:
+			{
+				labels: JSON.parse(data_labels),
+				datasets: [{
+					type: "boxplot",
+					label: data_descr,
+					backgroundColor: '#dcdcdc',
+					borderColor: '#009419',
+					borderWidth: 1,
+					outlierColor: '#999999',
+					padding: 10,
+					itemRadius: 0,
+					outlierColor: '#999999',
+					data: JSON.parse(data_values)
+				},
+				{
+					type: "line",
+					label: "Mean PHRED score",
+					borderColor: '#94007b',
+					borderWidth: 1,
+					fill: false,
+					data: JSON.parse(data_meanval)
+				}]
+			},
+	    options:
+			{
+	      responsive: true,
+	      legend:
+				{
+					display: true
+	      },
+	      title:
+				{
+	        display: true,
+	        text: data_title
+	      },
+				scales:
+				{
+					yAxes:
+					[{
+						scaleLabel:
+						{
+							display: true,
+							labelString: data_yaxis
+						}
+					}],
+					xAxes:
+					[{
+						scaleLabel:
+						{
+							display: true,
+							labelString: data_xaxis
+						}
+					}]
+				}
+	    }
+  	});
+}
+
 // Function to clear sample links back to white when called
 // Clear all sample links of any green colouring
 // I.e. un-do changes from the PARENT COLOURING within sublink click event
@@ -233,7 +314,7 @@ $('.sequence_sample_link').click(function(event){
 	showSequence(identifier);
 
 	// render Quality Control Graphs
-	lineGraph(identifier, '_FQC_PBSQ');
+	boxGraph(identifier, '_FQC_PBSQ');
 	lineGraph(identifier, '_FQC_PBNC');
 	lineGraph(identifier, '_FQC_SEQLENDIST');
 	// render Genotype Graphs
@@ -310,7 +391,7 @@ $('.sequence_sample_sublink').click(function(event)
 	//Actually show the sequence on the rightPanel
 	showSequence(identifier);
 	// render quality control graphs
-	lineGraph(identifier, '_FQC_PBSQ');
+	boxGraph(identifier, '_FQC_PBSQ');
 	lineGraph(identifier, '_FQC_PBNC');
 	lineGraph(identifier, '_FQC_SEQLENDIST');
 	// render genotype graphs

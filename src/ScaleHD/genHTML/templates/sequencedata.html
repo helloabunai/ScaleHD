@@ -3,57 +3,63 @@
             <br />
             <br />
 
-            <!-- Primary allele -->
+            <!-- Primary allele IO summary -->
             <table class="summaryTable">
               <thead>
                 <tr>
                   <th>Primary allele</th>
-                  <th>Genotyping summary</th>
+                  <th>I/O summary</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>CAG repeats</td><td>{A1_CAG}</td>
+                  <td>Forward mapped reads</td><td>{A1_FWMAP}</td>
                 </tr>
                 <tr>
-                  <td>CCG repeats</td><td>{A1_CCG}</td>
+                  <td>Forward mapped percentage</td><td>{A1_FWMAP_PCNT}</td>
                 </tr>
                 <tr>
-                  <td>Intervening status</td><td>{A1_STRUCTURELABEL}</td>
+                  <td>Forward purged reads</td><td>{A1_FWMAP_PURGE}</td>
                 </tr>
                 <tr>
-                  <td>Intervening structure</td><td>{A1_STRUCTURE}</td>
+                  <td>Reverse mapped reads</td><td>{A1_RVMAP}</td>
                 </tr>
                 <tr>
-                  <td>ScaleHD confidence</td><td>{A1_CONFIDENCE}</td>
+                  <td>Reverse mapped percentage</td><td>{A1_RVMAP_PCNT}</td>
+                </tr>
+                <tr>
+                  <td>Reverse purged reads</td><td>{A1_RVMAP_PURGE}</td>
                 </tr>
               </tbody>
             </table>
             <br />
 
-            <!-- Secondary allele -->
+            <!-- Secondary allele IO summary -->
             <table class="summaryTable">
               <thead>
                 <tr>
                   <th>Secondary allele</th>
-                  <th>Genotyping summary</th>
+                  <th>I/O summary</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>CAG repeats</td><td>{A2_CAG}</td>
+                  <td>Forward mapped reads</td><td>{A2_FWMAP}</td>
                 </tr>
                 <tr>
-                  <td>CCG repeats</td><td>{A2_CCG}</td>
+                  <td>Forward mapped percentage</td><td>{A2_FWMAP_PCNT}</td>
                 </tr>
                 <tr>
-                  <td>Intervening status</td><td>{A2_STRUCTURELABEL}</td>
+                  <td>Forward purged reads</td><td>{A2_FWMAP_PURGE}</td>
                 </tr>
                 <tr>
-                  <td>Intervening structure</td><td>{A2_STRUCTURE}</td>
+                  <td>Reverse mapped reads</td><td>{A2_RVMAP}</td>
                 </tr>
                 <tr>
-                  <td>ScaleHD confidence</td><td>{A2_CONFIDENCE}</td>
+                  <td>Reverse mapped percentage</td><td>{A2_RVMAP_PCNT}</td>
+                </tr>
+                <tr>
+                  <td>Reverse purged reads</td><td>{A2_RVMAP_PURGE}</td>
                 </tr>
               </tbody>
             </table>

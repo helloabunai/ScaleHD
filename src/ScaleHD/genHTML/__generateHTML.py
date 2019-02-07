@@ -166,6 +166,7 @@ class genHTML:
         jquery_path = os.path.join(self.WEB_BASE, 'jquery.js')
         scalehd_path = os.path.join(self.WEB_BASE, 'scalehd.js')
         chart_path = os.path.join(self.WEB_BASE, 'Chart.js')
+        chartBox_path = os.path.join(self.WEB_BASE, 'Chart.BoxPlot.js')
         js_string = ''
 
         ## jquery scripts
@@ -180,6 +181,11 @@ class genHTML:
         f.close()
         ## canvas.js scripts
         f = open(chart_path, 'r')
+        for line in f:
+            js_string += line
+        f.close()
+        ## canvas.js boxplot extension
+        f = open(chartBox_path, 'r')
         for line in f:
             js_string += line
         f.close()
@@ -199,8 +205,20 @@ class genHTML:
         f = open(list_template, 'r')
 
         for sequence in self.SAMPLES:
+
+            ## Get SHD object for this sample
+            targetObject = None
+            for x in self.instance_objects:
+                if x.get_label() == sequence:
+                    targetObject = x
+
+            ## Check whether an exception was raised in SHD
+            unicode_indicator = '&#9658'
+            if targetObject.get_exceptionraised() != 'N/A':
+                unicode_indicator = '&#10060;'
+
             for line in f:
-                line = line.format(ID=sequence)
+                line = line.format(UNICODE_INDICATOR=unicode_indicator, ID=sequence)
                 return_str = '{0}{1}'.format(return_str, line)
 
             f.seek(0)
@@ -227,24 +245,21 @@ class genHTML:
                     targetObject = x
 
             ## HEADLINE INFORMATION
-            primary_cag = ''; primary_ccg = ''; primary_structurelabel = ''; primary_structure = ''; primary_confidence = ''
-            secondary_cag = ''; secondary_ccg = ''; secondary_structurelabel = ''; secondary_structure = ''; secondary_confidence = ''
+            primary_fwmap = ''; primary_fwmap_pcnt = ''; primary_fwmap_purge = ''; primary_rvmap = ''; primary_rvmap_pcnt = ''; primary_rvmap_purge = ''
+            secondary_fwmap = ''; secondary_fwmap_pcnt = ''; secondary_fwmap_purge = ''; secondary_rvmap = ''; secondary_rvmap_pcnt = ''; secondary_rvmap_purge = ''
             exceptions = targetObject.get_exceptionraised(); passfail=''
-            if exceptions == 'N/A':
-                passfail = 'completed'
-            else:
-                passfail = 'incompleted (exception raised on {})'.format(exceptions)
+            if exceptions == 'N/A': passfail = 'completed'
+            else: passfail = 'incomplete (exception raised on {})'.format(exceptions)
 
             try:
                 primary_allele = targetObject.get_primaryallele()
-                primary_cag = primary_allele.get_cag(); primary_ccg = primary_allele.get_ccg()
-                primary_structurelabel = primary_allele.get_allelestatus(); primary_structure = primary_allele.get_allelegenotype()
-                primary_confidence = primary_allele.get_alleleconfidence()
+                primary_fwmap = primary_allele.get_fwalncount(); primary_fwmap_pcnt = primary_allele.get_fwalnpcnt(); primary_fwmap_purge = primary_allele.get_fwalnrmvd()
+                primary_rvmap = primary_allele.get_rvalncount(); primary_rvmap_pcnt = primary_allele.get_rvalnpcnt(); primary_rvmap_purge = primary_allele.get_rvalnrmvd()
 
                 secondary_allele = targetObject.get_secondaryallele()
-                secondary_cag = secondary_allele.get_cag(); secondary_ccg = secondary_allele.get_ccg()
-                secondary_structurelabel = secondary_allele.get_allelestatus(); secondary_structure = secondary_allele.get_allelegenotype()
-                secondary_confidence = secondary_allele.get_alleleconfidence()
+                secondary_fwmap = secondary_allele.get_fwalncount(); secondary_fwmap_pcnt = secondary_allele.get_fwalnpcnt(); secondary_fwmap_purge = secondary_allele.get_fwalnrmvd()
+                secondary_rvmap = secondary_allele.get_rvalncount(); secondary_rvmap_pcnt = secondary_allele.get_rvalnpcnt(); secondary_rvmap_purge = secondary_allele.get_rvalnrmvd()
+
             except AttributeError:
                 pass ## skip over samples that failed genotyping
 
@@ -256,8 +271,8 @@ class genHTML:
             for line in f:
                 line = line.format(
                 ID=sequence, PASSFAIL=passfail,
-                A1_CAG=primary_cag, A1_CCG=primary_ccg, A1_STRUCTURELABEL=primary_structurelabel, A1_STRUCTURE=primary_structure, A1_CONFIDENCE=primary_confidence,
-                A2_CAG=secondary_cag, A2_CCG=secondary_ccg, A2_STRUCTURELABEL=secondary_structurelabel, A2_STRUCTURE=secondary_structure, A2_CONFIDENCE=secondary_confidence,
+                A1_FWMAP=primary_fwmap, A1_FWMAP_PCNT=primary_fwmap_pcnt, A1_FWMAP_PURGE=primary_fwmap_purge, A1_RVMAP=primary_rvmap, A1_RVMAP_PCNT=primary_rvmap_pcnt, A1_RVMAP_PURGE=primary_rvmap_purge,
+                A2_FWMAP=secondary_fwmap, A2_FWMAP_PCNT=secondary_fwmap_pcnt, A2_FWMAP_PURGE=secondary_fwmap_purge, A2_RVMAP=secondary_rvmap, A2_RVMAP_PCNT=secondary_rvmap_pcnt, A2_RVMAP_PURGE=secondary_rvmap_purge,
                 SEQ_QC=sample_seqqc, SEQ_ALN=sample_seqaln, GTYPE=sample_gtype)
                 return_str = '{0}{1}'.format(return_str, line)
             f.seek(0)
@@ -314,7 +329,7 @@ class genHTML:
             fastqc_graphdata = self.format_fastqc_graphs(forwardFQCReport, currSample)
         except Exception, e:
             fastqc_graphdata = {
-            'PBSQ_TITLE': 'FastQC failure :(', 'PBSQ_LABELS': '', 'PBSQ_VALUES': '', 'PBSQ_DESCR': '', 'PBSQ_X': '', 'PBSQ_Y': '',
+            'PBSQ_TITLE': 'FastQC failure :(', 'PBSQ_LABELS': '', 'PBSQ_VALUES': '', 'PBSQ_MEANVAL': '', 'PBSQ_DESCR': '', 'PBSQ_X': '', 'PBSQ_Y': '',
             'PBNC_TITLE': 'FastQC failure :(', 'PBNC_LABELS': '', 'PBNC_VALUES': '', 'PBNC_DESCR': '', 'PBNC_X': '', 'PBNC_Y': '',
             'SQLD_TITLE': 'FastQC failure :(', 'SQLD_LABELS': '', 'SQLD_VALUES': '', 'SQLD_DESCR': '', 'SQLD_X': '', 'SQLD_Y': ''
             }
@@ -327,7 +342,7 @@ class genHTML:
         qc_return = ''
         for line in f:
             line = line.format(ID=currSample, FORWARD_TRIM=forwardTrimString, REVERSE_TRIM=reverseTrimString, FASTQC=forwardFQCString,
-            PBSQ_TITLE=fastqc_graphdata['PBSQ_TITLE'], PBSQ_LABELS=fastqc_graphdata['PBSQ_LABELS'], PBSQ_VALUES=fastqc_graphdata['PBSQ_VALUES'], PBSQ_DESCR=fastqc_graphdata['PBSQ_DESCR'], PBSQ_X=fastqc_graphdata['PBSQ_X'], PBSQ_Y=fastqc_graphdata['PBSQ_Y'],
+            PBSQ_TITLE=fastqc_graphdata['PBSQ_TITLE'], PBSQ_LABELS=fastqc_graphdata['PBSQ_LABELS'], PBSQ_VALUES=fastqc_graphdata['PBSQ_VALUES'], PBSQ_MEANVAL=fastqc_graphdata['PBSQ_MEANVAL'], PBSQ_DESCR=fastqc_graphdata['PBSQ_DESCR'], PBSQ_X=fastqc_graphdata['PBSQ_X'], PBSQ_Y=fastqc_graphdata['PBSQ_Y'],
             PBNC_TITLE=fastqc_graphdata['PBNC_TITLE'], PBNC_LABELS=fastqc_graphdata['PBNC_LABELS'], PBNC_VALUES=fastqc_graphdata['PBNC_VALUES'], PBNC_DESCR=fastqc_graphdata['PBNC_DESCR'], PBNC_X=fastqc_graphdata['PBNC_X'], PBNC_Y=fastqc_graphdata['PBNC_Y'],
             SQLD_TITLE=fastqc_graphdata['SQLD_TITLE'], SQLD_LABELS=fastqc_graphdata['SQLD_LABELS'], SQLD_VALUES=fastqc_graphdata['SQLD_VALUES'], SQLD_DESCR=fastqc_graphdata['SQLD_DESCR'], SQLD_X=fastqc_graphdata['SQLD_X'], SQLD_Y=fastqc_graphdata['SQLD_Y'],
             )
@@ -420,21 +435,25 @@ class genHTML:
 
         ##
         ## Per Base Pair Sequence Quality
-        ## blue line - mean quality
-        ## yellow box (lower quart to upper quart)
-        ## error bars (10th pcnt to 90th pcnt)
-        ## red line - median value
-        ## until i can get box/whiskers working in chart js this will be placeholder data
-        fastqc_graphdata['PBSQ_TITLE'] = 'FastQC PBSQ Placeholder hehuehue'
-        fastqc_graphdata['PBSQ_LABELS'] = [1500,1600,1700,1750,1800,1850,1900,1950,1999,2050]
-        fastqc_graphdata['PBSQ_VALUES'] = [86,114,106,106,107,111,133,221,783,2478]
-        fastqc_graphdata['PBSQ_DESCR'] = 'Placeholder data until box whisker plot is fUCkIN WORkIng'
-        fastqc_graphdata['PBSQ_X'] = 'PLACEhoLDeR X aXiS'
-        fastqc_graphdata['PBSQ_Y'] = 'PlAcEHoLdEr Y AXEEseseses'
+        ## min = item[5], q1 = item[3], median = item[2], q3 = item[4], max = item[6]
+        pbsq_labels = []; pbsq_values = []; pbsq_means = []
+        for item in fqc_pbsq_data[1:]:
+            pbsq_labels.append(item[0]) ## label for bin
+            pbsq_means.append(int(float(item[1]))) ## sample running mean
+            bin_values = [item[5],item[3],item[2],item[4],item[6]]
+            bin_values = [0.0 if x=='NaN' else x for x in bin_values] ## replace NaN with 0
+            bin_values = [int(float(x)) for x in bin_values] ## convert str of float->float->int
+            pbsq_values.append(bin_values)
+        fastqc_graphdata['PBSQ_TITLE'] = 'FastQC Per base sequence quality'
+        fastqc_graphdata['PBSQ_LABELS'] = str(pbsq_labels)
+        fastqc_graphdata['PBSQ_VALUES'] = str(pbsq_values)
+        fastqc_graphdata['PBSQ_MEANVAL'] = str(pbsq_means)
+        fastqc_graphdata['PBSQ_DESCR'] = 'Per base sequence quality'
+        fastqc_graphdata['PBSQ_X'] = 'Position in read (BP)'
+        fastqc_graphdata['PBSQ_Y'] = 'PHRED quality score'
 
         ##
         ## Per Base Pair N Content
-        fqc_pbnc_data = fqc_object.clean_data('Per base N content')
         fastqc_graphdata['PBNC_TITLE'] = 'FastQC Per base N content for {}'.format(currSample)
         pbnc_labels = []; pbnc_values = []
         for item in fqc_pbnc_data[1:]:
@@ -447,7 +466,6 @@ class genHTML:
 
         ##
         ## Sequence Length Distribution
-        fqc_seqlen_data = fqc_object.clean_data('Sequence Length Distribution')
         fastqc_graphdata['SQLD_TITLE'] = 'FastQC Sequence length distribution for {}'.format(currSample)
         dist_labels = []; dist_values = []
         for item in fqc_seqlen_data[1:]:
@@ -478,12 +496,25 @@ class genHTML:
         if targetObject.get_exceptionraised() in ['SeqALN','SeqRE-ALN','DSP','Genotype','SNPCalling']:
             return '<p> No Genotype results! ScaleHD workflow failed/incomplete!</p>'
 
+        ##
+        ## Allele objects because we'll be using them a lot durrr
+        primary_allele = targetObject.get_primaryallele()
+        secondary_allele = targetObject.get_secondaryallele()
+
+        ##################################
+        ## Summary genotype information ##
+        ##################################
+        pri_cag = primary_allele.get_cag(); pri_ccg = primary_allele.get_ccg(); pri_structurelabel = primary_allele.get_allelestatus();
+        pri_structure = primary_allele.get_reflabel(); pri_intervening = primary_allele.get_intervening(); pri_confidence = primary_allele.get_alleleconfidence()
+
+        sec_cag = secondary_allele.get_cag(); sec_ccg = secondary_allele.get_ccg(); sec_structurelabel = secondary_allele.get_allelestatus();
+        sec_structure = secondary_allele.get_reflabel(); sec_intervening = secondary_allele.get_intervening(); sec_confidence = secondary_allele.get_alleleconfidence()
+
         ###############################################
         ## Data for CCG distribution for this sample ##
         ###############################################
         ccg_labels = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20']
-        primary_allele = targetObject.get_primaryallele(); secondary_allele = targetObject.get_secondaryallele()
-        pri_rvarray = primary_allele.get_rvarray(); sec_rvarray = primary_allele.get_rvarray()
+        pri_rvarray = primary_allele.get_rvarray(); sec_rvarray = secondary_allele.get_rvarray()
         allele_super = [0] + np.asarray([a + b for a, b in zip(pri_rvarray,sec_rvarray)]).tolist() ## 0 added to offset label indexing from 0
 
         gtype_data['CCGDIST_TITLE'] = 'CCG Distribution for {}'.format(currSample)
@@ -492,6 +523,11 @@ class genHTML:
         gtype_data['CCGDIST_VALUES'] = str(allele_super)
         gtype_data['CCGDIST_X'] = 'CCG Repeat Size'
         gtype_data['CCGDIST_Y'] = 'Number of reads'
+
+        ##########################################
+        ## Homozygous / Heterozygous CAG graphs ##
+        ##########################################
+
 
         ###################################################################
         ## Apply scraped and formatted data into HTML template for SeqQC ##
@@ -502,6 +538,8 @@ class genHTML:
         for line in f:
             line = line.format(
             ID=currSample,
+            A1_CAG = pri_cag, A1_CCG = pri_ccg, A1_STRUCTURELABEL = pri_structurelabel, A1_STRUCTURE = pri_structure, A1_INTERVENING = pri_intervening, A1_CONFIDENCE = pri_confidence,
+            A2_CAG = sec_cag, A2_CCG = sec_ccg, A2_STRUCTURELABEL = sec_structurelabel, A2_STRUCTURE = sec_structure, A2_INTERVENING = sec_intervening, A2_CONFIDENCE = sec_confidence,
             CCGDIST_TITLE = gtype_data['CCGDIST_TITLE'], CCGDIST_DESCR = gtype_data['CCGDIST_DESCR'], CCGDIST_LABELS = gtype_data['CCGDIST_LABELS'],
             CCGDIST_VALUES = gtype_data['CCGDIST_VALUES'], CCGDIST_X = gtype_data['CCGDIST_X'], CCGDIST_Y = gtype_data['CCGDIST_Y']
             )
