@@ -452,8 +452,6 @@ class genHTML:
         fastqc_graphdata['PBSQ_X'] = 'Position in read (BP)'
         fastqc_graphdata['PBSQ_Y'] = 'PHRED quality score'
 
-        print pbsq_means
-
         ##
         ## Per Base Pair N Content
         fastqc_graphdata['PBNC_TITLE'] = 'FastQC Per base N content for {}'.format(currSample)
