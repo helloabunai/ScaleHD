@@ -258,11 +258,6 @@ function boxGraph(identifier, suffix)
 	        display: true,
 	        text: data_title
 	      },
-				tooltips:
-				{
-					mode: "index",
-					intersect: true
-				},
 				scales:
 				{
 					yAxes:
