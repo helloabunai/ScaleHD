@@ -31,6 +31,25 @@ from sklearn.multiclass import OutputCodeClassifier
 from ..__backend import DataLoader
 from ..__backend import Colour as clr
 
+def split_cag_target(input_distribution):
+	"""
+	Function to gather the relevant CAG distribution for the specified CCG value
+	We gather this information from the forward distribution of this sample pair as CCG reads are
+	of higher quality in the forward sequencing direction.
+	We split the entire fw_dist into contigs/bins for each CCG (4000 -> 200*20)
+	:param input_distribution: input forward distribution (4000d)
+	:param ccg_target: target value we want to select the 200 values for
+	:return: the sliced CAG distribution for our specified CCG value
+	"""
+
+	cag_split = [input_distribution[i:i + 200] for i in xrange(0, len(input_distribution), 200)]
+	distribution_dict = collections.OrderedDict()
+	for i in range(0, len(cag_split)):
+		distribution_dict['CCG' + str(i + 1)] = cag_split[i]
+
+	# current_target_distribution = distribution_dict['CCG' + str(ccg_target)]
+	return distribution_dict
+
 class AlleleGenotyping:
 	def __init__(self, sequencepair_object, instance_params, training_data, atypical_logic=None, padded_target=None):
 
@@ -551,7 +570,7 @@ class AlleleGenotyping:
 			else:
 				allele.set_fodccg(np.asarray(ccg_indexes[0]))
 
-			distribution_split = self.split_cag_target(allele.get_fwarray())
+			distribution_split = split_cag_target(allele.get_fwarray())
 			target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
 			ccg_sum.append([allele.get_ccg(), sum(target_distro)])
 
@@ -605,10 +624,10 @@ class AlleleGenotyping:
 		##
 		## Assign distro originals
 		primary_dist = self.sequencepair_object.get_primaryallele().get_fwarray().copy()
-		primary_split = self.split_cag_target(primary_dist)
+		primary_split = split_cag_target(primary_dist)
 		self.primary_original = primary_split['CCG{}'.format(self.sequencepair_object.get_primaryallele().get_ccg())]
 		secondary_dist = self.sequencepair_object.get_secondaryallele().get_fwarray().copy()
-		secondary_split = self.split_cag_target(secondary_dist)
+		secondary_split = split_cag_target(secondary_dist)
 		self.secondary_original = secondary_split['CCG{}'.format(self.sequencepair_object.get_secondaryallele().get_ccg())]
 
 		##
@@ -619,7 +638,7 @@ class AlleleGenotyping:
 		if self.sequencepair_object.get_atypicalcount() == 1:
 			for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 				if allele.get_allelestatus() == 'Typical':
-					distribution_split = self.split_cag_target(allele.get_fwarray())
+					distribution_split = split_cag_target(allele.get_fwarray())
 					target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
 					for i in range(0, len(target_distro)):
 						if i != allele.get_cag() - 1:
@@ -633,7 +652,7 @@ class AlleleGenotyping:
 			existing_calls = []
 			for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 
-				distribution_split = self.split_cag_target(allele.get_fwarray())
+				distribution_split = split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
 				allele.set_totalreads(sum(target_distro))
 
@@ -687,7 +706,7 @@ class AlleleGenotyping:
 			except ValueError:
 				max_array = [0, 0]
 				for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
-					distro_split = self.split_cag_target(allele.get_fwarray())
+					distro_split = split_cag_target(allele.get_fwarray())
 					total_reads = sum(distro_split['CCG{}'.format(allele.get_ccg())])
 
 					if total_reads > max_array[1]:
@@ -712,7 +731,7 @@ class AlleleGenotyping:
 			existing_calls = []
 			for allele in [self.sequencepair_object.get_primaryallele(), self.sequencepair_object.get_secondaryallele()]:
 
-				distribution_split = self.split_cag_target(allele.get_fwarray())
+				distribution_split = split_cag_target(allele.get_fwarray())
 				target_distro = distribution_split['CCG{}'.format(allele.get_ccg())]
 
 				if not self.sequencepair_object.get_primaryallele().get_neighbouring_candidate():
@@ -757,15 +776,15 @@ class AlleleGenotyping:
 		pass_vld = True
 		primary_allele = self.sequencepair_object.get_primaryallele()
 		secondary_allele = self.sequencepair_object.get_secondaryallele()
-		pri_distro_split = self.split_cag_target(primary_allele.get_fwarray())
-		sec_distro_split = self.split_cag_target(secondary_allele.get_fwarray())
+		pri_distro_split = split_cag_target(primary_allele.get_fwarray())
+		sec_distro_split = split_cag_target(secondary_allele.get_fwarray())
 		ccg_zygstate = self.zygosity_state
 
 		##
 		## Primary Allele
 		primary_dsp_ccg = primary_allele.get_ccg(); primary_fod_ccg = primary_allele.get_fodccg()
 		primary_dsp_cag = primary_allele.get_cag(); primary_fod_cag = primary_allele.get_fodcag()
-		primary_peakreads = (self.split_cag_target(primary_allele.get_fwarray())['CCG{}'.format(primary_dsp_ccg)])[
+		primary_peakreads = (split_cag_target(primary_allele.get_fwarray())['CCG{}'.format(primary_dsp_ccg)])[
 			primary_dsp_cag-1]
 		primary_allele.set_peakreads(primary_peakreads)
 
@@ -773,7 +792,7 @@ class AlleleGenotyping:
 		## Secondary Allele
 		secondary_dsp_ccg = secondary_allele.get_ccg(); secondary_fod_ccg = secondary_allele.get_fodccg()
 		secondary_dsp_cag = secondary_allele.get_cag(); secondary_fod_cag = secondary_allele.get_fodcag()
-		secondary_peakreads = (self.split_cag_target(secondary_allele.get_fwarray())['CCG{}'.format(secondary_dsp_ccg)])[
+		secondary_peakreads = (split_cag_target(secondary_allele.get_fwarray())['CCG{}'.format(secondary_dsp_ccg)])[
 			secondary_dsp_cag - 1]
 		secondary_allele.set_peakreads(secondary_peakreads)
 
@@ -938,12 +957,12 @@ class AlleleGenotyping:
 		##
 		## Check for diminished peaks (incase DSP failure / read count is low)
 		## Primary read info
-		primary_dist = self.split_cag_target(primary_allele.get_fwarray())
+		primary_dist = split_cag_target(primary_allele.get_fwarray())
 		primary_target = primary_dist['CCG{}'.format(primary_allele.get_ccg())]
 		primary_reads = primary_target[primary_allele.get_cag() - 1]
 		primary_total = sum(primary_target)
 		## Secondary read info
-		secondary_dist = self.split_cag_target(secondary_allele.get_fwarray())
+		secondary_dist = split_cag_target(secondary_allele.get_fwarray())
 		secondary_target = secondary_dist['CCG{}'.format(secondary_allele.get_ccg())]
 		secondary_reads = secondary_target[secondary_allele.get_cag() - 1]
 		secondary_total = sum(secondary_target)
@@ -989,7 +1008,7 @@ class AlleleGenotyping:
 		secondary_allele = self.sequencepair_object.get_secondaryallele()
 		for allele in [primary_allele, secondary_allele]:
 
-			distribution_split = self.split_cag_target(allele.get_fwarray())
+			distribution_split = split_cag_target(allele.get_fwarray())
 			target = distribution_split['CCG{}'.format(allele.get_ccg())]
 			linspace = np.linspace(0,199,200)
 
@@ -1411,7 +1430,7 @@ class AlleleGenotyping:
 			peak_prefix = '(CCG{}) '.format(self.sequencepair_object.get_primaryallele().get_ccg())
 			altpeak_filename = 'CCG{}-Peak.pdf'.format(self.sequencepair_object.get_primaryallele().get_fodccg())
 			ccg_peaks = [int(pri_fodccg),int(sec_fodccg)]; cag_peaks = [int(pri_fodcag),int(sec_fodcag)]
-			distribution_split = self.split_cag_target(pri_fwarray); target_distro = self.primary_original
+			distribution_split = split_cag_target(pri_fwarray); target_distro = self.primary_original
 			## Subslice data
 			pri_cag = self.sequencepair_object.get_primaryallele().get_cag()
 			sec_cag = self.sequencepair_object.get_secondaryallele().get_cag()
@@ -1675,7 +1694,7 @@ class AlleleGenotyping:
 			cag_sizes = [i for i in range(1,201)]
 			aligned_distribution = allele.get_fwarray()
 			raw_repeat_distribution = allele.get_fwarray().copy()
-			split_distribution = self.split_cag_target(raw_repeat_distribution)
+			split_distribution = split_cag_target(raw_repeat_distribution)
 			allele_distribution = split_distribution['CCG{}'.format(allele.get_ccg())]
 			index = allele.get_cag()-1
 

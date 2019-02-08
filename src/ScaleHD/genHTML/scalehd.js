@@ -132,6 +132,133 @@ function barGraph(identifier, suffix)
 	});
 }
 
+// Test function to render dual barGraphs
+function dualGraph(identifier, suffix)
+{
+	var target_id = identifier + suffix;
+	var target_element = document.getElementById(target_id)
+	// quit if null i.e. no data i.e. sample failed
+	if (target_element === null){
+		return;
+	}
+	var ctx = target_element.getContext('2d');
+	var pri_gradient = ctx.createLinearGradient(0,0,0,600);
+	pri_gradient.addColorStop(0, '#009419');
+	pri_gradient.addColorStop(1, '#002f08');
+	var sec_gradient = ctx.createLinearGradient(0,0,0,600);
+	sec_gradient.addColorStop(0, '#94007b');
+	sec_gradient.addColorStop(1, '#610051');
+
+	// get data from JSON attribute
+	var data_title = target_element.getAttribute('data-title')
+	var pri_data_label = target_element.getAttribute('data-pri-descr')
+	var pri_data_values = target_element.getAttribute('data-pri-values')
+	var sec_data_label = target_element.getAttribute('data-sec-descr')
+	var sec_data_values = target_element.getAttribute('data-sec-values')
+	var data_labels = target_element.getAttribute('data-labels')
+	var data_xaxis = target_element.getAttribute('data-xaxis')
+	var data_yaxis = target_element.getAttribute('data-yaxis')
+	// replace single quotes from python strings to double quotes (JSON A BITCH)
+	data_labels = data_labels.replace(/'/g, '"')
+	pri_data_values = pri_data_values.replace(/'/g, '"')
+	sec_data_values = sec_data_values.replace(/'/g, '"')
+
+	var chart = new Chart(ctx,
+	{
+		type: 'bar',
+		data:
+		{
+				labels: JSON.parse(data_labels),
+				datasets:
+				[{
+						label: pri_data_label,
+						data: JSON.parse(pri_data_values),
+						backgroundColor: pri_gradient,
+						hoverBackgroundColor: pri_gradient,
+						hoverBorderWidth: 2,
+						hoverBorderColor: '#002f08'
+				},
+				{
+					label: sec_data_label,
+					data: JSON.parse(sec_data_values),
+					backgroundColor: sec_gradient,
+					hoverBackgroundColor: sec_gradient,
+					hoverBorderWidth: 2,
+					hoverBorderColor: '#610051'
+				}]
+		},
+		options:
+		{
+			// Title colour/text
+			title:
+			{
+					display: true,
+					fontColor: '#000000',
+					fontSize: 15,
+					fontFamily: 'Product Sans',
+					text: data_title
+			},
+			legend:
+			{
+				display: true
+			},
+			// Container for zoom options
+      zoom:
+			{
+	      enabled: true,
+	      mode: 'xy',
+      },
+			pan:
+			{
+				enabled: true,
+				mode: 'xy'
+			},
+			// X/Y Axes settings
+			scales:
+			{
+				//Y Axis
+				yAxes:
+				[{
+					gridlines:
+					{
+						display: true
+					},
+					ticks:
+					{
+						beginAtZero:false,
+						precision:0
+					},
+					scaleLabel:
+					{
+						display: true,
+						labelString: data_yaxis
+					}
+				}],
+				//X Axis
+				xAxes:
+				[{
+					gridlines:
+					{
+						display: false,
+					},
+					ticks:
+					{
+						autoSkip: true,
+						beginAtZero: false,
+						stepSize: 20,
+						maxTicksLimit: 11
+					},
+					scaleLabel:
+					{
+						display: true,
+						labelString: data_xaxis
+					}
+				}]
+			}
+		 }
+	});
+}
+
 // Function to render lineGraphs within samples when called upon
 function lineGraph(identifier, suffix)
 {
@@ -320,6 +447,7 @@ $('.sequence_sample_link').click(function(event){
 	lineGraph(identifier, '_FQC_SEQLENDIST');
 	// render Genotype Graphs
 	barGraph(identifier, '_CCGDIST');
+	dualGraph(identifier, '_CAGDIST');
 
 	// Update header to be "SAMPLE | LANDING_STRING"
 	rightCandidate = "\
@@ -397,6 +525,7 @@ $('.sequence_sample_sublink').click(function(event)
 	lineGraph(identifier, '_FQC_SEQLENDIST');
 	// render genotype graphs
 	barGraph(identifier, '_CCGDIST');
+	dualGraph(identifier, '_CAGDIST');
 
 	// PARENT COLOURING
 	// If the user directly selects a sub-stage sublink..

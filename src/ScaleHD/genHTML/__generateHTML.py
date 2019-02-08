@@ -12,6 +12,7 @@ from shutil import copyfile
 from tempfile import mkstemp
 from os import fdopen, remove
 from ..__backend import mkdir_p
+from .. import predict
 
 class genHTML:
     def __init__(self, scalehdResults=None, shdVersion=None, jobLabel=None, outputPath=None):
@@ -167,6 +168,7 @@ class genHTML:
         scalehd_path = os.path.join(self.WEB_BASE, 'scalehd.js')
         chart_path = os.path.join(self.WEB_BASE, 'Chart.js')
         chartBox_path = os.path.join(self.WEB_BASE, 'Chart.BoxPlot.js')
+        chartZoom_path = os.path.join(self.WEB_BASE, 'Chart.Zoom.js')
         js_string = ''
 
         ## jquery scripts
@@ -179,13 +181,18 @@ class genHTML:
         for line in f:
             js_string += line
         f.close()
-        ## canvas.js scripts
+        ## chart.js scripts
         f = open(chart_path, 'r')
         for line in f:
             js_string += line
         f.close()
-        ## canvas.js boxplot extension
+        ## chart.js boxplot extension
         f = open(chartBox_path, 'r')
+        for line in f:
+            js_string += line
+        f.close()
+        ## chart.js zoom extension
+        f = open(chartZoom_path, 'r')
         for line in f:
             js_string += line
         f.close()
@@ -479,6 +486,24 @@ class genHTML:
         return fastqc_graphdata
 
     def get_sampleALN(self, currSample):
+
+        print 'i guess we are doing this now'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         return "testALN"
 
     def get_sampleGTYPE(self, currSample):
@@ -505,10 +530,12 @@ class genHTML:
         ## Summary genotype information ##
         ##################################
         pri_cag = primary_allele.get_cag(); pri_ccg = primary_allele.get_ccg(); pri_structurelabel = primary_allele.get_allelestatus();
-        pri_structure = primary_allele.get_reflabel(); pri_intervening = primary_allele.get_intervening(); pri_confidence = primary_allele.get_alleleconfidence()
+        pri_structure = primary_allele.get_reflabel(); pri_intervening = primary_allele.get_intervening(); pri_slippage = primary_allele.get_backwardsslippage()
+        pri_mosaicism = primary_allele.get_somaticmosaicism(); pri_confidence = primary_allele.get_alleleconfidence()
 
         sec_cag = secondary_allele.get_cag(); sec_ccg = secondary_allele.get_ccg(); sec_structurelabel = secondary_allele.get_allelestatus();
-        sec_structure = secondary_allele.get_reflabel(); sec_intervening = secondary_allele.get_intervening(); sec_confidence = secondary_allele.get_alleleconfidence()
+        sec_structure = secondary_allele.get_reflabel(); sec_intervening = secondary_allele.get_intervening(); sec_slippage = secondary_allele.get_backwardsslippage()
+        sec_mosaicism = secondary_allele.get_somaticmosaicism(); sec_confidence = secondary_allele.get_alleleconfidence()
 
         ###############################################
         ## Data for CCG distribution for this sample ##
@@ -521,13 +548,43 @@ class genHTML:
         gtype_data['CCGDIST_DESCR'] = '# of reads present'
         gtype_data['CCGDIST_LABELS'] = str(ccg_labels)
         gtype_data['CCGDIST_VALUES'] = str(allele_super)
-        gtype_data['CCGDIST_X'] = 'CCG Repeat Size'
+        gtype_data['CCGDIST_X'] = 'CCG Repeat size'
         gtype_data['CCGDIST_Y'] = 'Number of reads'
 
-        ##########################################
-        ## Homozygous / Heterozygous CAG graphs ##
-        ##########################################
+        ############################################################
+        ##          Homozygous / Heterozygous CAG graphs          ##
+        ## I am lazy so i'm just gonna overlay the datasets hurrr ##
+        ############################################################
+        cag_labels = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79', '80', '81', '82', '83', '84', '85', '86', '87', '88', '89', '90', '91', '92', '93', '94', '95', '96', '97', '98', '99', '100']
+        pri_fwarray = primary_allele.get_fwarray(); sec_fwarray = secondary_allele.get_fwarray()
+        pri_split = predict.split_cag_target(pri_fwarray); sec_split = predict.split_cag_target(sec_fwarray)
+        pri_target = pri_split['CCG{}'.format(pri_ccg)].tolist(); sec_target = sec_split['CCG{}'.format(sec_ccg)].tolist()
+        pri_target = pri_target[0:100]; sec_target = sec_target[0:100]
 
+        gtype_data['CAGDIST_TITLE'] = 'CAG Distribution for {}'.format(currSample)
+        gtype_data['PRI_DIST_DESCR'] = 'CCG{}'.format(pri_ccg)
+        gtype_data['SEC_DIST_DESCR'] = 'CCG{}'.format(sec_ccg)
+        gtype_data['CAGDIST_LABELS'] = str(cag_labels)
+        gtype_data['CAGDIST_PRI_VALUES'] = str(pri_target)
+        gtype_data['CAGDIST_SEC_VALUES'] = str(sec_target)
+        gtype_data['CAGDIST_X'] = 'CAG Repeat size'
+        gtype_data['CAGDIST_Y'] = 'Number of reads'
+
+        #################
+        ## SNP Calling ##
+        #################
+        pri_snp = primary_allele.get_variantcall(); pri_score = primary_allele.get_variantscore()
+        sec_snp = secondary_allele.get_variantcall(); sec_score = secondary_allele.get_variantscore()
+
+        ############################
+        ## ScaleHD analysis flags ##
+        ############################
+    	shd_exception = targetObject.get_exceptionraised(); shd_homozygous = targetObject.get_homozygoushaplotype(); shd_neighbours = targetObject.get_neighbouringpeaks();
+        shd_diminished = targetObject.get_diminishedpeaks(); shd_novelatypical = targetObject.get_novel_atypical_structure(); shd_alignmentwarn = targetObject.get_alignmentwarning()
+        shd_atypicalalignmentwarn = targetObject.get_atypical_alignmentwarning(); shd_ccgrewrite = targetObject.get_atypical_ccgrewrite(); shd_zygrewrite = targetObject.get_atypical_zygrewrite()
+        shd_ccguncertain = targetObject.get_ccguncertainty(); shd_cctuncertain = targetObject.get_cctuncertainty(); shd_svmfail = targetObject.get_svm_failure();
+        shd_diffconfuse = targetObject.get_differential_confusion(); shd_missedexpansion = targetObject.get_missed_expansion(); shd_heuristicfilter = targetObject.get_heuristicfilter();
+        shd_peakinspection = targetObject.get_peakinspection_warning(); shd_lowdistreads = targetObject.get_distribution_readcount_warning(); shd_lowpeakreads = targetObject.get_fatalreadallele()
 
         ###################################################################
         ## Apply scraped and formatted data into HTML template for SeqQC ##
@@ -538,12 +595,18 @@ class genHTML:
         for line in f:
             line = line.format(
             ID=currSample,
-            A1_CAG = pri_cag, A1_CCG = pri_ccg, A1_STRUCTURELABEL = pri_structurelabel, A1_STRUCTURE = pri_structure, A1_INTERVENING = pri_intervening, A1_CONFIDENCE = pri_confidence,
-            A2_CAG = sec_cag, A2_CCG = sec_ccg, A2_STRUCTURELABEL = sec_structurelabel, A2_STRUCTURE = sec_structure, A2_INTERVENING = sec_intervening, A2_CONFIDENCE = sec_confidence,
+            A1_CAG = pri_cag, A1_CCG = pri_ccg, A1_STRUCTURELABEL = pri_structurelabel, A1_STRUCTURE = pri_structure, A1_INTERVENING = pri_intervening, A1_SLIPPAGE = pri_slippage, A1_MOSAICISM = pri_mosaicism, A1_CONFIDENCE = pri_confidence,
+            A2_CAG = sec_cag, A2_CCG = sec_ccg, A2_STRUCTURELABEL = sec_structurelabel, A2_STRUCTURE = sec_structure, A2_INTERVENING = sec_intervening, A2_SLIPPAGE = sec_slippage, A2_MOSAICISM = sec_mosaicism, A2_CONFIDENCE = sec_confidence,
             CCGDIST_TITLE = gtype_data['CCGDIST_TITLE'], CCGDIST_DESCR = gtype_data['CCGDIST_DESCR'], CCGDIST_LABELS = gtype_data['CCGDIST_LABELS'],
-            CCGDIST_VALUES = gtype_data['CCGDIST_VALUES'], CCGDIST_X = gtype_data['CCGDIST_X'], CCGDIST_Y = gtype_data['CCGDIST_Y']
+            CCGDIST_VALUES = gtype_data['CCGDIST_VALUES'], CCGDIST_X = gtype_data['CCGDIST_X'], CCGDIST_Y = gtype_data['CCGDIST_Y'],
+            CAGDIST_TITLE = gtype_data['CAGDIST_TITLE'], PRI_DIST_DESCR = gtype_data['PRI_DIST_DESCR'], SEC_DIST_DESCR=gtype_data['SEC_DIST_DESCR'],
+            CAGDIST_LABELS = gtype_data['CAGDIST_LABELS'], CAGDIST_PRI_VALUES = gtype_data['CAGDIST_PRI_VALUES'], CAGDIST_SEC_VALUES = gtype_data['CAGDIST_SEC_VALUES'], CAGDIST_X = gtype_data['CAGDIST_X'], CAGDIST_Y = gtype_data['CAGDIST_Y'],
+            A1_SNP = pri_snp, A1_CALLSCORE = pri_score, A2_SNP = sec_snp, A2_CALLSCORE = sec_score,
+            SHDFLAG_EXCEPTION = shd_exception, SHDFLAG_HZYG = shd_homozygous, SHDFLAG_NEIGHBOUR = shd_neighbours, SHDFLAG_DIMINISH = shd_diminished, SHDFLAG_NOVELATYP = shd_novelatypical, SHDFLAG_ALNWARN = shd_alignmentwarn,
+            SHDFLAG_ATYPALIGNWARN = shd_atypicalalignmentwarn, SHDFLAG_CCGREWR = shd_ccgrewrite, SHDFLAG_CCGZYG_REWR = shd_zygrewrite, SHDFLAG_CCGUNCERTAIN = shd_ccguncertain, SHDFLAG_CCTUNCERTAIN = shd_cctuncertain,
+            SHDFLAG_SVMFAIL = shd_svmfail, SHDFLAG_DIFFCONFUSE = shd_diffconfuse, SHDFLAG_MISSEDEXP = shd_missedexpansion, SHDFLAG_FILTERPASS = shd_heuristicfilter, SHDFLAG_PEAKINSPECT = shd_peakinspection,
+            SHDFLAG_LOWDISTREADS = shd_lowdistreads, SHDFLAG_LOWPEAKREADS = shd_lowpeakreads
             )
             gtype_return = '{0}{1}'.format(gtype_return, line)
         f.close()
-
         return gtype_return
