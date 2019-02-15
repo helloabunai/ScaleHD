@@ -211,7 +211,6 @@ function dualGraph(identifier, suffix)
 			pan:
 			{
 				enabled: true,
-				mode: 'xy'
 			},
 			// X/Y Axes settings
 			scales:
@@ -408,6 +407,44 @@ function boxGraph(identifier, suffix)
   	});
 }
 
+// Function to render sequence alignment view
+function sequenceView(identifier, allele_stage)
+{
+	var target_id = identifier + allele_stage;
+	var target_element = document.getElementById(target_id);
+	var input_string = target_element.getAttribute('data-sequences');
+
+	// parsed array of the sequences
+	var seqs =  msa.io.fasta.parse(input_string);
+	var m = msa(
+	{
+     el: target_element,
+     seqs: seqs,
+		 bootstrapMenu: false,
+		 colorscheme:
+		 {
+			 scheme: "nucleotide"
+		 },
+		 vis:
+		 {
+			 labels: false,
+			 labelId: false,
+			 overviewbox: false,
+		 },
+		 zoomer:
+		 {
+			 residueFont: "Product Sans",
+			 alignmentHeight: 500,
+		 },
+		 conf:
+		 {
+			 debug: true
+		 }
+
+	});
+	m.render();
+}
+
 // Function to clear sample links back to white when called
 // Clear all sample links of any green colouring
 // I.e. un-do changes from the PARENT COLOURING within sublink click event
@@ -445,6 +482,9 @@ $('.sequence_sample_link').click(function(event){
 	boxGraph(identifier, '_FQC_PBSQ');
 	lineGraph(identifier, '_FQC_PBNC');
 	lineGraph(identifier, '_FQC_SEQLENDIST');
+	// render sequence alignment
+	sequenceView(identifier, '_primary_seqmap');
+	sequenceView(identifier, '_secondary_seqmap');
 	// render Genotype Graphs
 	barGraph(identifier, '_CCGDIST');
 	dualGraph(identifier, '_CAGDIST');
@@ -523,6 +563,9 @@ $('.sequence_sample_sublink').click(function(event)
 	boxGraph(identifier, '_FQC_PBSQ');
 	lineGraph(identifier, '_FQC_PBNC');
 	lineGraph(identifier, '_FQC_SEQLENDIST');
+	// render sequence alignment
+	sequenceView(identifier, '_primary_seqmap');
+	sequenceView(identifier, '_secondary_seqmap');
 	// render genotype graphs
 	barGraph(identifier, '_CCGDIST');
 	dualGraph(identifier, '_CAGDIST');

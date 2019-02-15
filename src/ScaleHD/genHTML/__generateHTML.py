@@ -4,6 +4,7 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ## imports
 import os
+import pysam
 import numpy as np
 import pkg_resources
 from shutil import move
@@ -166,6 +167,7 @@ class genHTML:
     def get_javascript(self):
         jquery_path = os.path.join(self.WEB_BASE, 'jquery.js')
         scalehd_path = os.path.join(self.WEB_BASE, 'scalehd.js')
+        seqview_path = os.path.join(self.WEB_BASE, 'msa.js')
         chart_path = os.path.join(self.WEB_BASE, 'Chart.js')
         chartBox_path = os.path.join(self.WEB_BASE, 'Chart.BoxPlot.js')
         chartZoom_path = os.path.join(self.WEB_BASE, 'Chart.Zoom.js')
@@ -178,6 +180,11 @@ class genHTML:
         f.close()
         ## scalehd scripts
         f = open(scalehd_path, 'r')
+        for line in f:
+            js_string += line
+        f.close()
+        ## MSA sequence viewer scripts
+        f = open(seqview_path, 'r')
         for line in f:
             js_string += line
         f.close()
@@ -487,24 +494,52 @@ class genHTML:
 
     def get_sampleALN(self, currSample):
 
-        print 'i guess we are doing this now'
+        targetObject = None
+        ## Select object from instance results
+        for x in self.instance_objects:
+            if x.get_label() == currSample:
+                targetObject = x
 
+        ##
+        ## If the sample failed, there won't be any data to collect
+        ## so just return a simple string to be placed in the data's stead
+        if targetObject.get_exceptionraised() in ['SeqALN','SeqRE-ALN','DSP','Genotype','SNPCalling']:
+            return '<p> No Genotype results! ScaleHD workflow failed/incomplete!</p>'
 
+        ##
+        ## Primary allele alignment map
+        pri_assembly_object = pysam.AlignmentFile(targetObject.get_primaryallele().get_fwassembly(), 'rb')
+        pri_contig = targetObject.get_primaryallele().get_reflabel()
+        pri_sequences = ''; counter = 1
+        for read in pri_assembly_object.fetch(reference=pri_contig):
+            target_sequence = read.query_alignment_sequence
+            if counter <= 50:
+                pri_sequences += ">{}\n{}\n".format(counter, target_sequence)
+            counter += 1
 
+        ##
+        ## Secondary allele alignment map
+        sec_assembly_object = pysam.AlignmentFile(targetObject.get_secondaryallele().get_fwassembly(), 'rb')
+        sec_contig = targetObject.get_secondaryallele().get_reflabel()
+        sec_sequences = ''; counter = 1
+        for read in sec_assembly_object.fetch(reference=sec_contig):
+            target_sequence = read.query_alignment_sequence
+            if counter <= 50:
+                sec_sequences += ">{}\n{}\n".format(counter, target_sequence)
+            counter += 1
 
+        ###################################################################
+        ## Apply scraped and formatted data into HTML template for SeqQC ##
+        ###################################################################
+        aln_template = os.path.join(self.TEMPLATES_BASE, 'seqALN.html')
+        f = open(aln_template, 'r')
+        aln_return = ''
+        for line in f:
+            line = line.format(ID = currSample, PRI_CONTIG = pri_contig, SEC_CONTIG = sec_contig, PRI_SEQUENCES = pri_sequences, SEC_SEQUENCES = sec_sequences)
+            aln_return = '{0}{1}'.format(aln_return, line)
+        f.close()
 
-
-
-
-
-
-
-
-
-
-
-
-        return "testALN"
+        return aln_return
 
     def get_sampleGTYPE(self, currSample):
 

@@ -293,6 +293,26 @@ a.footer
   margin: 100% 0 0 0;
 }
 
+#biojs_msa_div
+{
+  width: 80%;
+  position: relative;
+  /*display: inline-block;*/
+  overflow: scroll;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+#biojs_msa_div::-webkit-scrollbar
+{
+  width: 0px;
+}
+
+#biojs_msa_stage
+{
+  position: absolute;
+}
+
 #footer
 {
   padding-top: 5%;
