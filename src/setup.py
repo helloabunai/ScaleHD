@@ -103,16 +103,17 @@ setup(
 							  'genHTML/jquery.js',
 							  'genHTML/scalehd.js',
 							  'genHTML/Chart.js',
-							  'genHTML/img/footer.png'
-							  'genHTML/templates/alleleSummary.js',
+							  'genHTML/Chart.Zoom.js',
+							  'genHTML/Chart.BoxPlot.js',
+							  'genHTML/msa.js',
 							  'genHTML/templates/base.html',
 							  'genHTML/templates/fastqc.html',
 							  'genHTML/templates/list.html',
-							  'genHTML/templates/scalehd_base.js',
+							  'genHTML/templates/seqALN.html',
+							  'genHTML/templates/seqGTYPE.html',
 							  'genHTML/templates/seqqc.html',
 							  'genHTML/templates/sequencedata.html',
-							  'genHTML/templates/trim.html',
-							  'genHTML/templates/sample_fqc_line.html']},
+							  'genHTML/templates/trim.html']},
 	include_package_data=True,
 
 	# Executable scripts require an entry point to allow cython to generate

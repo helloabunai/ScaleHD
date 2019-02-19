@@ -27,13 +27,7 @@ class genHTML:
         self.WEB_BASE = os.path.dirname(os.path.abspath(__file__))
         self.TEMPLATES_BASE = os.path.join(self.WEB_BASE, 'templates')
         self.OUTPUT_ROOT = outputPath
-        self.HTML_FILE = os.path.join(outputPath,'{}{}'.format(jobLabel, 'WebResults.html')) ## actual HTML page
-        self.HTML_MEDIA_ROOT = os.path.join(outputPath, jobLabel+'Resources') ## for sample based graphs.. etc
-
-        ## make directories cos they won't exist fam
-        for dir in [self.OUTPUT_ROOT, self.HTML_MEDIA_ROOT]:
-            if not os.path.exists(dir):
-                mkdir_p(dir)
+        self.HTML_FILE = '{}/{}{}'.format(outputPath, jobLabel, 'HTMLResults.html')
 
         ## Collate ScaleHD results in meaningful way for HTML
         self.SAMPLES = []; self.get_processed_samples()
@@ -50,10 +44,6 @@ class genHTML:
         instancelabel_str = jobLabel # Get ScaleHD jobLabel
         lists_str = self.get_lists_html() # Get sample list of which SHD processed
         analysis_str = self.get_seqdata() # Get SubStage information for each sample
-        ##copy footer to results web dir
-        footer_img = pkg_resources.resource_filename(__name__, 'img/footer.png')
-        target_img = os.path.join(self.HTML_MEDIA_ROOT, 'footer.png'); copyfile(footer_img, target_img)
-        footer_str = '<img src=\"{}" alt=\"UoG + CHDI\"><br/>'.format(target_img)
 
         ## WRITE EVERYTHING COLLECTED TO BASE HTML TEMPLATE
         ## THIS IS THE FINAL OUTPUT CURATION STAGE
@@ -68,7 +58,6 @@ class genHTML:
             instance_label=instancelabel_str,
             CAG_TITLE = allele_dict['CAG_TITLE'], CAG_DESCR=allele_dict['CAG_DESCR'], CAG_LABELS = allele_dict['CAG_LABELS'], CAG_VALUES = allele_dict['CAG_VALUES'], CAG_X = allele_dict['CAG_X'], CAG_Y = allele_dict['CAG_Y'],
             CCG_TITLE = allele_dict['CCG_TITLE'], CCG_DESCR=allele_dict['CCG_DESCR'], CCG_LABELS = allele_dict['CCG_LABELS'], CCG_VALUES = allele_dict['CCG_VALUES'], CCG_X = allele_dict['CCG_X'], CCG_Y = allele_dict['CCG_Y'],
-            FOOTERIMG = footer_str,
             SEQDATA=analysis_str, JAVASCRIPT=script_str
             )
             output = '{0}{1}'.format(output, line)
@@ -511,6 +500,9 @@ class genHTML:
         pri_assembly_object = pysam.AlignmentFile(targetObject.get_primaryallele().get_fwassembly(), 'rb')
         pri_contig = targetObject.get_primaryallele().get_reflabel()
         pri_sequences = ''; counter = 1
+        ## if atypical, then the labelling format generated in custom XML/FA is different
+        if targetObject.get_primaryallele().get_allelestatus() == 'Atypical':
+            pri_contig = '{}_CAG{}_CCG{}_CCT{}'.format(pri_contig, targetObject.get_primaryallele().get_cag(), targetObject.get_primaryallele().get_ccg(), targetObject.get_primaryallele().get_cct())
         for read in pri_assembly_object.fetch(reference=pri_contig):
             target_sequence = read.query_alignment_sequence
             if counter <= 50:
@@ -522,6 +514,9 @@ class genHTML:
         sec_assembly_object = pysam.AlignmentFile(targetObject.get_secondaryallele().get_fwassembly(), 'rb')
         sec_contig = targetObject.get_secondaryallele().get_reflabel()
         sec_sequences = ''; counter = 1
+        ## if atypical, then the labelling format generated in custom XML/FA is different
+        if targetObject.get_secondaryallele().get_allelestatus() == 'Atypical':
+            sec_contig = '{}_CAG{}_CCG{}_CCT{}'.format(sec_contig, targetObject.get_secondaryallele().get_cag(), targetObject.get_secondaryallele().get_ccg(), targetObject.get_secondaryallele().get_cct())
         for read in sec_assembly_object.fetch(reference=sec_contig):
             target_sequence = read.query_alignment_sequence
             if counter <= 50:

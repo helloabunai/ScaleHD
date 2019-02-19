@@ -477,6 +477,7 @@ $('.sequence_sample_link').click(function(event){
 	var identifier = $(event.target).data('sequenceid');
 	clearSampleColour(identifier)
 	showSequence(identifier);
+	$('html,body').animate({scrollTop: 0},'fast');
 
 	// render Quality Control Graphs
 	boxGraph(identifier, '_FQC_PBSQ');
@@ -497,7 +498,7 @@ $('.sequence_sample_link').click(function(event){
 	"
 
 	changeHeader(rightCandidate)
-	$('html,body').animate({scrollTop: 0},'fast');
+
 });
 
 // When the #home div button is pressed

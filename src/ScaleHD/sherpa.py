@@ -128,7 +128,7 @@ class ScaleHD:
 		copyfile(self.configfile, instance_configuration)
 		self.instance_params = ConfigReader(script_path, self.configfile)
 		self.instance_params.config_dict['JobName'] = self.args.jobname
-		self.instance_params.config_dict['HTMLPath'] = os.path.join(self.instance_rundir, '{}{}'.format(self.args.jobname, 'WebResults'))
+		self.instance_params.config_dict['HTMLPath'] = self.instance_rundir
 		##
 		## Check libraries for stages specified in config
 		if initialise_libraries(self.instance_params):
