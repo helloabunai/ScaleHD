@@ -539,11 +539,19 @@ class genHTML:
         ## Primary allele alignment map
         pri_assembly_object = pysam.AlignmentFile(targetObject.get_primaryallele().get_fwassembly(), 'rb')
         pri_contig = targetObject.get_primaryallele().get_reflabel()
-        pri_sequences = ''; counter = 1
+        pri_sequences = ''; counter = 1; pri_reads = None
         ## if atypical, then the labelling format generated in custom XML/FA is different
         if targetObject.get_primaryallele().get_allelestatus() == 'Atypical':
             pri_contig = '{}_CAG{}_CCG{}_CCT{}'.format(pri_contig, targetObject.get_primaryallele().get_cag(), targetObject.get_primaryallele().get_ccg(), targetObject.get_primaryallele().get_cct())
-        for read in pri_assembly_object.fetch(reference=pri_contig):
+
+        ## messy as fuck you are bad/lazy at your job
+        try:
+            pri_reads = pri_assembly_object.fetch(reference=pri_contig)
+        except ValueError:
+            if targetObject.get_primaryallele().get_allelestatus() == 'Atypical':
+                pri_contig = '{}_CAG{}_CCG{}_CCT{}'.format(pri_contig, targetObject.get_primaryallele().get_fodcag(), targetObject.get_primaryallele().get_fodccg(), targetObject.get_primaryallele().get_cct())
+            pri_reads = pri_assembly_object.fetch(pri_contig)
+        for read in pri_reads:
             target_sequence = read.query_alignment_sequence
             if counter <= 50:
                 pri_sequences += ">{}\n{}\n".format(counter, target_sequence)
@@ -553,11 +561,19 @@ class genHTML:
         ## Secondary allele alignment map
         sec_assembly_object = pysam.AlignmentFile(targetObject.get_secondaryallele().get_fwassembly(), 'rb')
         sec_contig = targetObject.get_secondaryallele().get_reflabel()
-        sec_sequences = ''; counter = 1
+        sec_sequences = ''; counter = 1; sec_reads = None
         ## if atypical, then the labelling format generated in custom XML/FA is different
         if targetObject.get_secondaryallele().get_allelestatus() == 'Atypical':
             sec_contig = '{}_CAG{}_CCG{}_CCT{}'.format(sec_contig, targetObject.get_secondaryallele().get_cag(), targetObject.get_secondaryallele().get_ccg(), targetObject.get_secondaryallele().get_cct())
-        for read in sec_assembly_object.fetch(reference=sec_contig):
+
+        ## messy as fuck you are bad/lazy at your job
+        try:
+            sec_reads = sec_assembly_object.fetch(reference=sec_contig)
+        except ValueError:
+            if targetObject.get_secondaryallele().get_allelestatus() == 'Atypical':
+                sec_contig = '{}_CAG{}_CCG{}_CCT{}'.format(sec_contig, targetObject.get_secondaryallele().get_fodcag(), targetObject.get_secondaryallele().get_fodccg(), targetObject.get_secondaryallele().get_cct())
+            sec_reads = sec_assembly_object.fetch(sec_contig)
+        for read in sec_reads:
             target_sequence = read.query_alignment_sequence
             if counter <= 50:
                 sec_sequences += ">{}\n{}\n".format(counter, target_sequence)

@@ -52,6 +52,9 @@
 
 						<h2>Summary results for {instance_label}</h2>
 						<p>Here's a brief summary of the genotyping results for this instance of ScaleHD.</p>
+						<p>Initially, you can see the summary table which displays sample genotypes and confidence. If you wish to inspect a sample in greater detail,
+							you can click the sample ID from the table, or from the list on the left.</p>
+						<p>Furthermore, you will find allele distribution graphs, for every allele successfully processed in this run of ScaleHD.</p>
 
 						<!-- Allele table for all samples.. clickable to sample div! -->
 						<br/>
@@ -86,8 +89,23 @@
 
 					<!-- HELP PAGE DIV, HIDDEN AT LOAD -->
 					<div id="help">
-						<h2>HELP</h2>
-						<p> haha to do help help help</p>
+						<h2>ScaleHD Help</h2>
+						<p>Here is where you can find an explanation about how to navigate this ScaleHD HTML output.</p>
+
+						<br/>
+						<h2>Layout</h2>
+						<p>Upon opening the webpage, you are greeted by a grid-style layout. At the top left, the ScaleHD version utilised for your analysis acts as a 'home' button.
+						Down the left-hand side of the webpage, you will find a list of samples that were processed during your run of ScaleHD. Each sample has a unicode icon adjacent to the sample name, which indicates whether ScaleHD could successfully process the sample or not.
+					  Within each sample entry, the three ScaleHD sub-stages are listed.</p>
+						<br/>
+						<p>Along the top of the webpage, a header displays information about the currently-active sub-section. Additionally, contact and help links are persistent at the top right.<p>
+						<br/>
+						<p>The remaining panel of the grid layout is the main content view, where data will be displayed. This panel will change to specific sample data when prompted by a mouse click.</p>
+
+						<br/>
+						<h2>Functionality</h2>
+						<p>Upon loading, you are welcomed by a landing page, which shows genotypes for all samples in the processed run, as well as general allele frequency distributions for the ScaleHD run.</p>
+
 					</div>
 
 					<!-- SEQUENCE DATA GOES HERE -->
