@@ -109,6 +109,7 @@ setup(
 							  'genHTML/templates/base.html',
 							  'genHTML/templates/fastqc.html',
 							  'genHTML/templates/list.html',
+							  'genHTML/templates/alleletable.html',
 							  'genHTML/templates/seqALN.html',
 							  'genHTML/templates/seqGTYPE.html',
 							  'genHTML/templates/seqqc.html',

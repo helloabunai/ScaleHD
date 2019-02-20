@@ -501,6 +501,37 @@ $('.sequence_sample_link').click(function(event){
 
 });
 
+$('.sequence_sample_link_table').click(function(event){
+	$('#help').hide();
+	$('#welcome').hide();
+	event.preventDefault();
+	var identifier = $(event.target).data('sequenceid');
+	clearSampleColour(identifier)
+	showSequence(identifier);
+	$('html,body').animate({scrollTop: 0},'fast');
+
+	// render Quality Control Graphs
+	boxGraph(identifier, '_FQC_PBSQ');
+	lineGraph(identifier, '_FQC_PBNC');
+	lineGraph(identifier, '_FQC_SEQLENDIST');
+	// render sequence alignment
+	sequenceView(identifier, '_primary_seqmap');
+	sequenceView(identifier, '_secondary_seqmap');
+	// render Genotype Graphs
+	barGraph(identifier, '_CCGDIST');
+	dualGraph(identifier, '_CAGDIST');
+
+	// Update header to be "SAMPLE | LANDING_STRING"
+	rightCandidate = "\
+	<p class=\"alignleft\">" + identifier + " | ScaleHD results" + "</p>\n\
+	<p class=\"alignright\"><a class=\"contact\" href=\"mailto:alastair.maxwell@glasgow.ac.uk\"><strong>@</strong></a>  |  <a class=\"help\" href=\"#\" data-title=\"Help\"><strong>?</strong></a></p>\n\
+	<div style=\"clear: both;\"></div>\n\
+	"
+
+	changeHeader(rightCandidate)
+
+});
+
 // When the #home div button is pressed
 $('.home').click(function(event){
 	clearSampleColour('None')

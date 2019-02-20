@@ -53,6 +53,28 @@
 						<h2>Summary results for {instance_label}</h2>
 						<p>Here's a brief summary of the genotyping results for this instance of ScaleHD.</p>
 
+						<!-- Allele table for all samples.. clickable to sample div! -->
+						<br/>
+						<div class="alleleTable">
+							<table class="summaryTable">
+							  <thead>
+							    <tr>
+							      <th>Sample ID</th>
+							      <th>Allele 1 genotype</th>
+							      <th>Allele 1 structure</th>
+							      <th>Allele 1 confidence</th>
+							      <th>Allele 2 genotype</th>
+							      <th>Allele 2 structure</th>
+							      <th>Allele 2 confidence</th>
+							    </tr>
+							  </thead>
+							  <tbody>
+							    {ALLELETABLE}
+							  </tbody>
+							</table>
+							<br />
+						</div>
+
 						<div class="chart-container">
 							<canvas id="{instance_label}CAGSummaryChart" data-title="{CAG_TITLE}" data-descr="{CAG_DESCR}" data-labels="{CAG_LABELS}" data-values="{CAG_VALUES}" data-xaxis="{CAG_X}" data-yaxis="{CAG_Y}"></canvas>
 						</div>

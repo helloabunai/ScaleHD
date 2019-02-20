@@ -160,6 +160,25 @@ a.sequence_sample_sublink:hover, a.sequence_sample_sublink:focus
   text-decoration: none;
 }
 
+/* sequence link from allele summary table */
+a.sequence_sample_link_table, a.sequence_sample_link_table:visited, a.sequence_sample_sublink:link
+{
+  text-decoration: none;
+  color: #000000;
+  font-weight: 25;
+}
+a.sequence_sample_link_table:hover
+{
+  color: #009419;
+  text-decoration: none;
+}
+
+td a
+{
+  display: block;
+  width: 100%;
+}
+
 #content
 {
 	height: 100%;
@@ -229,6 +248,13 @@ a.sequence_sample_sublink:hover, a.sequence_sample_sublink:focus
   padding-right: 10px;
   padding-left: 10px
 }
+
+.alleleTable
+{
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
 
 .toTopButton
 {

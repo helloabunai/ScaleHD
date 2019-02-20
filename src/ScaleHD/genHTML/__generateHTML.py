@@ -43,6 +43,7 @@ class genHTML:
         version_str = shdVersion # Get ScaleHD version
         instancelabel_str = jobLabel # Get ScaleHD jobLabel
         lists_str = self.get_lists_html() # Get sample list of which SHD processed
+        alleletable_str = self.get_alleletable() # Get summary table for all alleles (landing page)
         analysis_str = self.get_seqdata() # Get SubStage information for each sample
 
         ## WRITE EVERYTHING COLLECTED TO BASE HTML TEMPLATE
@@ -58,7 +59,7 @@ class genHTML:
             instance_label=instancelabel_str,
             CAG_TITLE = allele_dict['CAG_TITLE'], CAG_DESCR=allele_dict['CAG_DESCR'], CAG_LABELS = allele_dict['CAG_LABELS'], CAG_VALUES = allele_dict['CAG_VALUES'], CAG_X = allele_dict['CAG_X'], CAG_Y = allele_dict['CAG_Y'],
             CCG_TITLE = allele_dict['CCG_TITLE'], CCG_DESCR=allele_dict['CCG_DESCR'], CCG_LABELS = allele_dict['CCG_LABELS'], CCG_VALUES = allele_dict['CCG_VALUES'], CCG_X = allele_dict['CCG_X'], CCG_Y = allele_dict['CCG_Y'],
-            SEQDATA=analysis_str, JAVASCRIPT=script_str
+            ALLELETABLE = alleletable_str, SEQDATA=analysis_str, JAVASCRIPT=script_str
             )
             output = '{0}{1}'.format(output, line)
         f.close()
@@ -227,6 +228,45 @@ class genHTML:
             f.seek(0)
 
         f.close()
+        return return_str
+
+    def get_alleletable(self):
+
+        tablerow_template = os.path.join(self.TEMPLATES_BASE, 'alleletable.html')
+        return_str = ''
+
+        f = open(tablerow_template, 'r')
+        for sequence in self.SAMPLES:
+
+            targetObject = None
+            ## Select object from instance results
+            for x in self.instance_objects:
+                if x.get_label() == sequence:
+                    targetObject = x
+
+            sample_id = ''; primary_genotype = ''; primary_structure = ''; primary_confidence = ''
+            secondary_genotype = ''; secondary_structure = ''; secondary_confidence = ''
+            exceptions = targetObject.get_exceptionraised()
+            if exceptions != 'N/A':
+                primary_genotype = 'Fail'; primary_structure = 'Fail'; primary_confidence = 'Fail'
+                secondary_genotype = 'Fail'; secondary_structure = 'Fail'; secondary_confidence = 'Fail'
+
+            try:
+                pri = targetObject.get_primaryallele(); sec = targetObject.get_secondaryallele()
+                primary_genotype = '{}-{}'.format(pri.get_cag(), pri.get_ccg()); primary_structure = pri.get_allelegenotype(); primary_confidence = pri.get_alleleconfidence()
+                secondary_genotype = '{}-{}'.format(sec.get_cag(), sec.get_ccg()); secondary_structure = sec.get_allelegenotype(); secondary_confidence = sec.get_alleleconfidence()
+            except AttributeError:
+                pass ## skip unprocessed samples / shd fail
+
+            for line in f:
+                line = line.format(
+                SAMPLE_ID = sequence, A1_GENOTYPE = primary_genotype, A1_STRUCTURE = primary_structure, A1_CONFIDENCE = primary_confidence,
+                A2_GENOTYPE = secondary_genotype, A2_STRUCTURE = secondary_structure, A2_CONFIDENCE = secondary_confidence
+                )
+                return_str = '{0}{1}'.format(return_str, line)
+            f.seek(0)
+        f.close()
+
         return return_str
 
     def get_seqdata(self):
