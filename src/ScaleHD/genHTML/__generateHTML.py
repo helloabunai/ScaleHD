@@ -7,13 +7,15 @@ import os
 import pysam
 import numpy as np
 import pkg_resources
+from .. import align
+from .. import predict
 from shutil import move
 from fadapa import Fadapa
 from shutil import copyfile
 from tempfile import mkstemp
 from os import fdopen, remove
 from ..__backend import mkdir_p
-from .. import predict
+
 
 class genHTML:
     def __init__(self, scalehdResults=None, shdVersion=None, jobLabel=None, outputPath=None):
@@ -539,18 +541,21 @@ class genHTML:
         ## Primary allele alignment map
         pri_assembly_object = pysam.AlignmentFile(targetObject.get_primaryallele().get_fwassembly(), 'rb')
         pri_contig = targetObject.get_primaryallele().get_reflabel()
-        pri_sequences = ''; counter = 1; pri_reads = None
+        pri_sequences = ''; counter = 1; pri_reads = None; pri_err_string = ''
         ## if atypical, then the labelling format generated in custom XML/FA is different
         if targetObject.get_primaryallele().get_allelestatus() == 'Atypical':
             pri_contig = '{}_CAG{}_CCG{}_CCT{}'.format(pri_contig, targetObject.get_primaryallele().get_cag(), targetObject.get_primaryallele().get_ccg(), targetObject.get_primaryallele().get_cct())
 
-        ## messy as fuck you are bad/lazy at your job
         try:
             pri_reads = pri_assembly_object.fetch(reference=pri_contig)
         except ValueError:
-            if targetObject.get_primaryallele().get_allelestatus() == 'Atypical':
-                pri_contig = '{}_CAG{}_CCG{}_CCT{}'.format(pri_contig, targetObject.get_primaryallele().get_fodcag(), targetObject.get_primaryallele().get_fodccg(), targetObject.get_primaryallele().get_cct())
-            pri_reads = pri_assembly_object.fetch(pri_contig)
+            ## Atypical fuckery where the specified contig does not exist
+            ## find best match of available and take those reads
+            original = targetObject.get_primaryallele().get_reflabel(); present_references = pri_assembly_object.references; similar_contigs = []
+            for item in present_references: similar_contigs.append((item, align.similar(sec_contig,item)))
+            pri_contig = sorted(similar_contigs, key=lambda a: a[1], reverse=True)[0][0]
+            pri_reads = pri_assembly_object.fetch(reference=pri_contig)
+            pri_err_string = '<p>ScaleHD was unable to extract reads for the contig: {}. Extracted data is from the best contig match: {}</p>'.format(targetObject.get_primaryallele().get_reflabel(), pri_contig)
         for read in pri_reads:
             target_sequence = read.query_alignment_sequence
             if counter <= 50:
@@ -561,18 +566,21 @@ class genHTML:
         ## Secondary allele alignment map
         sec_assembly_object = pysam.AlignmentFile(targetObject.get_secondaryallele().get_fwassembly(), 'rb')
         sec_contig = targetObject.get_secondaryallele().get_reflabel()
-        sec_sequences = ''; counter = 1; sec_reads = None
+        sec_sequences = ''; counter = 1; sec_reads = None; sec_err_string = ''
         ## if atypical, then the labelling format generated in custom XML/FA is different
         if targetObject.get_secondaryallele().get_allelestatus() == 'Atypical':
             sec_contig = '{}_CAG{}_CCG{}_CCT{}'.format(sec_contig, targetObject.get_secondaryallele().get_cag(), targetObject.get_secondaryallele().get_ccg(), targetObject.get_secondaryallele().get_cct())
 
-        ## messy as fuck you are bad/lazy at your job
         try:
             sec_reads = sec_assembly_object.fetch(reference=sec_contig)
         except ValueError:
-            if targetObject.get_secondaryallele().get_allelestatus() == 'Atypical':
-                sec_contig = '{}_CAG{}_CCG{}_CCT{}'.format(sec_contig, targetObject.get_secondaryallele().get_fodcag(), targetObject.get_secondaryallele().get_fodccg(), targetObject.get_secondaryallele().get_cct())
-            sec_reads = sec_assembly_object.fetch(sec_contig)
+            ## Atypical fuckery where the specified contig does not exist
+            ## find best match of available and take those reads
+            original = targetObject.get_secondaryallele().get_reflabel(); present_references = sec_assembly_object.references; similar_contigs = []
+            for item in present_references: similar_contigs.append((item, align.similar(sec_contig,item)))
+            sec_contig = sorted(similar_contigs, key=lambda a: a[1], reverse=True)[0][0]
+            sec_reads = sec_assembly_object.fetch(reference=sec_contig)
+            sec_err_string = '<p>ScaleHD was unable to extract reads for the contig: {}. Extracted data is from the best contig match: {}</p>'.format(targetObject.get_secondaryallele().get_reflabel(), sec_contig)
         for read in sec_reads:
             target_sequence = read.query_alignment_sequence
             if counter <= 50:
@@ -586,7 +594,7 @@ class genHTML:
         f = open(aln_template, 'r')
         aln_return = ''
         for line in f:
-            line = line.format(ID = currSample, PRI_CONTIG = pri_contig, SEC_CONTIG = sec_contig, PRI_SEQUENCES = pri_sequences, SEC_SEQUENCES = sec_sequences)
+            line = line.format(ID = currSample, PRI_ERR_STRING = pri_err_string, PRI_CONTIG = pri_contig, SEC_ERR_STRING = sec_err_string, SEC_CONTIG = sec_contig, PRI_SEQUENCES = pri_sequences, SEC_SEQUENCES = sec_sequences)
             aln_return = '{0}{1}'.format(aln_return, line)
         f.close()
 

@@ -502,7 +502,7 @@ class ScanAtypical:
 		Function which wraps scan_reference_reads inside a multi-process handler pool
 		Just speeds up the process of determining HTT structure, assigning one
 		investigation in our assembly targets to a discrete processor each
-		:return: 
+		:return:
 		"""
 
 		##
