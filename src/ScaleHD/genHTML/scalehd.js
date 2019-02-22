@@ -457,6 +457,9 @@ function clearSampleColour(passedIdentifier){
 		if (currIdent != passedIdentifier){
 			allParents[i].removeAttribute('style');
 		}
+		else {
+			allParents[i].setAttribute('style', 'color: #009419;');
+		}
 	}
 }
 
@@ -502,13 +505,17 @@ $('.sequence_sample_link').click(function(event){
 });
 
 $('.sequence_sample_link_table').click(function(event){
+	var identifier = $(event.target).data('sequenceid');
+	var title = $(event.target).data('title');
 	$('#help').hide();
 	$('#welcome').hide();
 	event.preventDefault();
-	var identifier = $(event.target).data('sequenceid');
 	clearSampleColour(identifier)
 	showSequence(identifier);
 	$('html,body').animate({scrollTop: 0},'fast');
+
+	//scroll the sidelist as well (FIX THIS FOR SAFARI)
+	console.log('scroll fix sideNav please')
 
 	// render Quality Control Graphs
 	boxGraph(identifier, '_FQC_PBSQ');

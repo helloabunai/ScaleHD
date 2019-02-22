@@ -161,7 +161,7 @@ a.sequence_sample_sublink:hover, a.sequence_sample_sublink:focus
 }
 
 /* sequence link from allele summary table */
-a.sequence_sample_link_table, a.sequence_sample_link_table:visited, a.sequence_sample_sublink:link
+a.sequence_sample_link_table, a.sequence_sample_link_table:visited
 {
   text-decoration: none;
   color: #000000;

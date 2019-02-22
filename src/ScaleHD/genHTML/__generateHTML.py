@@ -255,8 +255,8 @@ class genHTML:
 
             try:
                 pri = targetObject.get_primaryallele(); sec = targetObject.get_secondaryallele()
-                primary_genotype = '{}-{}'.format(pri.get_cag(), pri.get_ccg()); primary_structure = pri.get_allelegenotype(); primary_confidence = pri.get_alleleconfidence()
-                secondary_genotype = '{}-{}'.format(sec.get_cag(), sec.get_ccg()); secondary_structure = sec.get_allelegenotype(); secondary_confidence = sec.get_alleleconfidence()
+                primary_genotype = '{}-{}'.format(pri.get_cag(), pri.get_ccg()); primary_structure = pri.get_intervening(); primary_confidence = pri.get_alleleconfidence()
+                secondary_genotype = '{}-{}'.format(sec.get_cag(), sec.get_ccg()); secondary_structure = sec.get_intervening(); secondary_confidence = sec.get_alleleconfidence()
             except AttributeError:
                 pass ## skip unprocessed samples / shd fail
 
@@ -550,7 +550,7 @@ class genHTML:
             pri_reads = pri_assembly_object.fetch(reference=pri_contig)
         except ValueError:
             ## Atypical fuckery where the specified contig does not exist
-            ## find best match of available and take those reads
+            ## find best match of available and take those reads (DSP wrong allele size?)
             original = targetObject.get_primaryallele().get_reflabel(); present_references = pri_assembly_object.references; similar_contigs = []
             for item in present_references: similar_contigs.append((item, align.similar(sec_contig,item)))
             pri_contig = sorted(similar_contigs, key=lambda a: a[1], reverse=True)[0][0]
@@ -575,7 +575,7 @@ class genHTML:
             sec_reads = sec_assembly_object.fetch(reference=sec_contig)
         except ValueError:
             ## Atypical fuckery where the specified contig does not exist
-            ## find best match of available and take those reads
+            ## find best match of available and take those reads (DSP wrong allele size?)
             original = targetObject.get_secondaryallele().get_reflabel(); present_references = sec_assembly_object.references; similar_contigs = []
             for item in present_references: similar_contigs.append((item, align.similar(sec_contig,item)))
             sec_contig = sorted(similar_contigs, key=lambda a: a[1], reverse=True)[0][0]
