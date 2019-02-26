@@ -5,6 +5,8 @@ Version 0.321
 
 * Fixed some syntax errors with array handling due to a dependency update changing interactions
 * Added --simple flag for command line interface, providing a more literally-interpretable genotyping outputs
+* Fixed minor demultiplexing error (path finding)
+* Added entire HTML5 based output, extracting information from ScaleHD instance objects
 
 Version 0.320
 -------------
