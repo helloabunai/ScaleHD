@@ -239,6 +239,8 @@ class ScaleHD:
 		else:
 			instance_inputdata = self.instance_params.config_dict['@data_dir']
 
+		print instance_inputdata
+
 		##
 		## Pre-stage: check for compressed data, extract
 		if not extract_data(instance_inputdata):

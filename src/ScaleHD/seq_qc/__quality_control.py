@@ -249,4 +249,3 @@ class BatchadaptWrapper:
 												 stdout=subprocess.PIPE,
 												 stderr=subprocess.PIPE)
 		batchadapt_status = batchadapt_subprocess.communicate(); batchadapt_subprocess.wait()
-		print batchadapt_status
