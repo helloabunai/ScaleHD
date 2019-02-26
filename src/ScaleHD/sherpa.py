@@ -235,7 +235,7 @@ class ScaleHD:
 		##
 		## Config generics
 		if self.instance_params.config_dict['instance_flags']['@demultiplex'] == 'True':
-			instance_inputdata = self.instance_params.config_dict['@data_dir']+'_demultiplexed'
+			instance_inputdata = self.instance_params.config_dict['@data_dir'][:-1]+'_demultiplexed'
 		else:
 			instance_inputdata = self.instance_params.config_dict['@data_dir']
 

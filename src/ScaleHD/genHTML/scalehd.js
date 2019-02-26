@@ -514,8 +514,10 @@ $('.sequence_sample_link_table').click(function(event){
 	showSequence(identifier);
 	$('html,body').animate({scrollTop: 0},'fast');
 
-	//scroll the sidelist as well (FIX THIS FOR SAFARI)
-	console.log('scroll fix sideNav please')
+	//scroll the sidelist as well
+	target_listIndex = $('#' + identifier + '_sampleLink').index() + 1;
+	console.log('#' + identifier + '_sampleLink' + target_listIndex);
+	$('#sideNav').animate({scrollTop: $('#sideNav li:nth-child(' + target_listIndex + ')').position().top}, 'slow');
 
 	// render Quality Control Graphs
 	boxGraph(identifier, '_FQC_PBSQ');

@@ -188,7 +188,7 @@ class BatchadaptWrapper:
 		self.min_overlap = self.instance_params.config_dict['demultiplex_flags']['@min_overlap']
 		self.min_length = self.instance_params.config_dict['demultiplex_flags']['@min_length']
 		self.max_length = self.instance_params.config_dict['demultiplex_flags']['@max_length']
-		self.target_dir = self.data_dir+'_demultiplexed'
+		self.target_dir = str(self.data_dir)[:-1] + '_demultiplexed'
 		if not os.path.exists(self.target_dir):
 			os.makedirs(self.target_dir)
 
@@ -249,3 +249,4 @@ class BatchadaptWrapper:
 												 stdout=subprocess.PIPE,
 												 stderr=subprocess.PIPE)
 		batchadapt_status = batchadapt_subprocess.communicate(); batchadapt_subprocess.wait()
+		print batchadapt_status
