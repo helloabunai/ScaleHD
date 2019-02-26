@@ -164,10 +164,7 @@ class genHTML:
         chartBox_path = os.path.join(self.WEB_BASE, 'chartBoxPlot.js')
         chartZoom_path = os.path.join(self.WEB_BASE, 'chartZoom.js')
         js_string = ''
-
-        for path in [jquery_path, scalehd_path, seqview_path, chart_path, chartBox_path, chartZoom_path]:
-            if os.path.exists(path): print '>> exists', path
-
+        
         ## jquery scripts
         f = open(jquery_path, 'r')
         for line in f:
