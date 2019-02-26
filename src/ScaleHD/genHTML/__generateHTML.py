@@ -160,9 +160,9 @@ class genHTML:
         jquery_path = os.path.join(self.WEB_BASE, 'jquery.js')
         scalehd_path = os.path.join(self.WEB_BASE, 'scalehd.js')
         seqview_path = os.path.join(self.WEB_BASE, 'msa.js')
-        chart_path = os.path.join(self.WEB_BASE, 'Chart.js')
-        chartBox_path = os.path.join(self.WEB_BASE, 'Chart.BoxPlot.js')
-        chartZoom_path = os.path.join(self.WEB_BASE, 'Chart.Zoom.js')
+        chart_path = os.path.join(self.WEB_BASE, 'chartBase.js')
+        chartBox_path = os.path.join(self.WEB_BASE, 'chartBoxPlot.js')
+        chartZoom_path = os.path.join(self.WEB_BASE, 'chartZoom.js')
         js_string = ''
 
         for path in [jquery_path, scalehd_path, seqview_path, chart_path, chartBox_path, chartZoom_path]:
