@@ -59,14 +59,19 @@
 						<!-- Allele table for all samples.. clickable to sample div! -->
 						<br/>
 						<div class="alleleTable">
-							<table class="summaryTable">
-							  <thead>
+							<table id="alleleSummaryTable" class="summaryTable">
+								<thead>
+									<!-- filter bar inserted here -->
+								</thead>
+								<thead>
 							    <tr>
 							      <th>Sample ID</th>
-							      <th>Allele 1 genotype</th>
+							      <th>Allele 1 CAG size</th>
+										<th>Allele 1 CCG size</th>
 							      <th>Allele 1 structure</th>
 							      <th>Allele 1 confidence</th>
-							      <th>Allele 2 genotype</th>
+							      <th>Allele 2 CAG size</th>
+										<th>Allele 2 CCG size</th>
 							      <th>Allele 2 structure</th>
 							      <th>Allele 2 confidence</th>
 							    </tr>
@@ -95,7 +100,7 @@
 						<br/>
 						<h2>Layout</h2>
 						<p>Upon opening the webpage, you are greeted by a grid-style layout. At the top left, the ScaleHD version utilised for your analysis acts as a 'home' button.
-						Down the left-hand side of the webpage, you will find a list of samples that were processed during your run of ScaleHD. Each sample has a unicode icon adjacent to the sample name, which indicates whether ScaleHD could successfully process the sample or not.
+						Down the left-hand side of the webpage, you will find a list of samples that were processed during your run of ScaleHD.
 					  Within each sample entry, the three ScaleHD sub-stages are listed.</p>
 						<br/>
 						<p>Along the top of the webpage, a header displays information about the currently-active sub-section. Additionally, contact and help links are persistent at the top right.<p>
@@ -104,7 +109,21 @@
 
 						<br/>
 						<h2>Functionality</h2>
+						<h3>Landing page</h3>
 						<p>Upon loading, you are welcomed by a landing page, which shows genotypes for all samples in the processed run, as well as general allele frequency distributions for the ScaleHD run.</p>
+						<p>Within the allele summary table, you will find an entry for each processed sample, and the resultant genotyping data from ScaleHD. You can click on the sample ID to view the sample page in more detail. This summary table can be filtered
+							by utilising the dropdown menus at the top of each column. For allele confidence, you can filter by utilising filter operators. For example, \"<code><50</code>\" would display only filters with a confidence less than 50 percent.</p>
+						<p>Further down the page are the summary graphs, displaying the distribution of CAG/CCG allele sizes present in the current instance of ScaleHD results. You can mouse over bins to see specific count values.</p>
+						<br/>
+						<h3>Sample navigation</h3>
+						<p>On the left, you will find the list of samples processed by ScaleHD, and their subsequence sub-stage links. Clicking on a sample link will display the detailed sample results on the content view. The current sample activated will be highlighted
+							in green, within this sample list; the same behaviour is present for selecting sub-stages. At the left of each sample ID, a small ASCII indicator will display whether a sample passed ScaleHD processing or not. This indicator is purely for informing
+							the user whether samples could run all ScaleHD workflows without throwing exceptions, it does not guarantee anything in regards to genotyping confidence.</p>
+						<br/>
+						<h3>Sample details</h3>
+						<p>Within a sample's detailed results page, the three sections of ScaleHD processing are displayed. First, Sequence quality control: a variety of statistics from FastQC are scraped and rendered within the browser. Sequence alignment utilises
+							MSAViewer to render a sub-section of the sequence assembly for inspection. Genotyping results are displayed in two separate graphs: one for CCG and one for CAG sizes. The CAG distribution graph is zoom-able, allowing for the user to inspect
+							potential expansions within a distribution, in more detail. Following this, SNP data is displayed in a few tables.</p>
 
 					</div>
 

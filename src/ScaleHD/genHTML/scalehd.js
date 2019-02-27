@@ -14,6 +14,18 @@ $(document).ready(function(){
 	$('#help').hide();
 	barGraph(instanceLabel, 'CAGSummaryChart');
 	barGraph(instanceLabel, 'CCGSummaryChart');
+	var filterConfig = {
+  btn: false,
+  col_0: "none",
+  col_1: "select",
+	col_2: "select",
+	col_3: "select",
+	col_5: "select",
+	col_6: "select",
+	col_7: "select",
+	display_all_text: " [ No filter ] ",
+	}
+	setFilterGrid("alleleSummaryTable",1,filterConfig);
 });
 
 // Function for clicking on a sequence sample
@@ -513,6 +525,10 @@ $('.sequence_sample_link_table').click(function(event){
 	clearSampleColour(identifier)
 	showSequence(identifier);
 	$('html,body').animate({scrollTop: 0},'fast');
+	// Change row of clicked item
+	var parentRow = $(event.target).parent().parent();
+	console.log(parentRow);
+	parentRow.addClass('clickedSummaryItem');
 
 	//scroll the sidelist as well
 	target_listIndex = $('#' + identifier + '_sampleLink').index() + 1;

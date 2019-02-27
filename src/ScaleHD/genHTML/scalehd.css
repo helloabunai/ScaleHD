@@ -161,7 +161,7 @@ a.sequence_sample_sublink:hover, a.sequence_sample_sublink:focus
 }
 
 /* sequence link from allele summary table */
-a.sequence_sample_link_table, a.sequence_sample_link_table:visited
+a.sequence_sample_link_table
 {
   text-decoration: none;
   color: #000000;
@@ -449,7 +449,7 @@ table.summaryTable tbody td {
 table.summaryTable tr:nth-child(even) {
   background: #D3D3D3;
 }
-table.summaryTable thead {
+table.summaryTable th {
   background: #009419;
   background: -moz-linear-gradient(top, #40af52 0%, #199e30 66%, #009419 100%);
   background: -webkit-linear-gradient(top, #40af52 0%, #199e30 66%, #009419 100%);
@@ -472,4 +472,14 @@ table.summaryTable tfoot .links a{
   color: #FFFFFF;
   padding: 2px 8px;
   border-radius: 5px;
+}
+
+/* summary table entry was clicked */
+.clickedSummaryItem
+{
+  background: #009419 !important;
+  background: -moz-linear-gradient(top, #40af52 0%, #199e30 66%, #009419 100%);
+  background: -webkit-linear-gradient(top, #40af52 0%, #199e30 66%, #009419 100%);
+  background: linear-gradient(to bottom, #40af52 0%, #199e30 66%, #009419 100%);
+  opacity: 0.3 !important;
 }

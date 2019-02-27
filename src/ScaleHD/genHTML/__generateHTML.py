@@ -1,5 +1,5 @@
 #!/bin/bash/python
-__version__ = 0.321
+__version__ = 0.322
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ## imports
@@ -163,15 +163,12 @@ class genHTML:
         chart_path = os.path.join(self.WEB_BASE, 'chartBase.js')
         chartBox_path = os.path.join(self.WEB_BASE, 'chartBoxPlot.js')
         chartZoom_path = os.path.join(self.WEB_BASE, 'chartZoom.js')
+        tablefilter_path = os.path.join(self.WEB_BASE, 'tablefilter.js')
         js_string = ''
-        
+
+
         ## jquery scripts
         f = open(jquery_path, 'r')
-        for line in f:
-            js_string += line
-        f.close()
-        ## scalehd scripts
-        f = open(scalehd_path, 'r')
         for line in f:
             js_string += line
         f.close()
@@ -192,6 +189,16 @@ class genHTML:
         f.close()
         ## chart.js zoom extension
         f = open(chartZoom_path, 'r')
+        for line in f:
+            js_string += line
+        f.close()
+        ## tablefilter
+        f = open(tablefilter_path, 'r')
+        for line in f:
+            js_string += line
+        f.close()
+        ## scalehd scripts
+        f = open(scalehd_path, 'r')
         for line in f:
             js_string += line
         f.close()
@@ -246,24 +253,24 @@ class genHTML:
                 if x.get_label() == sequence:
                     targetObject = x
 
-            sample_id = ''; primary_genotype = ''; primary_structure = ''; primary_confidence = ''
-            secondary_genotype = ''; secondary_structure = ''; secondary_confidence = ''
+            sample_id = ''; primary_cag = ''; primary_ccg = ''; primary_structure = ''; primary_confidence = ''
+            secondary_cag = ''; secondary_ccg = ''; secondary_structure = ''; secondary_confidence = ''
             exceptions = targetObject.get_exceptionraised()
             if exceptions != 'N/A':
-                primary_genotype = 'Fail'; primary_structure = 'Fail'; primary_confidence = 'Fail'
-                secondary_genotype = 'Fail'; secondary_structure = 'Fail'; secondary_confidence = 'Fail'
+                primary_cag = 'Fail'; primary_ccg = 'Fail'; primary_structure = 'Fail'; primary_confidence = 'Fail'
+                secondary_cag = 'Fail'; secondary_ccg = 'Fail'; secondary_structure = 'Fail'; secondary_confidence = 'Fail'
 
             try:
                 pri = targetObject.get_primaryallele(); sec = targetObject.get_secondaryallele()
-                primary_genotype = '{}-{}'.format(pri.get_cag(), pri.get_ccg()); primary_structure = pri.get_intervening(); primary_confidence = pri.get_alleleconfidence()
-                secondary_genotype = '{}-{}'.format(sec.get_cag(), sec.get_ccg()); secondary_structure = sec.get_intervening(); secondary_confidence = sec.get_alleleconfidence()
+                primary_cag = pri.get_cag(); primary_ccg = pri.get_ccg(); primary_structure = pri.get_intervening(); primary_confidence = int(pri.get_alleleconfidence())
+                secondary_cag = sec.get_cag(); secondary_ccg = sec.get_ccg(); secondary_structure = sec.get_intervening(); secondary_confidence = int(sec.get_alleleconfidence())
             except AttributeError:
                 pass ## skip unprocessed samples / shd fail
 
             for line in f:
                 line = line.format(
-                SAMPLE_ID = sequence, A1_GENOTYPE = primary_genotype, A1_STRUCTURE = primary_structure, A1_CONFIDENCE = primary_confidence,
-                A2_GENOTYPE = secondary_genotype, A2_STRUCTURE = secondary_structure, A2_CONFIDENCE = secondary_confidence
+                SAMPLE_ID = sequence, A1_CAG = primary_cag, A1_CCG = primary_ccg, A1_STRUCTURE = primary_structure, A1_CONFIDENCE = primary_confidence,
+                A2_CAG = secondary_cag, A2_CCG = secondary_ccg, A2_STRUCTURE = secondary_structure, A2_CONFIDENCE = secondary_confidence
                 )
                 return_str = '{0}{1}'.format(return_str, line)
             f.seek(0)

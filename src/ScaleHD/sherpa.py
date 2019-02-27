@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.321
+__version__ = 0.322
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -238,8 +238,6 @@ class ScaleHD:
 			instance_inputdata = self.instance_params.config_dict['@data_dir'][:-1]+'_demultiplexed'
 		else:
 			instance_inputdata = self.instance_params.config_dict['@data_dir']
-
-		print instance_inputdata
 
 		##
 		## Pre-stage: check for compressed data, extract

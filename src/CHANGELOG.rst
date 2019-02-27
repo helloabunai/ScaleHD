@@ -1,5 +1,12 @@
 .. _sect_changelog:
 
+Version 0.322
+-------------
+
+* Swapped standard HTML summary in genHTML for javascript element (filterable etc)
+* Wrote brief help section on genHTML output
+* Fixed some minor genotyping bugs with rare, atypical structures
+
 Version 0.321
 -------------
 
