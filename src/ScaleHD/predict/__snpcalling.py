@@ -61,6 +61,7 @@ class DetermineMutations:
 			if allele.get_allelestatus() == 'Atypical':
 				indiv_atypical_reference_name = fw_idx.split('/')[-2:-1][0]
 				dict_path = '/'.join(fw_idx.split('/')[:-1])+'/'+indiv_atypical_reference_name+'.dict'
+				## picard dict creation
 				picard_string = 'picard {} {}'.format(fw_idx, dict_path)
 				picard_subprocess = subprocess.Popen([picard_string], shell=True,
 					stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -81,7 +82,7 @@ class DetermineMutations:
 			freebayes_subprocess = subprocess.Popen([freebayes_string], shell=True,
 													stdout=freebayes_outfi, stderr=subprocess.PIPE)
 			freebayes_log = freebayes_subprocess.communicate(); freebayes_subprocess.wait()
-			if 'error' in freebayes_log:
+			if 'ERROR' in freebayes_log:
 				log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Failure in FreeBayes. Check sample output log.'))
 				logpath = os.path.join(predpath, 'FreeBayesErrorLog.txt')
 				with open(logpath, 'w') as logfi:
@@ -122,13 +123,10 @@ class DetermineMutations:
 			## sort and remove records which are < user specified cutoff
 			## todo again generalise this code you absolute throbber
 			freebayes_sorted = sorted(freebayes_matched, key=lambda a:a.QUAL, reverse=True)
-			print '\n', allele.get_reflabel()
-			print freebayes_sorted
 			freebayes_sorted = [x for x in freebayes_sorted if x.QUAL > variant_cutoff]
 
 			## Determine what to set values of call/score to, then apply to allele object
 			## will be written to InstanceReport.csv from whatever algo the user wanted
-			## user chose freebayes
 			if not len(freebayes_sorted) == 0:
 				## we have snps!
 				target = freebayes_sorted[0]
