@@ -3,9 +3,13 @@
 Version 0.322
 -------------
 
+* Added alignment statistics to default ScaleHD output for samples which aligned, but could not be processed further
 * Swapped standard HTML summary in genHTML for javascript element (filterable etc)
 * Wrote brief help section on genHTML output
 * Fixed some minor genotyping bugs with rare, atypical structures
+* Fixed un-prompted read count subsampling in samples with atypical allele structures
+* Fixed MSAViewer alignment showing certain reads off-position by 1 base pair
+* Improved genHTML handling of failed samples (more information as to why, within detailed view)
 
 Version 0.321
 -------------

@@ -496,7 +496,13 @@ class ScaleHD:
 						func = getattr(seq_object, func_call)
 						func_output = func()
 					except AttributeError:
-						func_output = 'FAIL'
+						alignment_stats = ['get_fwalncount', 'get_fwalnpcnt', 'get_fwalnrmvd',
+						 'get_rvalncount', 'get_rvalnpcnt', 'get_rvalnrmvd']
+						if func_call in alignment_stats:
+							func = getattr(sequencepair_object, func_call)
+							func_output = func()
+						else:
+							func_output = 'FAIL'
 					if func_output is None:
 						func_output += 'FAIL'
 				else:

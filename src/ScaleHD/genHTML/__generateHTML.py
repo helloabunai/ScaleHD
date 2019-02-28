@@ -15,7 +15,7 @@ from shutil import copyfile
 from tempfile import mkstemp
 from os import fdopen, remove
 from ..__backend import mkdir_p
-
+from collections import Counter
 
 class genHTML:
     def __init__(self, scalehdResults=None, shdVersion=None, jobLabel=None, outputPath=None):
@@ -303,17 +303,17 @@ class genHTML:
             if exceptions == 'N/A': passfail = 'completed'
             else: passfail = 'incomplete (exception raised on {})'.format(exceptions)
 
+            ## allele objects
+            primary_allele = targetObject.get_primaryallele(); secondary_allele = targetObject.get_secondaryallele()
             try:
-                primary_allele = targetObject.get_primaryallele()
                 primary_fwmap = primary_allele.get_fwalncount(); primary_fwmap_pcnt = primary_allele.get_fwalnpcnt(); primary_fwmap_purge = primary_allele.get_fwalnrmvd()
                 primary_rvmap = primary_allele.get_rvalncount(); primary_rvmap_pcnt = primary_allele.get_rvalnpcnt(); primary_rvmap_purge = primary_allele.get_rvalnrmvd()
-
-                secondary_allele = targetObject.get_secondaryallele()
                 secondary_fwmap = secondary_allele.get_fwalncount(); secondary_fwmap_pcnt = secondary_allele.get_fwalnpcnt(); secondary_fwmap_purge = secondary_allele.get_fwalnrmvd()
                 secondary_rvmap = secondary_allele.get_rvalncount(); secondary_rvmap_pcnt = secondary_allele.get_rvalnpcnt(); secondary_rvmap_purge = secondary_allele.get_rvalnrmvd()
-
             except AttributeError:
-                pass ## skip over samples that failed genotyping
+                ## sample failed post-alignment so just shove this data in so the user can see why
+                primary_fwmap = secondary_fwmap = targetObject.get_fwalncount(); primary_fwmap_pcnt = secondary_fwmap_pcnt = targetObject.get_fwalnpcnt(); primary_fwmap_purge = secondary_fwmap_purge = targetObject.get_fwalnrmvd()
+                primary_rvmap = secondary_rvmap = targetObject.get_rvalncount(); primary_rvmap_pcnt = secondary_rvmap_pcnt = targetObject.get_rvalnpcnt(); primary_rvmap_purge = secondary_rvmap_purge = targetObject.get_rvalnrmvd()
 
             ## replace with results from ScaleHD for the current sample
             sample_seqqc = self.get_sampleQC(sequence)
@@ -563,9 +563,15 @@ class genHTML:
             pri_contig = sorted(similar_contigs, key=lambda a: a[1], reverse=True)[0][0]
             pri_reads = pri_assembly_object.fetch(reference=pri_contig)
             pri_err_string = '<p>ScaleHD was unable to extract reads for the contig: {}. Extracted data is from the best contig match: {}</p>'.format(targetObject.get_primaryallele().get_reflabel(), pri_contig)
+
+        pri_count = pri_assembly_object.count(reference=pri_contig)
+        if pri_count < 100:
+            pri_err_string += '<p>There are a very small number of reads ({}) aligned to this (a)typical reference. Alignment may have not been successful; please check the typically aligned reference to confirm results.</p>'.format(pri_count)
+
+        ## select 40 reads to send to HTML
         for read in pri_reads:
             target_sequence = read.query_alignment_sequence
-            if counter <= 50:
+            if 1 < counter < 45:
                 pri_sequences += ">{}\n{}\n".format(counter, target_sequence)
             counter += 1
 
@@ -588,9 +594,15 @@ class genHTML:
             sec_contig = sorted(similar_contigs, key=lambda a: a[1], reverse=True)[0][0]
             sec_reads = sec_assembly_object.fetch(reference=sec_contig)
             sec_err_string = '<p>ScaleHD was unable to extract reads for the contig: {}. Extracted data is from the best contig match: {}</p>'.format(targetObject.get_secondaryallele().get_reflabel(), sec_contig)
+
+        sec_count = sec_assembly_object.count(reference=sec_contig)
+        if sec_count < 100:
+            sec_err_string += '<p>There are a very small number of reads ({}) aligned to this (a)typical reference. Alignment may have not been successful; please check the typically aligned reference to confirm results.</p>'.format(sec_count)
+
+        ## select 40 reads to send to HTML
         for read in sec_reads:
             target_sequence = read.query_alignment_sequence
-            if counter <= 50:
+            if 1 < counter < 45:
                 sec_sequences += ">{}\n{}\n".format(counter, target_sequence)
             counter += 1
 
