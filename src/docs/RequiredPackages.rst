@@ -38,7 +38,6 @@ ScaleHD also uses third party binaries to carry out certain functions. These bin
  * BWA-MEM (0.7.17-r1188)
  * Samtools (1.9)
  * Picard (2.18.23)
- * GATK (4.0.12.0)
  * FreeBayes (v1.2.0-2-g29c4002)
 
 .. _installation:
@@ -220,14 +219,6 @@ Then, make our script executable:
   chmod +x /Users/alastairm/Documents/Builds/Picard/picard
 
 Once made executable, add the Picard folder to your $PATH. Picard is now set-up for ScaleHD.
-
-
-GATK (4.0.3.0)
-~~~~~~~~~~~~~~
-
-GATK is also a Java archive, and not a UNIX binary. Download GATK from https://software.broadinstitute.org/gatk/download/ and copy it to your Builds directory. As with Picard, an alias is no longer suitable for ScaleHD to function with the software. However, we do not need to create our own executable script for GATK, as one is included with the download.
-
-Move the 'gatk' script and the GATK jar archive into a GATK folder in your Builds path. Add that directory to your system $PATH, and gatk is now set-up for ScaleHD.
 
 FreeBayes (v1.1.0-60-gc15b070)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

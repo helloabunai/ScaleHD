@@ -68,6 +68,4 @@ The Config Element deals with specifying any required sub-configs (elements), an
 <!-- PREDICTION_FLAGS ELEMENT -->
 <!ELEMENT prediction_flags (#PCDATA)>
 <!ATTLIST prediction_flags snp_observation_threshold CDATA #REQUIRED>
-<!ATTLIST prediction_flags algorithm_utilisation CDATA #REQUIRED>
 <!ATTLIST prediction_flags quality_cutoff CDATA #REQUIRED>
-

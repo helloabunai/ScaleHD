@@ -43,7 +43,7 @@ Here is an example configuration file:
 	<demultiplex_flags forward_adapter="GCGACCCTGG" forward_position="5P" reverse_adapter="GCAGCGGCTG" reverse_position="5P" error_rate="0" min_overlap="10" min_length="" max_length=""/>
 	<trim_flags	trim_type="Adapter" quality_threshold="5" adapter_flag="-a" adapter="ACACTCTTTCCCTACACGACGCTCTTCCGATC" error_tolerance="0.5"/>
 	<alignment_flags min_seed_length="19" band_width="100" seed_length_extension="1.5" seed_occurrence="20" skip_seed_with_occurrence="500" chain_drop="0.50" seeded_chain_drop="0" seq_match_score="1" mismatch_penalty="4" indel_penalty="6,6" gap_extend_penalty="1,1" prime_clipping_penalty="5,5" unpaired_pairing_penalty="17"/>
-	<prediction_flags snp_observation_threshold="2" algorithm_utilisation="freebayes" quality_cutoff="10000"/>
+	<prediction_flags snp_observation_threshold="2" quality_cutoff="10000"/>
   </config>
 
 Within the **<config>** branch, there are three attributes to which the user must assign a value. *data_dir* must point to your input folder, consisting of an even number of input data files (see: :ref:`sect_dataassume`). *forward_reference* points to a .fasta reference file, for which alignment is carried out on forward reads. *reverse_reference* points to a .fasta reference file, for reverse alignment.
@@ -89,7 +89,7 @@ Within the **<config>** branch, there are three attributes to which the user mus
 
 **<prediction_flags>** now has a function! wow! Since SNP calling has been implemented, the user has the option of choosing the cutoff for filtering what we consider to be a valid SNP. Values accepted are range(1,5). 1 being the most lenient value in determining a SNP as valid, 5 being the most harsh. I typically use 2. Do what you want.
 
-The flag algorithm_utilisation determines which SNP calling algorithm to prefer for inclusion in ScaleHD reporting; accepted values are 'freebayes' and 'gatk'. Default is freebayes, so I suggest using that. Quality cutoff indicates a positive integer which is utilised as a further filter for variant validation.
+Quality cutoff indicates a positive integer which is utilised as a further filter for variant validation.
 
 The VCF "QUAL" is described in the latest specification as:
 

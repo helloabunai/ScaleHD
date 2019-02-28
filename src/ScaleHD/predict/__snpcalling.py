@@ -20,7 +20,6 @@ class DetermineMutations:
 		# picard CreateSequenceDictioanry REFERENCE=<reference> OUTPUT=<reference.dict>
 		# samtools index <assembly> <assembly.bam.bai>
 		# freebayes -f ref.fa -C snp_threshold assembly.bam > variants.vcf
-		# gatk -R 4k-HD-INTER.fa -T HaplotypeCaller -I assembly_sorted.bam -o variants.vcf
 
 	def generate_variant_data(self):
 
@@ -91,20 +90,6 @@ class DetermineMutations:
 			allele.set_freebayes_file(freebayes_output)
 			freebayes_outfi.close()
 
-			## gatk haplotype caller
-			gatk_output = os.path.join(predpath, '{}_GATKVariantCall.vcf'.format(header))
-			gatk_string = 'gatk HaplotypeCaller -R {} -I {} -O {}'.format(fw_idx, fw_assembly, gatk_output)
-			gatk_subprocess = subprocess.Popen([gatk_string], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-			gatk_log = gatk_subprocess.communicate(); gatk_subprocess.wait()
-			if 'ERROR' in gatk_log:
-				log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'Failure in GATK. Check sample output log.'))
-				logpath = os.path.join(predpath, 'GATKErrorLog.txt')
-				with open(logpath, 'w') as logfi:
-					logfi.write(gatk_log[0])
-					logfi.write(gatk_log[1])
-
-			allele.set_gatk_file(gatk_output)
-
 	def scrape_relevance(self):
 		"""
 		Given the user can prioritise which variant calling software to prefer, this function will extract
@@ -134,57 +119,27 @@ class DetermineMutations:
 				else:
 					freebayes_unmatched.append(record)
 
-			## Get variants found by GATK
-			target = ''; gatk_call = 'N/A'; gatk_score = 0
-			gatk_matched = []; gatk_unmatched = []
-			if allele.get_allelestatus() == 'Typical': target = allele.get_reflabel()
-			if allele.get_allelestatus() == 'Atypical': target = allele.get_reflabel().split('CAG')[0]
-			gatk_reader = vcf.Reader(open(allele.get_gatk_file(), 'r'))
-			for record in gatk_reader:
-				origin = ''
-				if allele.get_allelestatus() == 'Typical': origin = record.CHROM
-				if allele.get_allelestatus() == 'Atypical': origin = record.CHROM.split('CAG')[0][:-1]
-				if origin == target:
-					gatk_matched.append(record)
-				else:
-					gatk_unmatched.append(record)
-
 			## sort and remove records which are < user specified cutoff
 			## todo again generalise this code you absolute throbber
 			freebayes_sorted = sorted(freebayes_matched, key=lambda a:a.QUAL, reverse=True)
+			print '\n', allele.get_reflabel()
+			print freebayes_sorted
 			freebayes_sorted = [x for x in freebayes_sorted if x.QUAL > variant_cutoff]
-			gatk_sorted = sorted(gatk_matched, key=lambda b:b.QUAL, reverse=True)
-			gatk_sorted = [x for x in gatk_sorted if x.QUAL > variant_cutoff]
 
 			## Determine what to set values of call/score to, then apply to allele object
 			## will be written to InstanceReport.csv from whatever algo the user wanted
 			## user chose freebayes
-			if self.sequencepair_object.get_snpalgorithm() == 'freebayes':
-				if not len(freebayes_sorted) == 0:
-					## we have snps!
-					target = freebayes_sorted[0]
-					freebayes_call = '{}->{}@{}'.format(target.REF, target.ALT[0], target.POS)
-					freebayes_score = target.QUAL
-					allele.set_variantcall(freebayes_call)
-					allele.set_variantscore(freebayes_score)
-				else:
-					## we do not
-					allele.set_variantcall(freebayes_call)
-					allele.set_variantscore(freebayes_score)
-
-			## user chose gatk
-			if self.sequencepair_object.get_snpalgorithm() == 'gatk':
-				if not len(gatk_sorted) == 0:
-					## we have snps!
-					target = gatk_sorted[0]
-					gatk_call = '{}->{}@{}'.format(target.REF, target.ALT, target.POS)
-					gatk_score = target.QUAL
-					allele.set_variantcall(gatk_call)
-					allele.set_variantscore(gatk_score)
-				else:
-					## we do not
-					allele.set_variantcall(gatk_call)
-					allele.set_variantscore(gatk_score)
+			if not len(freebayes_sorted) == 0:
+				## we have snps!
+				target = freebayes_sorted[0]
+				freebayes_call = '{}->{}@{}'.format(target.REF, target.ALT[0], target.POS)
+				freebayes_score = target.QUAL
+				allele.set_variantcall(freebayes_call)
+				allele.set_variantscore(freebayes_score)
+			else:
+				## we do not
+				allele.set_variantcall(freebayes_call)
+				allele.set_variantscore(freebayes_score)
 
 			## Write unmatched to file
 			target_dir = os.path.join(self.sequencepair_object.get_predictpath(), 'IrrelevantVariants.txt')
@@ -194,10 +149,6 @@ class DetermineMutations:
 																		record.ALT, record.POS, record.QUAL)
 					outfi.write(record_str+'\n')
 				outfi.write('\n')
-				for record in gatk_unmatched:
-					record_str = 'GATK: {} = {} -> {} @ {}. Qual: {}'.format(record.CHROM, record.REF,
-																		record.ALT, record.POS, record.QUAL)
-					outfi.write(record_str+'\n')
 
 	def set_report(self, input_report):
 		self.snp_report = input_report

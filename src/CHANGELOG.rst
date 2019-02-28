@@ -10,6 +10,7 @@ Version 0.322
 * Fixed un-prompted read count subsampling in samples with atypical allele structures
 * Fixed MSAViewer alignment showing certain reads off-position by 1 base pair
 * Improved genHTML handling of failed samples (more information as to why, within detailed view)
+* Removed choice between SNP calling algorithms; freebayes used exclusively
 
 Version 0.321
 -------------

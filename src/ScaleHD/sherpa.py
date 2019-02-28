@@ -263,7 +263,6 @@ class ScaleHD:
 				current_seqpair.set_predictpath(seqpair_dat[5])
 				current_seqpair.set_enshrineflag(self.enshrine_assembly)
 				current_seqpair.set_snpobservationvalue(self.instance_params.config_dict['prediction_flags']['@snp_observation_threshold'])
-				current_seqpair.set_snpalgorithm(self.instance_params.config_dict['prediction_flags']['@algorithm_utilisation'])
 				current_seqpair.set_broadflag(self.broad_flag)
 				current_seqpair.set_groupflag(self.group_flag)
 				current_seqpair.set_fwidx(self.reference_indexes[0])

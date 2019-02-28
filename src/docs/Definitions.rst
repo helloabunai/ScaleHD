@@ -9,6 +9,8 @@ A further note on SNP calling:
 Either Freebayes or GATK may detect variants in allele contigs which are not relevant to the literal alleles of any given sample. I.E., a sample with alleles 17_1_1_7_2 and 23_1_1_10_2 may have variants reported in a highly irrelevant contig, 40_1_1_5_2. SNPs are only reported within InstanceResults.csv if they are found within the appropriate contigs for that sample -- other 'irrelevant' variant reports are written to IrrelevantVariants.txt in the sample's specific output folder.
 An individual SNP will be reported in the format "{originalbase }->{mutated base}: @{base pair position in read}". E.G. "C->T: @36".
 
+Update: as of SHD 0.322, only freebayes is used.
+
 The significance levels are as follows:
 
  * N/A -- This means the flag contains discrete information and does not need to be interpreted in regards to genotyping quality.

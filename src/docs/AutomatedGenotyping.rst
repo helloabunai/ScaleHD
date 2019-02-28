@@ -22,7 +22,7 @@ For each tract in *HTT* data (CAG, CCG, CCT), masks of every possible string rot
 
 Once we have identified where each repeat tract lies within a read, we can easily derive the literal string value of the intervening sequence -- the information between the end of the CAG tract and the start of the CCG tract. However, with absurdly low rates, we have observed novel insertion mutations within the actual intervening sequence itself. As a result, the DSP module was extended to then scan the intervening sequence itself instead of naïvely extracting information in a position-based way.
 
-With this information now curated, we create allele objects. Instances of this class contain relevant information *per allele*, which is useful to us in the case of samples where one allele is typical and one allele is atypical -- despite being from the same sample, these alleles will have utilised different reference libraries, will have different assemblies, and so on. These attributes are assigned to each allele. We must then sort these alleles down to just two valid alleles, due to the diploid nature of the data. 
+With this information now curated, we create allele objects. Instances of this class contain relevant information *per allele*, which is useful to us in the case of samples where one allele is typical and one allele is atypical -- despite being from the same sample, these alleles will have utilised different reference libraries, will have different assemblies, and so on. These attributes are assigned to each allele. We must then sort these alleles down to just two valid alleles, due to the diploid nature of the data.
 
 We do this with the second genotyping stage, a heuristically driven filter model, which takes in characteristics of available data from allele objects to determine which two allele objects are valid choices. We sort objects by total number of aligned reads -- the top allele is always taken as a 'primary' allele (quotmation marks to note that 'primary' here does not have any biological meaning; it is simply the allele we primarily chose from the assembly). Then we use weighted evidence from the remaining allele objects to determine which is valid; for example, relative read count in relation to CAG size, CAG size in comparison to the primary allele, CCG differences if CAG values are close, and so on.
 
@@ -36,6 +36,8 @@ SNP Calling
 In addition to our automated genotyping, we also run third party SNP Calling software to determine the presence of mutations in any given sample.
 
 This function will execute with both Freebayes and GATK, but will only append output from the chosen algorithm, as stated in the user's configuration XML document.
+
+Update: as of SHD 0.322, only freebayes is used. You no longer have a choice.
 
 The output will exist with two columns per allele; Variant Call and Variant Score.
 

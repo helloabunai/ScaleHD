@@ -358,11 +358,6 @@ class ConfigReader(object):
 					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: SNP Observation value invalid! Please use 1-10.'))
 					trigger = True
 
-		variant_algorithm = self.config_dict['prediction_flags']['@algorithm_utilisation']
-		if not variant_algorithm in ['freebayes', 'gatk']:
-			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified variant_algorithm value is invalid. [freebayes/gatk]'))
-			trigger = True
-
 		quality_cutoff = self.config_dict['prediction_flags']['@quality_cutoff']
 		if not quality_cutoff.isdigit():
 			log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: SNP Quality Cutoff value is not an integer.'))
@@ -622,8 +617,6 @@ def initialise_libraries(instance_params):
 		except ScaleHDException: trigger=True
 		try: type_func('freebayes')
 		except ScaleHDException: trigger=True
-		try: type_func('gatk')
-		except ScaleHDException: trigger = True
 
 	return trigger
 
