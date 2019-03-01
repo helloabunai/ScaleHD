@@ -917,8 +917,7 @@ class ScanAtypical:
 		##If not present at all..##
 		###########################
 		if not intervening_flag:
-			int_one['Count'] = 0; int_one_investigate = True
-			int_two_investigate = True; int_two['Count'] = 0
+			int_one['Count'] = 0; int_two['Count'] = 0
 
 		###############
 		##Easy checks##

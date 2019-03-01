@@ -3,6 +3,7 @@
 Version 0.322
 -------------
 
+* Removed novel atypical flag indicator from sequences with no intervening sequence at all
 * Added alignment statistics to default ScaleHD output for samples which aligned, but could not be processed further
 * Swapped standard HTML summary in genHTML for javascript element (filterable etc)
 * Wrote brief help section on genHTML output

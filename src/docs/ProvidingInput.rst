@@ -99,4 +99,5 @@ The VCF "QUAL" is described in the latest specification as:
     wrong). If ALT is ‘.’ (no variant) then this is −10log10 prob(variant), and if ALT is not ‘.’ this is −10log10
     prob(no variant). If unknown, the missing value should be specified. (Numeric)
 
-The user can control the Phred-scaled score lower limit for a valid SNP to be included with ScaleHD output via this option. Through testing, I have found that a cutoff of 150000 is a good place to start.
+The user can control the Phred-scaled score lower limit for a valid SNP to be included with ScaleHD output via this option. This is entirely up to the user, and how sensitive you want SNP calling to be.
+If ScaleHD misses a mutation because specified quality cutoffs were too strict, that's not really ScaleHD's fault.

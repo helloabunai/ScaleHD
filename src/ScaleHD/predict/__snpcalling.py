@@ -5,6 +5,7 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 import os
 import vcf
 import subprocess
+import numpy as np
 import logging as log
 from ..__backend import Colour as clr
 
@@ -74,9 +75,9 @@ class DetermineMutations:
 						logfi.write(picard_log[1])
 
 			## freebayes haplotype caller
-			observation_threshold = (allele.get_totalreads()/100) * int(self.sequencepair_object.get_snpobservationvalue())
+			observation_threshold = self.sequencepair_object.get_snpobservationvalue()
 			freebayes_output = os.path.join(predpath, '{}_FreeBayesVariantCall.vcf'.format(header))
-			freebayes_string = 'freebayes -f {} --legacy-gls -B 4000 -C {} {}'.format(
+			freebayes_string = 'freebayes -f {} -B 4000 -C {} {}'.format(
 				fw_idx, observation_threshold, fw_assembly)
 			freebayes_outfi = open(freebayes_output, 'w')
 			freebayes_subprocess = subprocess.Popen([freebayes_string], shell=True,
@@ -125,14 +126,23 @@ class DetermineMutations:
 			freebayes_sorted = sorted(freebayes_matched, key=lambda a:a.QUAL, reverse=True)
 			freebayes_sorted = [x for x in freebayes_sorted if x.QUAL > variant_cutoff]
 
+			##
+			## PCR amplification results in fake mutations from the primer sequence
+			## filter out anything that is outside of our region of interest i.e. smallest & largest (positions)
+			positions = [x.POS for x in freebayes_sorted]
+			smallest = min(x for x in positions); largest = max(x for x in positions)
+			freebayes_sorted = [x for x in freebayes_sorted if not np.isclose([x.POS], [smallest], atol=5)[0]]
+			freebayes_sorted = [x for x in freebayes_sorted if not np.isclose([x.POS], [largest], atol=5)[0]]
+
 			## Determine what to set values of call/score to, then apply to allele object
 			## will be written to InstanceReport.csv from whatever algo the user wanted
 			if not len(freebayes_sorted) == 0:
 				## we have snps!
-				target = freebayes_sorted[0]
-				freebayes_call = '{}->{}@{}'.format(target.REF, target.ALT[0], target.POS)
-				freebayes_score = target.QUAL
-				allele.set_variantcall(freebayes_call)
+				freebayes_str = ''; mutation_calls = ''; mutation_scores = ''
+				for mutation in freebayes_sorted:
+					mutation_calls += '{}->{}@{}   '.format(mutation.REF, mutation.ALT[0], mutation.POS)
+					mutation_scores += '{}   '.format(mutation.QUAL)
+				allele.set_variantcall(mutation_calls)
 				allele.set_variantscore(freebayes_score)
 			else:
 				## we do not

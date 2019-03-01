@@ -1431,6 +1431,7 @@ class AlleleGenotyping:
 			altpeak_filename = 'CCG{}-Peak.pdf'.format(self.sequencepair_object.get_primaryallele().get_fodccg())
 			ccg_peaks = [int(pri_fodccg),int(sec_fodccg)]; cag_peaks = [int(pri_fodcag),int(sec_fodcag)]
 			distribution_split = split_cag_target(pri_fwarray); target_distro = self.primary_original
+
 			## Subslice data
 			pri_cag = self.sequencepair_object.get_primaryallele().get_cag()
 			sec_cag = self.sequencepair_object.get_secondaryallele().get_cag()
