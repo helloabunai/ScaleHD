@@ -9,22 +9,22 @@ Python Packages
 ~~~~~~~~~~~~~~~
 
 All software packages have an accompanying version number listed. These are the versions of each package from which ScaleHD was developed. Newer versions may function fine, but are not tested. It is highly recommended to avoid older versions, and if possible, use the exact same version as during development. If you do not want to overwrite any packages of which you have a newer version, please see the sub-section in :ref:`detailed-install` about utilising virtual environments.
-As of ScaleHD version 0.320, dependencies have been updated to the latest available stable versions (at the time of writing). Syntax interaction for a few dependencies had changed, so ScaleHD may not function properly with versions other than that listed here.
+As of ScaleHD version 0.322, dependencies have been updated to the latest available stable versions (at the time of writing). Syntax interaction for a few dependencies had changed, so ScaleHD may not function properly with versions other than that listed here.
 
  * cutadapt (1.18)
  * generatr (0.252)
  * batchadapt (0.21)
- * lxml (4.3.0)
- * matplotlib (2.2.3)
- * numpy (1.16.0)
- * pandas (0.23.4)
- * peakutils (1.3.0)
+ * lxml (4.3.2)
+ * matplotlib (2.2.4)
+ * numpy (1.16.2)
+ * pandas (0.24.1)
+ * peakutils (1.3.2)
  * seaborn (0.9.0)
  * PyPDF2 (1.26.0)
  * pysam (0.15.2)
  * regex (2018.11.22)
  * reportlab (3.5.12)
- * scipy (1.2.0)
+ * scipy (1.2.1)
  * sklearn (0.20.2)
 
 Third Party Binaries
