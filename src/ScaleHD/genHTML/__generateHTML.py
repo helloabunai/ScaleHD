@@ -541,8 +541,8 @@ class genHTML:
         ##
         ## If the sample failed, there won't be any data to collect
         ## so just return a simple string to be placed in the data's stead
-        if targetObject.get_exceptionraised() in ['SeqALN','SeqRE-ALN','DSP','Genotype','SNPCalling']:
-            return '<p> No Genotype results! ScaleHD workflow failed/incomplete!</p>'
+        if targetObject.get_exceptionraised() in ['SeqALN','SeqRE-ALN','DSP']:
+            return '<p> No sequence alignment present! ScaleHD workflow failed/incomplete!</p>'
 
         ##
         ## Primary allele alignment map
@@ -631,7 +631,7 @@ class genHTML:
         ##
         ## If the sample failed, there won't be any data to collect
         ## so just return a simple string to be placed in the data's stead
-        if targetObject.get_exceptionraised() in ['SeqALN','SeqRE-ALN','DSP','Genotype','SNPCalling']:
+        if targetObject.get_exceptionraised() in ['Genotype','SNPCalling']:
             return '<p> No Genotype results! ScaleHD workflow failed/incomplete!</p>'
 
         ##

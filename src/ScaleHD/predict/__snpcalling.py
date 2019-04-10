@@ -130,9 +130,10 @@ class DetermineMutations:
 			## PCR amplification results in fake mutations from the primer sequence
 			## filter out anything that is outside of our region of interest i.e. smallest & largest (positions)
 			positions = [x.POS for x in freebayes_sorted]
-			smallest = min(x for x in positions); largest = max(x for x in positions)
-			freebayes_sorted = [x for x in freebayes_sorted if not np.isclose([x.POS], [smallest], atol=5)[0]]
-			freebayes_sorted = [x for x in freebayes_sorted if not np.isclose([x.POS], [largest], atol=5)[0]]
+			if not len(freebayes_sorted) == 0:
+				smallest = min([x for x in positions]); largest = max([x for x in positions])
+				freebayes_sorted = [x for x in freebayes_sorted if not np.isclose([x.POS], [smallest], atol=5)[0]]
+				freebayes_sorted = [x for x in freebayes_sorted if not np.isclose([x.POS], [largest], atol=5)[0]]
 
 			## Determine what to set values of call/score to, then apply to allele object
 			## will be written to InstanceReport.csv from whatever algo the user wanted
