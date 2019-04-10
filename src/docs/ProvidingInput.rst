@@ -16,11 +16,7 @@ ScaleHD is a Command Line Interface (CLI) based application, and users will inte
 +----------------+---------------+---------------------------------------------------------+
 | -t {integer}   | --threads     | Number of CPU threads to use (def: system max).         |
 +----------------+---------------+---------------------------------------------------------+
-<<<<<<< HEAD
-| -p             | --purge       | Remove all output files except HTML5-based report.      |
-=======
 | -p             | --purge       | Remove all output files except the HTML5-based report.  |
->>>>>>> 6f3f58b2cd20d067867bfd28f82a02e9f636b266
 +----------------+---------------+---------------------------------------------------------+
 | -s             | --simple      | Enable simple 95% confidence interval genotyping output.|
 +----------------+---------------+---------------------------------------------------------+

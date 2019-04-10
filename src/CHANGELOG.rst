@@ -1,5 +1,11 @@
 .. _sect_changelog:
 
+Version 0.323
+-------------
+
+* Minor bugfix for SNP calling where data was in an unexpected vector shape
+* Minor bugfix for HTML report generation where certain exceptions were preventing incorrect data scraping
+
 Version 0.322
 -------------
 
