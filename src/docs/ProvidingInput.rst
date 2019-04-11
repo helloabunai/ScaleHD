@@ -40,13 +40,14 @@ Here is an example configuration file:
 
 ::
 
-  <config data_dir="/path/to/fq" forward_reference="/path/to/fw.fa" reverse_reference="/path/to/rv.fa">
+<config data_dir="~/path/" forward_reference="~/path/" reverse_reference="~/path/">
 	<instance_flags demultiplex="False" quality_control="True" sequence_alignment="True" atypical_realignment="True" genotype_prediction="True" snp_calling="True"/>
 	<demultiplex_flags forward_adapter="GCGACCCTGG" forward_position="5P" reverse_adapter="GCAGCGGCTG" reverse_position="5P" error_rate="0" min_overlap="10" min_length="" max_length=""/>
-	<trim_flags	trim_type="Adapter" quality_threshold="5" adapter_flag="-a" adapter="ACACTCTTTCCCTACACGACGCTCTTCCGATC" error_tolerance="0.5"/>
-	<alignment_flags min_seed_length="19" band_width="100" seed_length_extension="1.5" seed_occurrence="20" skip_seed_with_occurrence="500" chain_drop="0.50" seeded_chain_drop="0" seq_match_score="1" mismatch_penalty="4" indel_penalty="6,6" gap_extend_penalty="1,1" prime_clipping_penalty="5,5" unpaired_pairing_penalty="17"/>
-	<prediction_flags snp_observation_threshold="2" quality_cutoff="10000"/>
-  </config>
+	<trim_flags trim_type="Adapter" quality_threshold="5" adapter_flag="-a" forward_adapter="GATCGGAAGAGCACACGTCTGAACTCCAGTCAC" reverse_adapter="AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT" error_tolerance="0.39"/>
+	<alignment_flags min_seed_length="19" band_width="100" seed_length_extension="1.5" skip_seed_with_occurrence="500" chain_drop="0.50" seeded_chain_drop="0" seq_match_score="1" mismatch_penalty="4" indel_penalty="6,6" gap_extend_penalty="6,6" prime_clipping_penalty="5,5" unpaired_pairing_penalty="17"/>
+	<prediction_flags snp_observation_threshold="2" quality_cutoff="0"/>
+</config>
+
 
 Within the **<config>** branch, there are three attributes to which the user must assign a value. *data_dir* must point to your input folder, consisting of an even number of input data files (see: :ref:`sect_dataassume`). *forward_reference* points to a .fasta reference file, for which alignment is carried out on forward reads. *reverse_reference* points to a .fasta reference file, for reverse alignment.
 
