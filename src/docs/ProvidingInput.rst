@@ -90,7 +90,9 @@ Within the **<config>** branch, there are three attributes to which the user mus
 | unpaired_pairing_penalty  | -U <INT>         |
 +---------------------------+------------------+
 
-**<prediction_flags>** now has a function! wow! Since SNP calling has been implemented, the user has the option of choosing the cutoff for filtering what we consider to be a valid SNP. Values accepted are range(1,5). 1 being the most lenient value in determining a SNP as valid, 5 being the most harsh. I typically use 2. Do what you want.
+**<prediction_flags>** now has a function! wow!
+
+Since SNP calling has been implemented, the user has the option of choosing the cutoff for filtering what we consider to be a valid SNP, which is done with the snp_observation_threshold flag. Values accepted are range(1,5). 1 being the most lenient value in determining a SNP as valid, 5 being the most harsh. I typically use 2. Do what you want.
 
 Quality cutoff indicates a positive integer which is utilised as a further filter for variant validation.
 

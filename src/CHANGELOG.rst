@@ -1,5 +1,10 @@
 .. _sect_changelog:
 
+Version 0.324
+-------------
+
+* Futher minor bugfixes regarding deployment of build scripts incorrectly providing sources in 0.323.
+
 Version 0.323
 -------------
 
