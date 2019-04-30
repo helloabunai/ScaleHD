@@ -541,8 +541,10 @@ class genHTML:
         ##
         ## If the sample failed, there won't be any data to collect
         ## so just return a simple string to be placed in the data's stead
-        if targetObject.get_exceptionraised() in ['SeqALN','SeqRE-ALN','DSP', 'Genotype','SNPCalling']:
+        if targetObject.get_exceptionraised() in ['SeqALN','SeqRE-ALN']:
             return '<p> No sequence alignment present! ScaleHD workflow failed/incomplete!</p>'
+        elif targetObject.get_exceptionraised() in ['DSP']:
+            return '<p> Sequence alignment produced insufficient reads; cannot render alignment map!</p>'
 
         ##
         ## Primary allele alignment map
@@ -559,7 +561,7 @@ class genHTML:
             ## Atypical fuckery where the specified contig does not exist
             ## find best match of available and take those reads (DSP wrong allele size?)
             original = targetObject.get_primaryallele().get_reflabel(); present_references = pri_assembly_object.references; similar_contigs = []
-            for item in present_references: similar_contigs.append((item, align.similar(sec_contig,item)))
+            for item in present_references: similar_contigs.append((item, align.similar(pri_contig,item)))
             pri_contig = sorted(similar_contigs, key=lambda a: a[1], reverse=True)[0][0]
             pri_reads = pri_assembly_object.fetch(reference=pri_contig)
             pri_err_string = '<p>ScaleHD was unable to extract reads for the contig: {}. Extracted data is from the best contig match: {}</p>'.format(targetObject.get_primaryallele().get_reflabel(), pri_contig)
