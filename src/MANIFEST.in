@@ -6,4 +6,20 @@ include ScaleHD/train/long_descr.rst
 include ScaleHD/train/polyglutamine.csv
 include ScaleHD/train/raw_matrix.csv
 include ScaleHD/config/config.dtd
-
+include ScaleHD/genHTML/chartBase.js
+include ScaleHD/genHTML/chartBoxPlot.js
+include ScaleHD/genHTML/chartZoom.js
+include ScaleHD/genHTML/gridism.css
+include ScaleHD/genHTML/jquery.js
+include ScaleHD/genHTML/msa.js
+include ScaleHD/genHTML/scalehd.css
+include ScaleHD/genHTML/scalehd.js
+include ScaleHD/genHTML/tablefilter.js
+include ScaleHD/genHTML/templates/alleletable.html
+include ScaleHD/genHTML/templates/base.html
+include ScaleHD/genHTML/templates/list.html
+include ScaleHD/genHTML/templates/seqALN.html
+include ScaleHD/genHTML/templates/seqGTYPE.html
+include ScaleHD/genHTML/templates/seqqc.html
+include ScaleHD/genHTML/templates/sequencedata.html
+include ScaleHD/genHTML/templates/trim.html
