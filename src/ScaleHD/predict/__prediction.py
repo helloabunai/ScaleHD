@@ -491,12 +491,8 @@ class AlleleGenotyping:
 							## ratios dictate that peak may be legit
 							## check between major and minor for validity
 							suspect_ratio = indv_minor/indv_major
-							if suspect_ratio < 0.15:
-								pass
-							else:
-
-								self.zygosity_state = 'HETERO'
-								self.sequencepair_object.set_svm_failure(True)
+							if suspect_ratio < 0.15: pass
+							else: self.zygosity_state = 'HETERO'
 
 			## set distribution
 			allele_object.set_rvarray(self.reverse_aggregate)
@@ -881,7 +877,8 @@ class AlleleGenotyping:
 		## Brute force zygosity
 		if not (primary_fod_ccg == secondary_fod_ccg) and (ccg_zygstate == 'HOMO' or ccg_zygstate == 'HOMO*' or ccg_zygstate == 'HOMO+'):
 			self.zygosity_state = 'HETERO'; ccg_zygstate = 'HETERO'
-			self.sequencepair_object.set_svm_failure(True)
+			if not self.sequencepair_object.get_atypical_zygrewrite():
+				self.sequencepair_object.set_svm_failure(True)
 		if (primary_fod_ccg == secondary_fod_ccg) and ccg_zygstate == 'HETERO':
 			self.zygosity_state = 'HOMO'; ccg_zygstate = 'HOMO'
 			self.sequencepair_object.set_svm_failure(True)

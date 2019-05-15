@@ -655,23 +655,34 @@ class ScanAtypical:
 				elif alpha_beta_ReadPcnt <= 0.35:
 					secondary_allele = sorted_info[1][1]
 					secondary_allele['Reference'] = sorted_info[1][0]
-					secondary_allele['DiffConfuse'] = True
+					if alpha_beta_ReadPcnt < 0.20 and not beta_theta_ReadPcnt > 0.50:
+						secondary_allele['DiffConfuse'] = True
 					secondary_was_set = True
 
 			## Same CCG but out of step with order
 			if alpha_theta_CAGDiff == 1:
-				secondary_allele = sorted_info[1][1]
-				secondary_allele['Reference'] = sorted_info[1][0]
-				secondary_allele['DiffConfuse'] = True
-				secondary_was_set = True
+				if beta_theta_ReadPcnt > 0.4:
+					secondary_allele = sorted_info[1][1]
+					secondary_allele['Reference'] = sorted_info[1][0]
+					secondary_was_set = True
+				else:
+					secondary_allele = sorted_info[1][1]
+					secondary_allele['Reference'] = sorted_info[1][0]
+					secondary_allele['DiffConfuse'] = True
+					secondary_was_set = True
 
 			## cell line DNA, skewed expansion with broad peak
 			## theta is not neighbouring of beta, but beta is legitimate
 			if alpha_beta_CAGDiff > 1 and np.isclose([beta_estCAG], [theta_estCAG], atol=5):
-				secondary_allele = sorted_info[1][1]
-				secondary_allele['Reference'] = sorted_info[1][0]
-				secondary_allele['DiffConfuse'] = True
-				secondary_was_set = True
+				if beta_theta_ReadPcnt > 0.4:
+					secondary_allele = sorted_info[1][1]
+					secondary_allele['Reference'] = sorted_info[1][0]
+					secondary_was_set = True
+				else:
+					secondary_allele = sorted_info[1][1]
+					secondary_allele['Reference'] = sorted_info[1][0]
+					secondary_allele['DiffConfuse'] = True
+					secondary_was_set = True
 
 		## CCG in Top3 not equal?
 		if uniform_ccg < 2:
@@ -692,10 +703,15 @@ class ScanAtypical:
 						secondary_was_set = True
 				## theta is close to beta, but not neighbouring.. cell line DNA/broad expansion
 				if np.isclose([beta_theta_CAGDiff], [1], atol=5):
-					secondary_allele = sorted_info[1][1]
-					secondary_allele['Reference'] = sorted_info[1][0]
-					secondary_allele['DiffConfuse'] = True
-					secondary_was_set = True
+					if beta_theta_ReadPcnt > 0.4:
+						secondary_allele = sorted_info[1][1]
+						secondary_allele['Reference'] = sorted_info[1][0]
+						secondary_was_set = True
+					else:
+						secondary_allele = sorted_info[1][1]
+						secondary_allele['Reference'] = sorted_info[1][0]
+						secondary_allele['DiffConfuse'] = True
+						secondary_was_set = True
 
 			## the CCG in #2,#3 don't match
 			if not beta_estCCG == theta_estCCG:
@@ -711,7 +727,8 @@ class ScanAtypical:
 									secondary_was_set = True
 								else:
 									secondary_allele = primary_allele.copy()
-									secondary_allele['DiffConfuse'] = True
+									if alpha_beta_ReadPcnt < 0.4:
+										secondary_allele['DiffConfuse'] = True
 									secondary_was_set = True
 							else:
 								secondary_allele = primary_allele.copy()
