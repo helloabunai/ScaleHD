@@ -637,7 +637,7 @@ class ScanAtypical:
 					secondary_allele = sorted_info[1][1]
 					secondary_allele['Reference'] = sorted_info[1][0]
 					secondary_was_set = True
-				elif beta_theta_ReadPcnt <= 0.35:
+				elif beta_theta_ReadPcnt <= 0.15:
 					secondary_allele = sorted_info[1][1]
 					secondary_allele['Reference'] = sorted_info[1][0]
 					secondary_allele['DiffConfuse'] = True
@@ -679,10 +679,15 @@ class ScanAtypical:
 					secondary_allele['Reference'] = sorted_info[1][0]
 					secondary_was_set = True
 				else:
-					secondary_allele = sorted_info[1][1]
-					secondary_allele['Reference'] = sorted_info[1][0]
-					secondary_allele['DiffConfuse'] = True
-					secondary_was_set = True
+					if beta_theta_CAGDiff == 1:
+						secondary_allele = sorted_info[1][1]
+						secondary_allele['Reference'] = sorted_info[1][0]
+						secondary_was_set = True
+					else:
+						secondary_allele = sorted_info[1][1]
+						secondary_allele['Reference'] = sorted_info[1][0]
+						secondary_allele['DiffConfuse'] = True
+						secondary_was_set = True
 
 		## CCG in Top3 not equal?
 		if uniform_ccg < 2:
@@ -703,15 +708,20 @@ class ScanAtypical:
 						secondary_was_set = True
 				## theta is close to beta, but not neighbouring.. cell line DNA/broad expansion
 				if np.isclose([beta_theta_CAGDiff], [1], atol=5):
-					if beta_theta_ReadPcnt > 0.4:
+					if beta_theta_CAGDiff == 1:
 						secondary_allele = sorted_info[1][1]
 						secondary_allele['Reference'] = sorted_info[1][0]
 						secondary_was_set = True
 					else:
-						secondary_allele = sorted_info[1][1]
-						secondary_allele['Reference'] = sorted_info[1][0]
-						secondary_allele['DiffConfuse'] = True
-						secondary_was_set = True
+						if beta_theta_ReadPcnt > 0.4:
+							secondary_allele = sorted_info[1][1]
+							secondary_allele['Reference'] = sorted_info[1][0]
+							secondary_was_set = True
+						else:
+							secondary_allele = sorted_info[1][1]
+							secondary_allele['Reference'] = sorted_info[1][0]
+							secondary_allele['DiffConfuse'] = True
+							secondary_was_set = True
 
 			## the CCG in #2,#3 don't match
 			if not beta_estCCG == theta_estCCG:

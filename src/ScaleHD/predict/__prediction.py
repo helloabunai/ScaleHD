@@ -877,7 +877,7 @@ class AlleleGenotyping:
 		## Brute force zygosity
 		if not (primary_fod_ccg == secondary_fod_ccg) and (ccg_zygstate == 'HOMO' or ccg_zygstate == 'HOMO*' or ccg_zygstate == 'HOMO+'):
 			self.zygosity_state = 'HETERO'; ccg_zygstate = 'HETERO'
-			if not self.sequencepair_object.get_atypical_zygrewrite():
+			if not self.sequencepair_object.get_svm_failure():
 				self.sequencepair_object.set_svm_failure(True)
 		if (primary_fod_ccg == secondary_fod_ccg) and ccg_zygstate == 'HETERO':
 			self.zygosity_state = 'HOMO'; ccg_zygstate = 'HOMO'
