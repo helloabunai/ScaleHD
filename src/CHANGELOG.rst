@@ -1,6 +1,6 @@
 .. _sect_changelog:
 
-Version 0.324.1
+Version 0.324b
 ---------------
 
 * Hotfix for demultiplexing I/O bug that was introduced somehow? (update BatchAdapt if you use demultiplexing)
