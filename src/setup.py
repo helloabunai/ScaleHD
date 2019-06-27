@@ -13,7 +13,7 @@ setup(
     name='ScaleHD',
 
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.324',
+    version='0.324.1',
 
     description='Automated DNA micro-satellite genotyping.',
     long_description=long_description,
@@ -98,8 +98,8 @@ setup(
                               'train/likelihood_matrix.csv',
                               'train/raw_matrix.csv',
 							  'config/config.dtd',
-							  'genHTML/chartBoxPlot.js',
 							  'genHTML/chartBase.js',
+							  'genHTML/chartBoxPlot.js',
 							  'genHTML/chartZoom.js',
 							  'genHTML/gridism.css',
 							  'genHTML/jquery.js',

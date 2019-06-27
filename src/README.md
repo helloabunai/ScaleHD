@@ -1,5 +1,5 @@
 ScaleHD: Automated Huntington Disease genotyping with end-to-end allele masking
-=========================================================
+===============================================================================
 ScaleHD is a package for automating the process of genotyping microsatellite repeats in Huntington Disease data.
 We utilise machine learning approaches to take into account natural data 'artefacts', such as PCR slippage and somatic
 mosaicism, when processing data. This provides the end-user with a simple to use platform which can robustly predict genotypes from input data.

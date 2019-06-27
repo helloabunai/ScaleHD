@@ -17,6 +17,7 @@ include ScaleHD/genHTML/scalehd.js
 include ScaleHD/genHTML/tablefilter.js
 include ScaleHD/genHTML/templates/alleletable.html
 include ScaleHD/genHTML/templates/base.html
+include ScaleHD/genHTML/templates/fastqc.html
 include ScaleHD/genHTML/templates/list.html
 include ScaleHD/genHTML/templates/seqALN.html
 include ScaleHD/genHTML/templates/seqGTYPE.html

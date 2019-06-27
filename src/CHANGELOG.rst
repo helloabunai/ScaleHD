@@ -1,5 +1,12 @@
 .. _sect_changelog:
 
+Version 0.324.1
+---------------
+
+* Hotfix for demultiplexing I/O bug that was introduced somehow? (update BatchAdapt if you use demultiplexing)
+* Hotfix for genotyping zygosity bug where predictions were not correctly overruled by heuristics
+* Minor bug fix with HTML templates rendering incorrect version strings / missing templates
+
 Version 0.324
 -------------
 

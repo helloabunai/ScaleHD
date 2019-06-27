@@ -1,7 +1,7 @@
 from __future__ import division
 
 #/usr/bin/python
-__version__ = 0.324
+__version__ = 0.324.1
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
@@ -236,7 +236,7 @@ class ScaleHD:
 		##
 		## Config generics
 		if self.instance_params.config_dict['instance_flags']['@demultiplex'] == 'True':
-			instance_inputdata = self.instance_params.config_dict['@data_dir'][:-1]+'_demultiplexed'
+			instance_inputdata = self.instance_params.config_dict['@data_dir']+'_demultiplexed'
 		else:
 			instance_inputdata = self.instance_params.config_dict['@data_dir']
 

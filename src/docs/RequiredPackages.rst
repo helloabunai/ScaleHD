@@ -13,7 +13,7 @@ As of ScaleHD version 0.321, dependencies have been updated to the latest availa
 
  * cutadapt (1.18)
  * generatr (0.252)
- * batchadapt (0.21)
+ * batchadapt (0.22)
  * lxml (4.3.2)
  * matplotlib (2.2.4)
  * numpy (1.16.2)
