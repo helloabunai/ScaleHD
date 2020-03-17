@@ -1,3 +1,0 @@
-[console_scripts]
-scalehdTEST = ScaleHD.sherpa:main
-
