@@ -1,0 +1,92 @@
+          <div class="sequence" data-sequenceid="{ID}" style="padding-left: 10px;">
+            <h1 data-sequenceid="{ID}" data-title="sample">{ID}</h1><h2 style="color: #bebebe; display: inline;"> ScaleHD workflow {PASSFAIL}</h2>
+            <br />
+            <br />
+
+            <!-- Primary allele IO summary -->
+            <table class="summaryTable">
+              <thead>
+                <tr>
+                  <th>Primary allele</th>
+                  <th>I/O summary</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Forward mapped reads</td><td>{A1_FWMAP}</td>
+                </tr>
+                <tr>
+                  <td>Forward mapped percentage</td><td>{A1_FWMAP_PCNT}</td>
+                </tr>
+                <tr>
+                  <td>Forward purged reads</td><td>{A1_FWMAP_PURGE}</td>
+                </tr>
+                <tr>
+                  <td>Reverse mapped reads</td><td>{A1_RVMAP}</td>
+                </tr>
+                <tr>
+                  <td>Reverse mapped percentage</td><td>{A1_RVMAP_PCNT}</td>
+                </tr>
+                <tr>
+                  <td>Reverse purged reads</td><td>{A1_RVMAP_PURGE}</td>
+                </tr>
+              </tbody>
+            </table>
+            <br />
+
+            <!-- Secondary allele IO summary -->
+            <table class="summaryTable">
+              <thead>
+                <tr>
+                  <th>Secondary allele</th>
+                  <th>I/O summary</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Forward mapped reads</td><td>{A2_FWMAP}</td>
+                </tr>
+                <tr>
+                  <td>Forward mapped percentage</td><td>{A2_FWMAP_PCNT}</td>
+                </tr>
+                <tr>
+                  <td>Forward purged reads</td><td>{A2_FWMAP_PURGE}</td>
+                </tr>
+                <tr>
+                  <td>Reverse mapped reads</td><td>{A2_RVMAP}</td>
+                </tr>
+                <tr>
+                  <td>Reverse mapped percentage</td><td>{A2_RVMAP_PCNT}</td>
+                </tr>
+                <tr>
+                  <td>Reverse purged reads</td><td>{A2_RVMAP_PURGE}</td>
+                </tr>
+              </tbody>
+            </table>
+            <br />
+
+            <hr>
+            <br />
+            <!-- sample quality control results -->
+            <h3 data-sequenceid="{ID}" data-title="seqqc">#SequenceQualityControl</h3>
+            <br />
+            <p>{SEQ_QC}</p>
+            <br />
+
+            <hr>
+            <br />
+            <!-- sample sequence alignment results -->
+            <h3 data-sequenceid="{ID}" data-title="seqalign">#SequenceAlignment</h3>
+            <br />
+            <p>{SEQ_ALN}</p>
+            <br />
+
+            <hr>
+            <br />
+            <!-- sequence genotyping results -->
+            <h3 data-sequenceid="{ID}" data-title="genotype">#AlleleGenotyping</h3>
+            <br />
+            <p>{GTYPE}</p>
+            <br />
+
+          </div>

@@ -13,11 +13,12 @@ setup(
     name='ScaleHD',
 
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.324.2',
+    version='1.0',
 
     description='Automated DNA micro-satellite genotyping.',
     long_description=long_description,
-	python_requires='>=2.7.13',
+	long_description_content_type='text/markdown',
+	python_requires='>=3.7',
     # The project's main homepage.
     url='https://github.com/helloabunai/ScaleHD',
 
@@ -46,8 +47,8 @@ setup(
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
 
 		# Specific version of the python interpreter that are supported
-		# by this package. Python 3 not support at this time.
-        'Programming Language :: Python :: 2.7',
+		# by this package.
+        'Programming Language :: Python :: 3.7',
 
 		## And so on
         'Environment :: Console',
@@ -84,8 +85,8 @@ setup(
 					  'regex',
 					  'PyPDF2',
 					  'reportlab',
-					  'generatr',
-					  'batchadapt',
+					  'generatr==1.0',
+					  'batchadapt==1.0',
 					  'pyvcf',
 					  'fadapa'
 					  ],
@@ -122,6 +123,6 @@ setup(
 	# executables for the respective target platform. This entry point is akin
 	# to launching the script in bash: if __name__ == '__main__' etc..
     entry_points={
-        'console_scripts': ['scalehd=ScaleHD.sherpa:main',],
+        'console_scripts': ['ScaleHD=ScaleHD.sherpa:main',],
     },
 )

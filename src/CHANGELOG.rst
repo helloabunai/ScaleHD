@@ -1,5 +1,11 @@
 .. _sect_changelog:
 
+Version 1.0
+-----------
+
+* Python 3.7 port
+* Goodbye!
+
 Version 0.324.2
 ---------------
 

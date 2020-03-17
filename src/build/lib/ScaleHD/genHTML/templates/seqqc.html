@@ -1,0 +1,54 @@
+<div class="wrap-collapsible">
+  <input id="{ID}fwcollapsible" class="toggle" type="checkbox">
+  <label for="{ID}fwcollapsible" class="lbl-toggle">Forward trim report</label>
+  <div class="collapsible-content">
+    <div class="content-inner">
+      <p> {FORWARD_TRIM} </p>
+    </div>
+  </div>
+</div>
+
+<br />
+
+<div class="wrap-collapsible">
+  <input id="{ID}rvcollapsible" class="toggle" type="checkbox">
+  <label for="{ID}rvcollapsible" class="lbl-toggle">Reverse trim report</label>
+  <div class="collapsible-content">
+    <div class="content-inner">
+      <p> {REVERSE_TRIM} </p>
+    </div>
+  </div>
+</div>
+
+<br />
+
+<div class="wrap-collapsible">
+  <input id="{ID}fqcollapsible" class="toggle" type="checkbox">
+  <label for="{ID}fqcollapsible" class="lbl-toggle">FastQC Report</label>
+  <div class="collapsible-content">
+    <div class="content-inner">
+      <p> {FASTQC} </p>
+    </div>
+  </div>
+</div>
+
+<br />
+<h4> <strong>&#8226 FastQC Per base sequence quality</strong></h4>
+<div class='chart-container'>
+  <canvas id="{ID}_FQC_PBSQ" data-title="{PBSQ_TITLE}" data-labels="{PBSQ_LABELS}" data-values="{PBSQ_VALUES}" data-meanval="{PBSQ_MEANVAL}" data-descr="{PBSQ_DESCR}" data-xaxis="{PBSQ_X}" data-yaxis="{PBSQ_Y}"></canvas>
+</div>
+<br />
+
+<br />
+<h4> <strong>&#8226 FastQC Per base N content</strong></h4>
+<div class='chart-container'>
+  <canvas id="{ID}_FQC_PBNC" data-title="{PBNC_TITLE}" data-labels="{PBNC_LABELS}" data-values="{PBNC_VALUES}" data-descr="{PBNC_DESCR}" data-xaxis="{PBNC_X}" data-yaxis="{PBNC_Y}"></canvas>
+</div>
+<br />
+
+<br />
+<h4> <strong>&#8226 FastQC Sequence length distribution</strong></h4>
+<div class='chart-container'>
+  <canvas id="{ID}_FQC_SEQLENDIST" data-title="{SQLD_TITLE}" data-labels="{SQLD_LABELS}" data-values="{SQLD_VALUES}" data-descr="{SQLD_DESCR}" data-xaxis="{SQLD_X}" data-yaxis="{SQLD_Y}"></canvas>
+</div>
+<br />

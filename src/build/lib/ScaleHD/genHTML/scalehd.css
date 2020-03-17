@@ -1,0 +1,485 @@
+@font-face {
+  font-family: 'Product Sans';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Product Sans'), local('ProductSans-Regular'), url(https://fonts.gstatic.com/s/productsans/v9/pxiDypQkot1TnFhsFMOfGShVF9eOYktMqg.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+html *
+{
+	margin: 0;
+	padding: 0;
+	font-family: 'Product Sans' !important
+}
+
+body
+{
+	margin: 0;
+	padding: 0;
+	overflow-y: scroll;
+	scrollbar-width: none; /*firefox*/
+	-ms-overflow-style: none; /*ie10+*/
+  background: #f5f5f5;
+}
+
+body::-webkit-scrollbar
+{ /*webkit, obviously*/
+	width: 0px;
+}
+
+
+header
+{
+	position: fixed;
+	top: 0;
+	width: 100%;
+	height: 40px;
+	line-height: 23px;
+	border-bottom: 1px solid grey;
+  font-size: 125%;
+}
+
+main
+{
+	margin-top: 41px;
+}
+
+div.sequence
+{
+	display: none;
+}
+
+ul#sequence_sample_list
+{
+	margin: 0;
+	padding: 0;
+	list-style-type: none;
+}
+
+ul#sequence_sample_list li
+{
+	/* Sequence ID List element (left hand side) */
+	margin-top: 5px;
+	margin-bottom: 5px;
+}
+
+ul#sequence_sample_list li a
+{
+	display: block;
+	padding: 2px;
+	background: #2f3136;
+}
+
+ul#sequence_sample_list li ul
+{
+	list-style-type: none;
+	font-weight: normal;
+	padding-left: 20px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid grey;
+}
+
+ul#sequence_sample_list li ul li
+{
+	margin-bottom: 0;
+	background: none;
+}
+
+ul#sequence_sample_list li ul li a
+{
+	margin-top: 2px;
+	background: #2f3136;
+}
+
+/* align left/right classes for main header text units*/
+.alignleft
+{
+	float: left;
+}
+.alignright
+{
+	float: right;
+}
+
+
+/* home button link colour and styling */
+a.home:visited, a.home:link, a.home:active
+{
+  text-decoration: none;
+  color: #009419;
+}
+a.home:hover
+{
+  text-decoration: none;
+  color: #f5f5f5;
+}
+a.home
+{
+  font-size: 150%;
+}
+
+
+/* contact link colour and styling */
+a.contact:hover, a.contact:visited, a.contact:link, a.contact:active
+{
+  text-decoration: none;
+  color: #000000;
+}
+
+/* help link colour and styling*/
+a.help:hover, a.help:visited, a.help:link, a.help:active
+{
+  text-decoration: none;
+  color: #000000;
+}
+
+/* sequence sample list link colour and styling */
+a.sequence_sample_link:visited, a.sequence_sample_link:link
+{
+  text-decoration: none;
+  color: #f0f0f0;
+  font-weight: 50;
+}
+a.sequence_sample_link:hover, a.sequence_sample_link:focus, a.sequence_sample_link:active
+{
+  color: #009419;
+  text-decoration: none;
+}
+
+/* sequence sample sublist stage link colour and styling*/
+a.sequence_sample_sublink:visited, a.sequence_sample_sublink:link
+{
+  text-decoration: none;
+  color: #bebebe;
+  font-weight: 25;
+}
+a.sequence_sample_sublink:hover, a.sequence_sample_sublink:focus
+{
+  color: #009419;
+  text-decoration: none;
+}
+
+/* sequence link from allele summary table */
+a.sequence_sample_link_table
+{
+  text-decoration: none;
+  color: #000000;
+  font-weight: 25;
+}
+a.sequence_sample_link_table:hover
+{
+  color: #009419;
+  text-decoration: none;
+}
+
+td a
+{
+  display: block;
+  width: 100%;
+}
+
+#content
+{
+	height: 100%;
+	width: 100%;
+}
+
+#leftHeader
+{
+  background: #2f3136;
+  height: 100%;
+  width: 375px;
+}
+
+#rightHeader
+{
+  background: #f5f5f5;
+  height: 100%;
+  width: calc(100% - 375px);
+}
+
+#seqStage
+{
+  font-weight: 25%;
+  color: #8c8c8c;
+  display: inline;
+}
+
+#longForm
+{
+  display: inline;
+}
+
+#jobLabel
+{
+  font-size: 125%;
+  color: #bebebe;
+  word-wrap: break-word;
+}
+
+#sideNav
+{
+  position: fixed;
+	height: calc(100% - 42px);
+	left: 0;
+	right: 0;
+  width: 375px;
+	overflow-y: scroll;
+	scrollbar-width: none; /*firefox*/
+	-ms-overflow-style: none; /*ie10+*/
+	background: #2f3136;
+	top: 41px;
+}
+
+#sideNav::-webkit-scrollbar
+{ /*webkit, obviously*/
+	width: 0px;
+}
+
+#welcome
+{
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+#help
+{
+  padding-right: 10px;
+  padding-left: 10px
+}
+
+.alleleTable
+{
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+
+.toTopButton
+{
+  flex: 1 1 auto;
+  margin: 10px;
+  padding: 10px;
+  width: 90%;
+  text-align: center;
+  text-transform: uppercase;
+  transition: 0.4s;
+  background-size: 200% auto;
+  color: grey;
+  box-shadow: 0 0 2px #eee;
+  border-radius: 10px;
+  background-image: linear-gradient(to right, #84fab0 0%, #8fd3f4 51%, #84fab0 100%);
+ }
+
+.toTopButton:hover
+{
+  background-position: right center; /* change the direction of the alteration here */
+}
+
+#main-view
+{
+	height: calc(100% - 42px);
+	left: 0;
+	top: 0;
+	overflow-y: scroll;
+	scrollbar-width: none; /*firefox*/
+	-ms-overflow-style: none; /*ie10+*/
+	background: #f5f5f5;
+	margin: 0 30px 0 375px;
+	padding: 15px 12px 0 0;
+}
+
+#main-view::-webkit-scrollbar
+{ /*webkit, obviously*/
+	width: 0px;
+}
+
+#chart-container
+{
+  width: 80%;
+  position: relative;
+  display: inline-block;
+  overflow: scroll;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+#chart-container::-webkit-scrollbar
+{
+  width: 0px;
+}
+
+a.footer
+{
+  text-decoration: none;
+  color: #000000;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 100% 0 0 0;
+}
+
+#biojs_msa_div
+{
+  width: 80%;
+  position: relative;
+  /*display: inline-block;*/
+  overflow: scroll;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+#biojs_msa_div::-webkit-scrollbar
+{
+  width: 0px;
+}
+
+#biojs_msa_stage
+{
+  position: absolute;
+}
+
+#footer
+{
+  padding-top: 5%;
+  padding-left: 10px;
+  padding-bottom: 10px;
+  position: relative;
+  display: inline-block;
+  bottom: 0%
+}
+
+/* COLLAPSABLE DIVS FOR SEQUENCE DATA */
+.wrap-collabsible {
+  margin-bottom: 1.2rem 0;
+}
+
+input[type='checkbox'] {
+  display: none;
+}
+
+.lbl-toggle {
+  display: block;
+
+  font-weight: bold;
+  font-family: monospace;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  text-align: left;
+
+  height: 15px;
+  padding: 1rem;
+
+  color: #ffffff;
+  background: #009419;
+
+  cursor: pointer;
+
+  border-radius: 7px;
+  transition: all 0.25s ease-out;
+}
+
+.lbl-toggle:hover {
+  color: #00480c;
+}
+
+.lbl-toggle::before {
+  content: '>'
+  display: inline-block;
+
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 5px solid currentColor;
+
+  vertical-align: middle;
+  margin-right: .7rem;
+  transform: translateY(-2px);
+
+  transition: transform .2s ease-out;
+}
+
+.toggle:checked + .lbl-toggle::before {
+  transform: rotate(90deg) translateX(-3px);
+}
+
+.collapsible-content {
+  max-height: 0px;
+  overflow-y: scroll;
+	scrollbar-width: none; /*firefox*/
+	-ms-overflow-style: none; /*ie10+*/
+  transition: max-height .25s ease-in-out;
+}
+
+.collapsible-content::-webkit-scrollbar
+{ /*webkit, obviously*/
+	width: 0px;
+}
+
+.toggle:checked + .lbl-toggle + .collapsible-content {
+  max-height: 350px;
+}
+
+.toggle:checked + .lbl-toggle {
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.collapsible-content .content-inner {
+  background: #f5f5f5;
+  border-left: 1px solid grey;
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  padding: .5rem 1rem;
+}
+
+/* SUMMARY TABLE FASTQC */
+table.summaryTable {
+  background-color: #EEEEEE;
+  width: 100%;
+  text-align: left;
+  border-collapse: collapse;
+}
+table.summaryTable td, table.summaryTable th {
+  border: 1px solid #AAAAAA;
+  padding: 3px 2px;
+}
+table.summaryTable tbody td {
+  font-size: 13px;
+}
+table.summaryTable tr:nth-child(even) {
+  background: #D3D3D3;
+}
+table.summaryTable th {
+  background: #009419;
+  background: -moz-linear-gradient(top, #40af52 0%, #199e30 66%, #009419 100%);
+  background: -webkit-linear-gradient(top, #40af52 0%, #199e30 66%, #009419 100%);
+  background: linear-gradient(to bottom, #40af52 0%, #199e30 66%, #009419 100%);
+}
+table.summaryTable thead th {
+  font-size: 15px;
+  font-weight: bold;
+  color: #FFFFFF;
+}
+table.summaryTable tfoot td {
+  font-size: 14px;
+}
+table.summaryTable tfoot .links {
+  text-align: right;
+}
+table.summaryTable tfoot .links a{
+  display: inline-block;
+  background: #1C6EA4;
+  color: #FFFFFF;
+  padding: 2px 8px;
+  border-radius: 5px;
+}
+
+/* summary table entry was clicked */
+.clickedSummaryItem
+{
+  background: #009419 !important;
+  background: -moz-linear-gradient(top, #40af52 0%, #199e30 66%, #009419 100%);
+  background: -webkit-linear-gradient(top, #40af52 0%, #199e30 66%, #009419 100%);
+  background: linear-gradient(to bottom, #40af52 0%, #199e30 66%, #009419 100%);
+  opacity: 0.3 !important;
+}

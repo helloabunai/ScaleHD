@@ -1,0 +1,181 @@
+<!-- Primary allele -->
+<table class="summaryTable">
+  <thead>
+    <tr>
+      <th>Primary allele</th>
+      <th>Genotyping summary</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>CAG repeats</td><td>{A1_CAG}</td>
+    </tr>
+    <tr>
+      <td>CCG repeats</td><td>{A1_CCG}</td>
+    </tr>
+    <tr>
+      <td>Intervening status</td><td>{A1_STRUCTURELABEL}</td>
+    </tr>
+    <tr>
+      <td>Intervening structure</td><td>{A1_STRUCTURE}</td>
+    </tr>
+    <tr>
+      <td>Intervening sequence</td><td>{A1_INTERVENING}</td>
+    <tr>
+    <tr>
+      <td>Backwards slippage ratio</td><td>{A1_SLIPPAGE}</td>
+    </tr>
+    <tr>
+      <td>Somatic mosaicism score</td><td>{A1_MOSAICISM}</td>
+    <tr>
+    <tr>
+      <td>ScaleHD confidence</td><td>{A1_CONFIDENCE}</td>
+    </tr>
+  </tbody>
+</table>
+<br />
+
+<!-- Secondary allele -->
+<table class="summaryTable">
+  <thead>
+    <tr>
+      <th>Secondary allele</th>
+      <th>Genotyping summary</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>CAG repeats</td><td>{A2_CAG}</td>
+    </tr>
+    <tr>
+      <td>CCG repeats</td><td>{A2_CCG}</td>
+    </tr>
+    <tr>
+      <td>Intervening status</td><td>{A2_STRUCTURELABEL}</td>
+    </tr>
+    <tr>
+      <td>Intervening structure</td><td>{A2_STRUCTURE}</td>
+    </tr>
+    <tr>
+      <td>Intervening sequence</td><td>{A2_INTERVENING}</td>
+    <tr>
+    <tr>
+      <td>Backwards slippage ratio</td><td>{A2_SLIPPAGE}</td>
+    </tr>
+    <tr>
+      <td>Somatic mosaicism score</td><td>{A2_MOSAICISM}</td>
+    <tr>
+    <tr>
+      <td>ScaleHD confidence</td><td>{A2_CONFIDENCE}</td>
+    </tr>
+  </tbody>
+</table>
+<br />
+
+<h4> <strong>&#8226 {ID} CCG distribution</strong></h4>
+<div class='chart-container'>
+  <canvas id="{ID}_CCGDIST" data-title="{CCGDIST_TITLE}" data-descr="{CCGDIST_DESCR}" data-labels="{CCGDIST_LABELS}" data-values="{CCGDIST_VALUES}" data-xaxis="{CCGDIST_X}" data-yaxis="{CCGDIST_Y}"></canvas>
+</div>
+<br />
+
+<h4> <strong>&#8226 {ID} CAG distribution(s)</strong></h4>
+<div class='chart-container'>
+  <canvas id="{ID}_CAGDIST" data-title="{CAGDIST_TITLE}" data-pri-descr="{PRI_DIST_DESCR}" data-sec-descr="{SEC_DIST_DESCR}" data-labels="{CAGDIST_LABELS}" data-pri-values="{CAGDIST_PRI_VALUES}" data-sec-values="{CAGDIST_SEC_VALUES}" data-xaxis="{CAGDIST_X}" data-yaxis="{CAGDIST_Y}"></canvas>
+</div>
+<br />
+
+<!-- SNP Detection -->
+<h4> <strong>&#8226 {ID} SNP Calling results</strong></h4>
+<table class="summaryTable">
+  <thead>
+    <tr>
+      <th>SNP Calling</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Primary allele call</td><td>{A1_SNP}</td>
+    </tr>
+    <tr>
+      <td>Primary call score</td><td>{A1_CALLSCORE}</td>
+    </tr>
+    <tr>
+      <td>Secondary allele call</td><td>{A2_SNP}</td>
+    </tr>
+    <tr>
+      <td>Secondary call score</td><td>{A2_CALLSCORE}</td>
+    </tr>
+  </tbody>
+</table>
+<br />
+
+<!-- SNP Detection -->
+<h4> <strong>&#8226 {ID} ScaleHD Analysis flag status</strong></h4>
+<table class="summaryTable">
+  <thead>
+    <tr>
+      <th>Flag title</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Exception raised</td><td>{SHDFLAG_EXCEPTION}</td>
+    </tr>
+    <tr>
+      <td>Homozygous haplotype</td><td>{SHDFLAG_HZYG}</td>
+    </tr>
+    <tr>
+      <td>Neighbouring peaks</td><td>{SHDFLAG_NEIGHBOUR}</td>
+    </tr>
+    <tr>
+      <td>Diminished peak presence</td><td>{SHDFLAG_DIMINISH}</td>
+    </tr>
+    <tr>
+      <td>Novel atypical allele structure</td><td>{SHDFLAG_NOVELATYP}</td>
+    </tr>
+    <tr>
+      <td>Alignment warning</td><td>{SHDFLAG_ALNWARN}</td>
+    </tr>
+    <tr>
+      <td>Atypical alignment warning</td><td>{SHDFLAG_ATYPALIGNWARN}</td>
+    </tr>
+    <tr>
+      <td>CCG Rewritten</td><td>{SHDFLAG_CCGREWR}</td>
+    </tr>
+    <tr>
+      <td>CCG Zygosity rewritten</td><td>{SHDFLAG_CCGZYG_REWR}</td>
+    </tr>
+    <tr>
+      <td>CCG Uncertainty</td><td>{SHDFLAG_CCGUNCERTAIN}</td>
+    </tr>
+    <tr>
+      <td>CCT Uncertainty</td><td>{SHDFLAG_CCTUNCERTAIN}</td>
+    </tr>
+    <tr>
+      <td>SVM Failure</td><td>{SHDFLAG_SVMFAIL}</td>
+    </tr>
+    <tr>
+      <td>Differential confusion</td><td>{SHDFLAG_DIFFCONFUSE}</td>
+    </tr>
+    <tr>
+      <td>Missed expansion</td><td>{SHDFLAG_MISSEDEXP}</td>
+    </tr>
+    <tr>
+      <td>Heuristic filter success</td><td>{SHDFLAG_FILTERPASS}</td>
+    </tr>
+    <tr>
+      <td>Peak inspection warning</td><td>{SHDFLAG_PEAKINSPECT}</td>
+    </tr>
+    <tr>
+      <td>Low distribution reads</td><td>{SHDFLAG_LOWDISTREADS}</td>
+    </tr>
+    <tr>
+      <td>Low allele-peak reads</td><td>{SHDFLAG_LOWPEAKREADS}</td>
+    </tr>
+  </tbody>
+</table>
+<br />
+
+<br />

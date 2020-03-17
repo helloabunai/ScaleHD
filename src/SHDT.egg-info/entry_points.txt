@@ -1,0 +1,3 @@
+[console_scripts]
+SHDT = ScaleHD.sherpa:main
+

@@ -1,0 +1,73 @@
+<!--DTD configuration Defines the format for the XML file which provides command argument input.
+
+Molecular Cell & Systems Biology
+University of Glasgow, Scotland
+Author : Alastair Maxwell
+Date   : god damn it -->
+
+<!--Comment:
+
+This file sets out the rules for which any configuration settings specified by the end user (in ArgumentConfig.xml) should adhere to. I.E. This file specifies a format of input for the program.
+The Config Element deals with specifying any required sub-configs (elements), and direct input (e.g. specifying aligned read directories). GTF_EXEC stores settings which determine what functions the application should execute.-->
+
+
+<!-- CONFIG ELEMENT -->
+<!ELEMENT config          (instance_flags, demultiplex_flags, trim_flags, alignment_flags, prediction_flags)>
+<!ATTLIST config          data_dir CDATA #REQUIRED>
+<!ATTLIST config	  forward_reference CDATA #REQUIRED>
+<!ATTLIST config          reverse_reference CDATA #REQUIRED>
+
+<!-- INSTANCE_FLAGS ELEMENT -->
+<!ELEMENT instance_flags (#PCDATA)>
+<!ATTLIST instance_flags demultiplex CDATA #REQUIRED>
+<!ATTLIST instance_flags quality_control CDATA #REQUIRED>
+<!ATTLIST instance_flags sequence_alignment CDATA #REQUIRED>
+<!ATTLIST instance_flags atypical_realignment CDATA #REQUIRED>
+<!ATTLIST instance_flags genotype_prediction CDATA #REQUIRED>
+<!ATTLIST instance_flags snp_calling CDATA #REQUIRED>
+
+<!-- DEMULTIPLEX_FLAGS ELEMENT -->
+<!ELEMENT demultiplex_flags (#PCDATA)>
+<!ATTLIST demultiplex_flags forward_adapter CDATA #IMPLIED>
+<!ATTLIST demultiplex_flags forward_position CDATA #IMPLIED>
+<!ATTLIST demultiplex_flags reverse_adapter CDATA #IMPLIED>
+<!ATTLIST demultiplex_flags reverse_position CDATA #IMPLIED>
+<!ATTLIST demultiplex_flags error_rate CDATA #IMPLIED>
+<!ATTLIST demultiplex_flags min_overlap CDATA #IMPLIED>
+<!ATTLIST demultiplex_flags min_length CDATA #IMPLIED>
+<!ATTLIST demultiplex_flags max_length CDATA #IMPLIED>
+
+<!-- TRIM_FLAGS ELEMENT -->
+<!ELEMENT trim_flags (#PCDATA)>
+<!ATTLIST trim_flags trim_type CDATA #REQUIRED>
+<!ATTLIST trim_flags quality_threshold CDATA #IMPLIED>
+<!ATTLIST trim_flags adapter_flag CDATA #IMPLIED>
+<!ATTLIST trim_flags forward_adapter CDATA #IMPLIED>
+<!ATTLIST trim_flags reverse_adapter CDATA #IMPLIED>
+<!ATTLIST trim_flags error_tolerance CDATA #IMPLIED>
+
+<!-- ALIGNMENT_FLAGS ELEMENT -->
+<!-- alignment parameters -->
+<!ELEMENT alignment_flags (#PCDATA)>
+<!ATTLIST alignment_flags min_seed_length CDATA #REQUIRED>
+<!ATTLIST alignment_flags band_width CDATA #REQUIRED>
+<!ATTLIST alignment_flags seed_length_extension CDATA #REQUIRED>
+<!ATTLIST alignment_flags skip_seed_with_occurrence CDATA #REQUIRED>
+<!ATTLIST alignment_flags chain_drop CDATA #REQUIRED>
+<!ATTLIST alignment_flags seeded_chain_drop CDATA #REQUIRED>
+<!ATTLIST alignment_flags discard_full_length_match CDATA #IMPLIED>
+<!-- scoring parameters -->
+<!ATTLIST alignment_flags seq_match_score CDATA #REQUIRED>
+<!ATTLIST alignment_flags mismatch_penalty CDATA #REQUIRED>
+<!ATTLIST alignment_flags indel_penalty CDATA #REQUIRED>
+<!ATTLIST alignment_flags gap_extend_penalty CDATA #REQUIRED>
+<!ATTLIST alignment_flags prime_clipping_penalty CDATA #REQUIRED>
+<!ATTLIST alignment_flags unpaired_pairing_penalty CDATA #REQUIRED>
+
+
+<!-- PREDICTION_FLAGS ELEMENT -->
+<!ELEMENT prediction_flags (#PCDATA)>
+<!ATTLIST prediction_flags snp_observation_threshold CDATA #REQUIRED>
+<!ATTLIST prediction_flags algorithm_utilisation CDATA #REQUIRED>
+<!ATTLIST prediction_flags quality_cutoff CDATA #REQUIRED>
+

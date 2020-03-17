@@ -7,7 +7,9 @@ ScaleHD is a bioinformatics pipeline for use in broad-scope automated genotyping
 
 ScaleHD takes a configuration XML document as input, which contains all required information for the instance of ScaleHD to run to completion. The details of this XML input are specified in :ref:`sect_input`. Raw data should be in FastQ format; both forward (_R1) and reverse (_R2) sequence reads are required for ScaleHD to function. ScaleHD will perform quality control, sequence alignment and genotyping on all FastQ file pairs presented by the user as input. If a sample fails to produce a genotype at any given stage, for whatever reason, a debug log is created so the user can (hopefully) understand why.
 
-Currently, we are on Version 0.324.1. While the base algorithm has been implemented, much improvement still remains. As such, there will be continual development of ScaleHD for the foreseeable future. For more information on version changes, please check :ref:`developer-documentation`.
+Currently, we are on Version 1.0. While the base algorithm has been implemented, much improvement still remains. As such, there will be continual development of ScaleHD for the foreseeable future. For more information on version changes, please check :ref:`developer-documentation`.
+
+As of April 2020, I am leaving the university for a new challenge. ScaleHD has been updated to Python 3.7 for future support; feel free to fork and maintain the spaghetti as you desire.
 
 The documentation for this software is organised into the relevant sections.
 
@@ -23,7 +25,7 @@ Info
  * The project page on the Python package index is at https://pypi.python.org/pypi/ScaleHD.
  * If you use ScaleHD in a study, please cite ((unpublished at the moment -- writing paper ha ha ha)).
 
-Development is undertaken at the University of Glasgow, Scotland, and is funded by the Cure Huntington Disease Foundation (CHDI): http://www.chdifoundation.org/
+Development is undertaken at the University of Glasgow, Scotland, and is funded by the CHDI Foundation: http://www.chdifoundation.org/
 
 .. _noteworthy-features:
 
