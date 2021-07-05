@@ -1,3 +1,3 @@
 __version__ = '1.0'
-from sherpa import main
+from .sherpa import main
 main()
