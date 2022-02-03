@@ -9,7 +9,7 @@ ScaleHD takes a configuration XML document as input, which contains all required
 
 Currently, we are on Version 1.0. While the base algorithm has been implemented, much improvement still remains. As such, there will be continual development of ScaleHD for the foreseeable future. For more information on version changes, please check :ref:`developer-documentation`.
 
-As of April 2020, I am leaving the university for a new challenge. ScaleHD has been updated to Python 3.7 for future support; feel free to fork and maintain the spaghetti as you desire.
+As of April 2020, I am leaving the university for a new challenge. ScaleHD has been updated to Python 3.7 for future support; feel free to fork and maintain the code as you desire.
 
 The documentation for this software is organised into the relevant sections.
 
