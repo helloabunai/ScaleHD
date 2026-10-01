@@ -66,7 +66,8 @@ def start_session(
         max_age=int(days * 86400),
         httponly=True,
         samesite="lax",
-        # idea is uni lab internal server running under a desk somewhere so Secure only when the request was HTTPS.
+        # idea is uni lab internal server running under a desk somewhere so Secure only
+        # when the request was HTTPS.
         secure=request.url.scheme == "https",
     )
 
