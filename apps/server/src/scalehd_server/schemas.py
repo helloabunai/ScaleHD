@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 from scalehd.genotype import CallerSettings
 from scalehd.pairs import DiscordancePolicy
 
@@ -22,9 +22,36 @@ class Health(BaseModel):
     core_version: str
 
 
-class Credentials(BaseModel):
-    username: str = Field(min_length=1, max_length=64)
-    password: str = Field(min_length=8)
+# Usernames are case-insensitive, so they are stored and compared in lower case.
+# Scope of users is like 4 people in a lab so these are not as strict requirements as
+# a "real" webserver
+_Username = Annotated[
+    str, StringConstraints(strip_whitespace=True, max_length=64), AfterValidator(str.lower)
+]
+_NewPassword = Annotated[str, Field(min_length=8, max_length=256)]
+
+
+class Login(BaseModel):
+    username: _Username
+    password: str = Field(max_length=256)
+
+
+class NewAccount(BaseModel):
+    # Letters, digits, dots, dashes and underscores, starting with a letter or digit.
+    username: Annotated[_Username, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")]
+    password: _NewPassword
+
+
+class PasswordChange(BaseModel):
+    current_password: str = Field(max_length=256)
+    new_password: _NewPassword
+
+
+class Registration(BaseModel):
+    """Whether accounts can be created, and whether the next one is the first (the admin)."""
+
+    open: bool
+    first_account: bool
 
 
 class UserOut(BaseModel):

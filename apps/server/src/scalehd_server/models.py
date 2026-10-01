@@ -1,4 +1,4 @@
-"""Database tables: accounts, jobs, and the samples in each job."""
+"""Database tables: accounts, login sessions, jobs, and the samples in each job."""
 
 from __future__ import annotations
 
@@ -43,6 +43,23 @@ class User(Base):
     default_settings: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
     jobs: Mapped[list[Job]] = relationship(back_populates="owner")
+    sessions: Mapped[list[LoginSession]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class LoginSession(Base):
+    """One logged-in browser. The cookie holds a random token, only its hash is kept."""
+
+    __tablename__ = "login_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+    expires_at: Mapped[datetime]
+
+    user: Mapped[User] = relationship(back_populates="sessions")
 
 
 class Job(Base):

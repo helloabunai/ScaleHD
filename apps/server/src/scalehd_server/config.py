@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, Request
-from pydantic import Field, SecretStr
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,10 +26,11 @@ class ServerSettings(BaseSettings):
     web_dir: Path | None = None
     # Samples processed at once, one process each.
     workers: int = Field(default_factory=lambda: os.process_cpu_count() or 1, ge=1)
-    # Signs session cookies. Needed once accounts exist.
-    secret_key: SecretStr | None = None
-    # Whether anyone who can reach the server may create an account.
+    # Whether anyone who can reach the server may create an account. The first
+    # account (the admin) can always be created.
     allow_registration: bool = True
+    # How long a login lasts.
+    session_days: float = Field(default=30, gt=0)
 
     @property
     def database(self) -> str:

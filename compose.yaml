@@ -5,8 +5,9 @@ services:
     build: .
     image: scalehd:dev
     ports:
-      # Only this machine for now. Drop "127.0.0.1:" to let the rest of the network
-      # in, once accounts work.
+      # Only this machine. Drop "127.0.0.1:" to let the rest of the network in. Logins
+      # then cross the network as plain HTTP, so put HTTPS in front (a reverse proxy)
+      # unless the network is trusted.
       - "127.0.0.1:8000:8000"
     volumes:
       # Database and job outputs.

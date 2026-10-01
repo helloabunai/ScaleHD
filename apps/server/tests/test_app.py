@@ -1,20 +1,12 @@
 """The application starts, creates its database, and serves the API and frontend."""
 
-from collections.abc import Iterator
 from pathlib import Path
 
-import pytest
 import scalehd
 from fastapi.testclient import TestClient
 from scalehd_server import __version__
 from scalehd_server.app import create_app
 from scalehd_server.config import ServerSettings
-
-
-@pytest.fixture
-def client(tmp_path: Path) -> Iterator[TestClient]:
-    with TestClient(create_app(ServerSettings(data_dir=tmp_path, workers=1))) as client:
-        yield client
 
 
 def test_health(client: TestClient) -> None:
@@ -44,8 +36,12 @@ def test_planned_routes_are_declared(client: TestClient) -> None:
     } <= paths
 
 
-def test_routes_not_built_yet_say_so(client: TestClient) -> None:
-    response = client.get("/api/jobs")
+def test_routes_need_a_login(client: TestClient) -> None:
+    assert client.get("/api/jobs").status_code == 401
+
+
+def test_routes_not_built_yet_say_so(logged_in: TestClient) -> None:
+    response = logged_in.get("/api/jobs")
     assert response.status_code == 501
     assert "not implemented" in response.json()["detail"]
 

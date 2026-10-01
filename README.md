@@ -198,8 +198,7 @@ show how reads fared:
 
 ## Web interface and API (skeleton)
 
-Only the outline exists so far. The server starts, creates its database and serves
-the frontend, but apart from `/api/health` its routes answer "not implemented yet".
+Basic interface and user account system. Everything else answers "not implemented yet".
 See [`apps/server/README.md`](apps/server/README.md) for what is real and what's a stub.
 
 Don't bother running anything. Massively WIP.

@@ -8,6 +8,7 @@ authors = [{ name = "Alastair Maxwell" }]
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.142.2",
+    "pwdlib[argon2]>=0.3.1",
     "pydantic-settings>=2.15.0",
     "scalehd",
     "sqlalchemy>=2.1.1",

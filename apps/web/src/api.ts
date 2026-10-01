@@ -18,6 +18,11 @@ export interface User {
   created_at: string;
 }
 
+export interface Registration {
+  open: boolean;
+  first_account: boolean;
+}
+
 export interface JobSettings {
   call: boolean;
   discordant: "drop" | "prefer";
@@ -74,6 +79,13 @@ export class ApiError extends Error {
   }
 }
 
+let unauthorized = () => {};
+
+/** Called whenever the server says 401, e.g. when a login has expired. */
+export function onUnauthorized(handler: () => void) {
+  unauthorized = handler;
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`/api${path}`, {
     credentials: "same-origin",
@@ -81,10 +93,22 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...init,
   });
   if (!response.ok) {
+    if (response.status === 401) unauthorized();
     const body = await response.json().catch(() => null);
-    throw new ApiError(response.status, body?.detail ?? response.statusText);
+    throw new ApiError(response.status, describe(body?.detail) ?? response.statusText);
   }
   return (response.status === 204 ? undefined : await response.json()) as T;
+}
+
+// FastAPI's detail is a string, or for invalid input a list of {loc, msg} objects.
+function describe(detail: unknown): string | undefined {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d: { loc?: unknown[]; msg?: string }) => `${d.loc?.at(-1)}: ${d.msg}`)
+      .join("; ");
+  }
+  return undefined;
 }
 
 const post = (body?: unknown): RequestInit => ({
@@ -95,10 +119,18 @@ const post = (body?: unknown): RequestInit => ({
 export const api = {
   health: () => request<Health>("/health"),
 
+  registration: () => request<Registration>("/auth/registration"),
+  register: (username: string, password: string) =>
+    request<User>("/auth/register", post({ username, password })),
   me: () => request<User>("/auth/me"),
   login: (username: string, password: string) =>
     request<User>("/auth/login", post({ username, password })),
   logout: () => request<void>("/auth/logout", post()),
+  changePassword: (current_password: string, new_password: string) =>
+    request<void>("/auth/password", {
+      method: "PUT",
+      body: JSON.stringify({ current_password, new_password }),
+    }),
 
   listInputs: (folder = "") => request<InputPair[]>(`/inputs?folder=${encodeURIComponent(folder)}`),
 

@@ -4,15 +4,29 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Iterator
-from typing import Annotated
+from datetime import UTC, datetime
+from typing import Annotated, Any, ClassVar
 
 from fastapi import Depends, Request
-from sqlalchemy import Engine, create_engine, event
+from sqlalchemy import DateTime, Dialect, Engine, TypeDecorator, create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session
 
 
+class UTCDateTime(TypeDecorator[datetime]):
+    """Datetimes stored as UTC and read back timezone-aware, SQLite included."""
+
+    impl = DateTime
+    cache_ok = True
+
+    def process_bind_param(self, value: datetime | None, dialect: Dialect) -> datetime | None:
+        return None if value is None else value.astimezone(UTC).replace(tzinfo=None)
+
+    def process_result_value(self, value: Any, dialect: Dialect) -> datetime | None:
+        return None if value is None else value.replace(tzinfo=UTC)
+
+
 class Base(DeclarativeBase):
-    pass
+    type_annotation_map: ClassVar[dict[Any, Any]] = {datetime: UTCDateTime}
 
 
 def make_engine(url: str) -> Engine:
