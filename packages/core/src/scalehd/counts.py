@@ -11,7 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from .pairs import DEFAULT_PREFER_R1, DiscordancePolicy, join_mates
+from .pairs import DEFAULT_PREFER_R1, DiscordancePolicy, join_read_base_pairings
 from .parse import ReadParse, RepeatParser
 from .seqio import read_fastq, read_pairs, reverse_complement
 from .structure import FIELDS, AlleleStructure, FieldStatus, Observation
@@ -25,7 +25,7 @@ class SampleCounts:
 
     ``complete`` holds molecules whose every repeat tract was seen in full; ``partial`` holds
     the rest (typically long alleles whose reads end inside the CAG tract).
-    ``dropped`` counts molecules discarded because their mates disagreed.
+    ``dropped`` counts molecules discarded because their read base pairings disagreed.
     """
 
     complete: Counter[AlleleStructure] = field(default_factory=Counter)
@@ -133,7 +133,9 @@ def count_reads(
             continue
         second = parser.parse(reverse_complement(r2))
         counts.read_outcomes[f"r2.{second.outcome}"] += 1
-        joined = join_mates(_usable(first), _usable(second), policy=policy, prefer_r1=prefer_r1)
+        joined = join_read_base_pairings(
+            _usable(first), _usable(second), policy=policy, prefer_r1=prefer_r1
+        )
         for name, flag in zip(FIELDS, joined.discordant, strict=True):
             if flag:
                 counts.discordant[name] += 1

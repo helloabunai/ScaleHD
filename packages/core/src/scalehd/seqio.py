@@ -54,14 +54,16 @@ def read_fastq(path: str | Path) -> Iterator[FastqRecord]:
 
 
 def read_pairs(r1: str | Path, r2: str | Path) -> Iterator[tuple[FastqRecord, FastqRecord]]:
-    """Yield mate pairs, failing if the two files fall out of step."""
+    """Yield read base pairings, failing if the two files fall out of step."""
     first, second = read_fastq(r1), read_fastq(r2)
     for a in first:
         b = next(second, None)
         if b is None:
             raise FastqFormatError(f"{r2} has fewer reads than {r1}")
         if a.pair_id != b.pair_id:
-            raise FastqFormatError(f"mates out of sync: {a.pair_id!r} vs {b.pair_id!r}")
+            raise FastqFormatError(
+                f"read base pairings out of sync: {a.pair_id!r} vs {b.pair_id!r}"
+            )
         yield a, b
     if next(second, None) is not None:
         raise FastqFormatError(f"{r2} has more reads than {r1}")

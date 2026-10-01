@@ -76,7 +76,7 @@ def test_right_truncated_read_bounds_cag(parser: RepeatParser) -> None:
     assert result.observation.label == "83+_?_?_?_?"
 
 
-def test_left_truncated_mate_gives_exact_ccg(parser: RepeatParser) -> None:
+def test_left_truncated_read_base_pairing_gives_exact_ccg(parser: RepeatParser) -> None:
     r2 = (SPACER + reverse_complement(amplicon("95_1_1_10_3")))[:300]
     result = parser.parse(reverse_complement(r2))
     assert result.outcome is ReadOutcome.TRUNCATED
@@ -150,7 +150,7 @@ def test_fake_boundary_in_read_tail_is_not_trusted(parser: RepeatParser) -> None
     assert result.observation.label == "80+_?_?_?_?"
 
 
-def test_tie_at_tract_boundary_is_left_to_the_mate(parser: RepeatParser) -> None:
+def test_tie_at_tract_boundary_is_left_to_the_read_base_pairing(parser: RepeatParser) -> None:
     # CCA in place of the last CCG is one substitution from both CCG and CCT.
     region = "CAG" * 30 + "CAACAG" + "CCGCCA" + "CCG" * 6 + "CCA" + "CCT" * 2
     result = parser.parse(FIVE + region + THREE)

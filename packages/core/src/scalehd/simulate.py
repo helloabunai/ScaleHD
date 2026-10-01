@@ -190,9 +190,9 @@ def simulate(spec: SimulationSpec) -> SimulatedSample:
         )
 
     for i in range(len(template), spec.pairs):
-        for records, mate in ((r1, 1), (r2, 2)):
+        for records, read_number in ((r1, 1), (r2, 2)):
             junk = _random_bases(rng, seq.read_length)
-            records.append(FastqRecord(f"sim{i} {mate}:N:0:off_target", junk, quality))
+            records.append(FastqRecord(f"sim{i} {read_number}:N:0:off_target", junk, quality))
 
     return SimulatedSample(spec, r1, r2, molecules, off_target_pairs)
 

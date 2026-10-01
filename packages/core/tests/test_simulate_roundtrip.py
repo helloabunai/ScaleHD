@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from scalehd.calibration import HTT_MISEQ, StutterCurve
 from scalehd.counts import SampleCounts, count_fastq, count_reads
-from scalehd.pairs import join_mates
+from scalehd.pairs import join_read_base_pairings
 from scalehd.parse import RepeatParser
 from scalehd.seqio import read_pairs, reverse_complement
 from scalehd.simulate import SimAllele, SimulationSpec, simulate
@@ -66,7 +66,7 @@ def test_every_kept_molecule_matches_truth() -> None:
     for a, b in zip(sample.r1, sample.r2, strict=True):
         x = parser.parse(a.sequence)
         y = parser.parse(reverse_complement(b.sequence))
-        joined = join_mates(
+        joined = join_read_base_pairings(
             x.observation if x.usable else None, y.observation if y.usable else None
         )
         if joined.observation is None:

@@ -12,7 +12,7 @@ import argparse
 import time
 from collections import Counter
 
-from scalehd.pairs import join_mates
+from scalehd.pairs import join_read_base_pairings
 from scalehd.parse import RepeatParser
 from scalehd.seqio import reverse_complement
 from scalehd.simulate import SimAllele, SimulationSpec, simulate
@@ -52,7 +52,7 @@ def run(labels: tuple[str, ...], pairs: int, seed: int) -> tuple[Counter[str], f
     for r1, r2 in zip(sample.r1, sample.r2, strict=True):
         a = parser.parse(r1.sequence)
         b = parser.parse(reverse_complement(r2.sequence))
-        joined = join_mates(
+        joined = join_read_base_pairings(
             a.observation if a.usable else None, b.observation if b.usable else None
         )
         observation = joined.observation

@@ -145,7 +145,7 @@ class Flag(StrEnum):
     HIGH_BACKGROUND = "high_background"
     # A peak the called genotype does not explain: a third allele, contamination or mosaicism.
     UNEXPLAINED_PEAK = "unexplained_peak"
-    # Many molecules dropped because their mates disagreed.
+    # Many molecules dropped because their read base pairings disagreed.
     HIGH_DISCORDANCE = "high_discordance"
 
 

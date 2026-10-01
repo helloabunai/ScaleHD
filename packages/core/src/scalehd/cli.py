@@ -113,7 +113,10 @@ def _print_reads(counts: SampleCounts) -> None:
     )
     print("reads: " + ", ".join(f"{k} {v:,}" for k, v in sorted(counts.read_outcomes.items())))
     if counts.discordant:
-        print("discordant mates: " + ", ".join(f"{k} {v:,}" for k, v in counts.discordant.items()))
+        print(
+            "discordant read base pairings: "
+            + ", ".join(f"{k} {v:,}" for k, v in counts.discordant.items())
+        )
 
 
 def _print_summary(counts: SampleCounts, top: int) -> None:
@@ -169,7 +172,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=DiscordancePolicy,
         default=DiscordancePolicy.DROP,
         choices=list(DiscordancePolicy),
-        help="what to do when mates disagree",
+        help="what to do when read base pairings disagree",
     )
     count.set_defaults(func=_cmd_count)
 
@@ -188,7 +191,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=DiscordancePolicy,
         default=DiscordancePolicy.DROP,
         choices=list(DiscordancePolicy),
-        help="what to do when mates disagree",
+        help="what to do when read base pairings disagree",
     )
     genotype.set_defaults(func=_cmd_genotype)
     return parser

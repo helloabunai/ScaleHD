@@ -17,7 +17,7 @@ def test_reverse_complement() -> None:
     assert reverse_complement("CAGCCGN") == "NCGGCTG"
 
 
-def test_pair_id_strips_mate_markers() -> None:
+def test_pair_id_strips_read_base_pairing_markers() -> None:
     assert FastqRecord("read1/1", "A", "I").pair_id == "read1"
     assert FastqRecord("read1 2:N:0:ACGT", "A", "I").pair_id == "read1"
 
@@ -31,7 +31,7 @@ def test_fastq_round_trip(tmp_path: Path, suffix: str) -> None:
     assert list(read_fastq(path)) == records
 
 
-def test_unsynced_mates_rejected(tmp_path: Path) -> None:
+def test_unsynced_read_base_pairings_rejected(tmp_path: Path) -> None:
     for name, ids in (("r1.fq", ["a", "b"]), ("r2.fq", ["a", "c"])):
         with open_text(tmp_path / name, "wt") as handle:
             write_fastq(handle, [FastqRecord(i, "A", "I") for i in ids])

@@ -173,7 +173,7 @@ On a machine with many cores, cap the number running at once (for example with
   | `allele_imbalance` | one allele has under 20% of molecules |
   | `high_background` | over 5% of molecules fit neither allele |
   | `unexplained_peak` | a peak the genotype doesn't explain. third allele, contamination, mosaicism? |
-  | `high_discordance` | over 15% of molecules dropped because their mates disagreed |
+  | `high_discordance` | over 15% of molecules dropped because their read base pairings disagreed |
 
 ### Checking the input went well
 

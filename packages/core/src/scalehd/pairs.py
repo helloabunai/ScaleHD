@@ -7,7 +7,7 @@ single substitutions almost never coincide at the same base pair position.
 
 However single sub/ins/del can move a repeat tract start/end boundary with the
 flanks (e.g. G>A sub in last CAG reads as extra CAACAG intervening seq), so default
-a moluecule whose pair/mates disagree is dropped naively.
+a moluecule whose read base pairings disagree is dropped naively.
 
 Where only one read saw a field to the end-point (e.g. very long CAG alleles), assume
 truth. R1 reads CAG and intervening sequence where quality is high. R2 does the same
@@ -26,9 +26,9 @@ DEFAULT_PREFER_R1: tuple[bool, ...] = (True, True, True, False, False)
 
 
 class DiscordancePolicy(StrEnum):
-    DROP = "drop"  # discard molecules whose mates disagree
-    # Keep the preferred mate's value per field. Can stitch together combinations
-    # that neither mate saw. intended for development comparison, not routine use.
+    DROP = "drop"  # discard molecules whose read base pairings disagree
+    # Keep the preferred read base pairing's value per field. Can stitch together combinations
+    # that neither read base pairing saw. intended for development comparison, not routine use.
     PREFER = "prefer"
 
 
@@ -42,7 +42,7 @@ class PairResult:
         return any(self.discordant)
 
 
-def join_mates(
+def join_read_base_pairings(
     r1: Observation | None,
     r2: Observation | None,
     *,
