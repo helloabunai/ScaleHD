@@ -1,14 +1,16 @@
-"""Command-line interface: ``scalehd simulate`` and ``scalehd count``."""
+"""Command-line interface: ``scalehd simulate``, ``count``, ``call`` and ``genotype``."""
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 
 from . import __version__
 from .counts import SampleCounts, count_fastq
+from .genotype import GenotypeCall, NoMoleculesError, call_genotype
 from .pairs import DiscordancePolicy
 from .simulate import SequencingModel, SimAllele, SimulationSpec, simulate
 from .structure import AlleleStructure
@@ -55,13 +57,68 @@ def _cmd_count(args: argparse.Namespace) -> int:
     return 0
 
 
-def _print_summary(counts: SampleCounts, top: int) -> None:
-    complete = sum(counts.complete.values())
+def _cmd_call(args: argparse.Namespace) -> int:
+    return _call(SampleCounts.read_json(args.counts), args.output)
+
+
+def _cmd_genotype(args: argparse.Namespace) -> int:
+    counts = count_fastq(args.r1, args.r2, policy=args.discordant)
+    if args.counts:
+        counts.write_json(args.counts)
+    _print_reads(counts)
+    print()
+    return _call(counts, args.output)
+
+
+def _call(counts: SampleCounts, output: Path | None) -> int:
+    try:
+        call = call_genotype(counts)
+    except NoMoleculesError as exc:
+        print(f"scalehd: {exc}", file=sys.stderr)
+        return 1
+    if output:
+        output.write_text(json.dumps(call.to_dict(), indent=2) + "\n")
+    _print_call(call)
+    return 0
+
+
+def _print_call(call: GenotypeCall) -> None:
+    print(f"genotype  {call.label}")
     print(
-        f"molecules {counts.molecules:,}  complete {complete:,}  "
+        f"posterior {call.posterior:.4f}  quality {call.quality:.1f}  molecules {call.molecules:,}"
+    )
+    if call.flags:
+        print("flags     " + ", ".join(call.flags))
+    for allele in call.alleles if not call.homozygous else call.alleles[:1]:
+        line = f"  {allele.label:<16} share {allele.fraction:.2f}"
+        if allele.cag_estimate:
+            best, low, high = allele.cag_estimate
+            line += f"  CAG estimate {best} ({low}-{high}, rough)"
+        if allele.backward_slippage is not None:
+            line += f"  slippage {allele.backward_slippage:.3f}"
+        if allele.somatic_mosaicism is not None:
+            line += f"  mosaicism {allele.somatic_mosaicism:.3f}"
+        print(line)
+    for genotype, posterior in call.alternatives[:2]:
+        print(f"  alternative {genotype}  {posterior:.2e}")
+    for structure, n in call.unexplained:
+        print(f"  unexplained peak {structure} ({n:,} molecules)")
+
+
+def _print_reads(counts: SampleCounts) -> None:
+    print(
+        f"molecules {counts.molecules:,}  complete {sum(counts.complete.values()):,}  "
         f"partial {sum(counts.partial.values()):,}  dropped {counts.dropped:,}  "
         f"unusable {counts.unusable:,}"
     )
+    print("reads: " + ", ".join(f"{k} {v:,}" for k, v in sorted(counts.read_outcomes.items())))
+    if counts.discordant:
+        print("discordant mates: " + ", ".join(f"{k} {v:,}" for k, v in counts.discordant.items()))
+
+
+def _print_summary(counts: SampleCounts, top: int) -> None:
+    complete = sum(counts.complete.values())
+    _print_reads(counts)
     print(f"\n{'structure':<16}{'molecules':>11}{'%':>8}")
     for structure, n in counts.top(top):
         print(f"{structure.label:<16}{n:>11,}{100 * n / max(complete, 1):>8.2f}")
@@ -69,9 +126,6 @@ def _print_summary(counts: SampleCounts, top: int) -> None:
         print(f"\n{'partial':<16}{'molecules':>11}")
         for observation, n in counts.partial.most_common(min(top, 5)):
             print(f"{observation.label:<16}{n:>11,}")
-    print("\nreads: " + ", ".join(f"{k} {v:,}" for k, v in sorted(counts.read_outcomes.items())))
-    if counts.discordant:
-        print("discordant mates: " + ", ".join(f"{k} {v:,}" for k, v in counts.discordant.items()))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -118,6 +172,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="what to do when mates disagree",
     )
     count.set_defaults(func=_cmd_count)
+
+    call = sub.add_parser("call", help="call a genotype from a counts JSON")
+    call.add_argument("counts", type=Path)
+    call.add_argument("-o", "--output", type=Path, help="write the call as JSON here")
+    call.set_defaults(func=_cmd_call)
+
+    genotype = sub.add_parser("genotype", help="count and call in one step")
+    genotype.add_argument("r1", type=Path)
+    genotype.add_argument("r2", type=Path, nargs="?")
+    genotype.add_argument("-o", "--output", type=Path, help="write the call as JSON here")
+    genotype.add_argument("--counts", type=Path, help="also write the counts JSON here")
+    genotype.add_argument(
+        "--discordant",
+        type=DiscordancePolicy,
+        default=DiscordancePolicy.DROP,
+        choices=list(DiscordancePolicy),
+        help="what to do when mates disagree",
+    )
+    genotype.set_defaults(func=_cmd_genotype)
     return parser
 
 

@@ -1,19 +1,35 @@
-"""End to end: simulated FASTQ through parsing and read pair joining."""
+"""End to end: simulated FASTQ through parsing and read pair joining.
+
+These tests are about parsing, so they simulate mild stutter by default; with the
+calibrated (heavy) stutter of long alleles the top structures stop being the alleles.
+"""
 
 import json
 from pathlib import Path
 
 import pytest
+from scalehd.calibration import HTT_MISEQ, StutterCurve
 from scalehd.counts import SampleCounts, count_fastq, count_reads
 from scalehd.pairs import join_mates
 from scalehd.parse import RepeatParser
 from scalehd.seqio import read_pairs, reverse_complement
-from scalehd.simulate import SimAllele, SimulationSpec, StutterModel, simulate
+from scalehd.simulate import SimAllele, SimulationSpec, simulate
 from scalehd.structure import AlleleStructure, FieldStatus
+
+MILD = StutterCurve(
+    cag_lengths=(20.0,),
+    log_contraction=(-1.7,),
+    logit_contraction_step=(-1.9,),
+    logit_contraction_tail=(-1.0,),
+    log_expansion=(-4.0,),
+    logit_expansion_step=(-2.4,),
+    logit_expansion_tail=(-1.0,),
+)
 
 
 def spec(*labels: str, pairs: int = 3000, seed: int = 7, **kwargs: object) -> SimulationSpec:
     alleles = tuple(SimAllele(AlleleStructure.from_label(label)) for label in labels)
+    kwargs.setdefault("stutter", MILD)
     return SimulationSpec(alleles, pairs=pairs, seed=seed, **kwargs)  # type: ignore[arg-type]
 
 
@@ -32,11 +48,14 @@ def test_reads_have_requested_shape() -> None:
     assert sum(sample.molecules.values()) == 50
 
 
-def test_stutter_probabilities_scale_with_length() -> None:
-    model = StutterModel()
-    short, long = model.cag_shift_probabilities(20), model.cag_shift_probabilities(60)
-    assert short.sum() == pytest.approx(1)
-    assert long[1] > short[1]
+def test_calibrated_stutter_grows_with_length() -> None:
+    short, long = HTT_MISEQ.at(20), HTT_MISEQ.at(60)
+    assert long.contraction > short.contraction
+    assert long.expansion > short.expansion
+    shifts, probabilities = short.kernel(20)
+    assert probabilities.sum() == pytest.approx(1)
+    assert shifts.min() == -19  # no template shorter than one CAG
+    assert probabilities[shifts == 0] > probabilities[shifts == -1] > probabilities[shifts == 1]
 
 
 def test_every_kept_molecule_matches_truth() -> None:
@@ -76,7 +95,7 @@ def test_true_alleles_are_the_top_structures(labels: tuple[str, ...]) -> None:
     assert top == set(labels)
 
 
-def test_very_long_allele_is_censored_not_miscalled() -> None:
+def test_very_long_allele_is_bounded_not_miscalled() -> None:
     sample = simulate(spec("20_1_1_7_2", "95_1_1_7_2"))
     counts = count_reads(
         (a.sequence, b.sequence) for a, b in zip(sample.r1, sample.r2, strict=True)

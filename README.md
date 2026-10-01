@@ -50,7 +50,11 @@ simulator to simulate sequencing reads based on my unreliable memory of Huntingt
 Nobody should probably quote any of the science that I remember/have read from our papers.
 
 Genotype calling, the stage that turns per-molecule counts into two alleles with a
-confidence, os not implemented yet. But the previous implemention was, eh.. rough..
+confidence, was rough in the previous implementation. Now each candidate genotype is a
+mixture of two alleles, each smeared by a PCR stutter kernel whose shape depends on
+repeat length (calibrated on the ScaleHD 1.x training matrix). Candidates are compared
+by how well they explain every molecule, which gives a posterior probability for the
+call plus flags for the cases that deserve a look. See `packages/core/src/scalehd/genotype.py`.
 
 ## Layout
 
@@ -58,7 +62,7 @@ confidence, os not implemented yet. But the previous implemention was, eh.. roug
 packages/core/        scalehd: pure-Python library and CLI (no web or DB dependencies)
   src/scalehd/        structure, amplicon, parse, pairs, counts, simulate, seqio, cli
   tests/              unit, property-based and end-to-end tests
-  benchmarks/         accuracy and speed on simulated data
+  benchmarks/         accuracy on simulated data and the legacy labelled matrix
 legacy/               ScaleHD 1.x, for reference only
 ```
 
@@ -72,12 +76,122 @@ Requires [uv](https://docs.astral.sh/uv/) and Python 3.13+.
 uv sync
 uv run scalehd simulate -a 17_1_1_7_2 -a 43_1_1_7_2 -n 20000 -o scratch --name s1
 uv run scalehd count scratch/s1_R1.fastq.gz scratch/s1_R2.fastq.gz -o scratch/s1.counts.json
+uv run scalehd call scratch/s1.counts.json -o scratch/s1.call.json
 ```
+
+`scalehd genotype R1 R2` counts and calls in one step.
 
 `simulate` writes paired FASTQ plus a `.truth.json`. Its model covers PCR stutter,
 somatic expansion, length bias, sequencing errors that rise along the read, spacers
 and adapter read-through, so the pipeline can be tested before real data is
 available.
+
+## Using real FASTQ files
+
+### What the input should look like
+
+Basically the same rules as the previous implementation of ScaleHD because i know nothing else.
+
+- *Paired-end amplicon reads, one R1 and one R2 file per sample, gzipped or not.
+  Single-end works too (pass R1 only), but you obviously lose R2 cross-checking and the
+  CCG/CCT side of long alleles.
+- R1 should be for the CAG strand, starting at the 5' flank and runs into the CAG tract,
+  as with the GeM-HD MiSeq primers. R2 runs the other way and is reverse-complement.
+- Read pairs in step. Record *n* of R1 must be record *n* of R2. Files
+  straight off the sequencer are fine (cos that's what we had). If you filter or trim 
+  R1 and R2 separately and drop reads from one file only, pairs fall out of step and
+  `scalehd` will stop with an error.
+- No trimming or demultiplexing needed (different to 1.0). Mostly borne out of the fact
+  I am simulating data for now so this may change. Reads are located by 20-base anchors either side of 
+  the repeat (`TCGAGTCCCTCAAGTCCTTC` 5', `CAGCTTCCTCAGCCGCCGCC` 3'),
+  so primers, heterogeneity spacers, adapters and reads from other amplicons in the
+  same library are skipped. If your primers sit inside those anchors, the default
+  amplicon won't fit (see below).
+- All work in progress and let's see if I even finish it. If I get access to real data again
+  then this may all change.
+
+### One sample
+
+```sh
+uv run scalehd genotype sample_R1.fastq.gz sample_R2.fastq.gz \
+    --counts sample.counts.json -o sample.call.json
+```
+
+This prints the call and writes two files:
+
+- `sample.counts.json`: every molecule's repeat structure, tallied. Calling can be
+  rerun from this alone with `uv run scalehd call sample.counts.json`.
+- `sample.call.json`: the genotype, each allele's structure, share of molecules,
+  fitted stutter, the ScaleHD 1.x slippage and mosaicism ratios, flags, and the
+  runner-up genotypes with their probabilities.
+
+### A batch of samples
+
+Assuming files named `<sample>_R1.fastq.gz` / `<sample>_R2.fastq.gz`:
+
+```sh
+mkdir -p results
+for r1 in run/*_R1.fastq.gz; do
+    sample=$(basename "$r1" _R1.fastq.gz)
+    uv run scalehd genotype "$r1" "run/${sample}_R2.fastq.gz" \
+        --counts "results/$sample.counts.json" -o "results/$sample.call.json" \
+        > "results/$sample.txt" &
+done
+wait
+```
+
+TODO: improve input to have folder support to make this easier to use.
+
+Each sample is independent, so running them in parallel (the trailing `&`) is safe.
+On a machine with many cores, cap the number running at once (for example with
+`xargs -P`) rather than starting hundreds together.
+
+### Reading the result
+
+- Posterior / quality: the probability that the genotype is right given the
+  model, and the same thing on a Phred scale (quality 20 = 1 in 100 wrong, capped
+  at 99). It covers stutter and sampling noise. It does not cover the stutter model
+  itself being wrong for PCR conditions (which again.. simulated data lol).
+- Allele labels are same as ScaleHD 1.x `CAG_CAACAG_CCGCCA_CCG_CCT`.
+  `42_0_1_7_2` is a loss of the CAA interruption, `19_2_1_10_2` a CAACAG duplication.
+  `83+_1_1_7_2` means no read spanned the CAG tract, so only a lower bound is known.
+  The rough estimate of the true length that goes with it leans on the stutter model 
+  beyond the lengths it was measured at.
+- Flags mark what deserves a manual inspection (unchanged really from previous):
+
+  | flag | meaning |
+  |---|---|
+  | `low_depth` | fewer than 500 usable molecules |
+  | `low_confidence` | posterior below 0.99 |
+  | `homozygous` | both alleles identical |
+  | `neighbouring` | alleles one CAG apart. the hardest case to separate from stutter |
+  | `atypical` | an allele without the common `1_1_x_2` intervening and CCT structure |
+  | `beyond_read_length` | an allele longer than the reads. CAG is a lower bound not definitive |
+  | `allele_imbalance` | one allele has under 20% of molecules |
+  | `high_background` | over 5% of molecules fit neither allele |
+  | `unexplained_peak` | a peak the genotype doesn't explain. third allele, contamination, mosaicism? |
+  | `high_discordance` | over 15% of molecules dropped because their mates disagreed |
+
+### Checking the input went well
+
+The first lines `scalehd genotype` prints (and `read_outcomes` in the counts JSON)
+show how reads fared:
+
+- mostly `no_anchor` in R1 = the files are probably swapped (R1 is the CCG strand)
+  or the amplicon doesn't contain the default anchors.
+- many `nonconforming` = reads reach both anchors but don't fit the tract structure.
+  Expect this with very poor quality or human error
+- high `dropped` = read pairs often disagree. A few percent is normal sequencing error,
+  much more suggests quality problems or out-of-step bases.
+
+### Other amplicons and PCR conditions
+
+- Other flanks. The default flanks are those of the ScaleHD 1.x reference library.
+  From Python, `RepeatParser(amplicon=AmpliconSpec(...))` and `count_fastq(...,
+  parser=...)` take other flanks. The CLI doesn't expose this yet i.e. TODO work
+- Other stutter Stutter priors were measured on MiSeq data from one PCR protocol
+  (`scalehd.calibration.HTT_MISEQ`). Very different chemistry or cycle numbers may need
+  a recalibrated curve, passed via `CallerSettings(stutter=...)`. also still WIP.
 
 ## Development
 
@@ -87,6 +201,8 @@ uv run ruff check packages    # lint
 uv run ruff format packages   # format
 uv run mypy                   # types
 uv run python packages/core/benchmarks/parse_accuracy.py
+uv run python packages/core/benchmarks/genotype_simulated.py
+uv run python packages/core/benchmarks/legacy_matrix.py
 ```
 
 ## Licence

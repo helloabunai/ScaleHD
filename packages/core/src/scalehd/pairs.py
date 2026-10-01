@@ -5,7 +5,7 @@ Attempting different logic here compared to ScaleHD 1.x
 Both strands read the same template, PCR stutter is a thing that exists so
 single substitutions almost never coincide at the same base pair position.
 
-However single sub/ins/del can move a repeat tract start/end boundary with the 
+However single sub/ins/del can move a repeat tract start/end boundary with the
 flanks (e.g. G>A sub in last CAG reads as extra CAACAG intervening seq), so default
 a moluecule whose pair/mates disagree is dropped naively.
 

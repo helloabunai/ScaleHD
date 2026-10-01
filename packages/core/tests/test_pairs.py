@@ -35,7 +35,7 @@ def test_long_allele_completed_from_both_mates() -> None:
     assert not result.is_discordant
 
 
-def test_censored_when_neither_mate_spans_cag() -> None:
+def test_lower_bound_when_neither_mate_spans_cag() -> None:
     r1 = Observation((84, 0, 0, 0, 0), (L, U, U, U, U))
     r2 = Observation((70, 1, 1, 7, 2), (L, E, E, E, E))
     result = join_mates(r1, r2)

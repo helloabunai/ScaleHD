@@ -10,6 +10,7 @@ dev = [
     "mypy>=1.11",
     "pytest>=8.3",
     "ruff>=0.6",
+    "scipy-stubs>=1.14",
 ]
 
 [tool.uv]
@@ -27,6 +28,12 @@ target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "NPY", "PT"]
+# Greek letters are used deliberately for model parameters.
+allowed-confusables = ["γ", "β", "μ", "α"]
+
+[tool.ruff.lint.per-file-ignores]
+# BLAS thread defaults must be set before numpy is imported.
+"packages/core/src/scalehd/__init__.py" = ["E402"]
 
 [tool.mypy]
 python_version = "3.13"

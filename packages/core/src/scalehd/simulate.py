@@ -2,7 +2,8 @@
 
 The model is simple but covers the artefacts a caller has to cope with (hopefully):
 
-- PCR stutter, mostly contractions and growing with repeat length
+- PCR stutter, mostly contractions and growing with repeat length (calibrated on the
+  ScaleHD 1.x training matrix, see `scalehd.calibration`)
 - somatic expansion
 - amplification bias toward shorter alleles
 - sequencing errors that rise along the read
@@ -25,6 +26,7 @@ from typing import Any
 import numpy as np
 
 from .amplicon import HTT_AMPLICON, AmpliconSpec
+from .calibration import HTT_MISEQ, StutterCurve, cag_kernel
 from .seqio import FastqRecord, open_text, reverse_complement, write_fastq
 from .structure import AlleleStructure
 
@@ -36,7 +38,6 @@ NEXTERA_READTHROUGH_R2 = "CTGTCTCTTATACACATCTGACGCTGCCGACGA"
 _BASES = np.frombuffer(b"ACGT", dtype=np.uint8)
 _BASE_INDEX = np.zeros(256, dtype=np.uint8)
 _BASE_INDEX[_BASES] = np.arange(4, dtype=np.uint8)
-_CAG_SHIFTS = np.array([-2, -1, 0, 1])
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,28 +56,6 @@ class SimAllele:
             raise ValueError("somatic_fraction must be between 0 and 1")
         if self.somatic_mean < 1:
             raise ValueError("somatic_mean must be at least 1")
-
-
-@dataclass(frozen=True, slots=True)
-class StutterModel:
-    """PCR slippage per template, scaled linearly by CAG length relative to reference_cag."""
-
-    minus2: float = 0.04
-    minus1: float = 0.18
-    plus1: float = 0.03
-    reference_cag: int = 40
-    max_scale: float = 2.0
-    # Probability of each of a one-unit CCG contraction and expansion.
-    ccg: float = 0.01
-
-    def cag_shift_probabilities(self, cag: int) -> np.ndarray:
-        """Probabilities of CAG shifts of -2, -1, 0 and +1 units."""
-        scale = min(cag / self.reference_cag, self.max_scale)
-        m2, m1, p1 = (p * scale for p in (self.minus2, self.minus1, self.plus1))
-        same = 1.0 - m2 - m1 - p1
-        if same < 0:
-            raise ValueError(f"stutter probabilities exceed 1 at CAG {cag}")
-        return np.array([m2, m1, same, p1])
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,10 +82,13 @@ class SequencingModel:
 class SimulationSpec:
     alleles: tuple[SimAllele, ...]
     pairs: int = 20_000
-    # Relative amplification penalty per CAG unit above the shortest allele.
-    length_bias: float = 0.005
+    # Relative amplification penalty per CAG unit above the shortest allele. Real samples
+    # show little i.e. the shorter allele's median share of molecules is 0.48.
+    length_bias: float = 0.0
     off_target: float = 0.0
-    stutter: StutterModel = field(default_factory=StutterModel)
+    stutter: StutterCurve = HTT_MISEQ
+    # Probability of each of a one-unit CCG contraction and expansion.
+    ccg_slippage: float = 0.01
     sequencing: SequencingModel = field(default_factory=SequencingModel)
     amplicon: AmpliconSpec = HTT_AMPLICON
     seed: int = 0
@@ -143,6 +125,7 @@ class SimulatedSample:
             "length_bias": spec.length_bias,
             "off_target": spec.off_target,
             "stutter": asdict(spec.stutter),
+            "ccg_slippage": spec.ccg_slippage,
             "sequencing": asdict(spec.sequencing),
             "amplicon": asdict(spec.amplicon),
             "molecules": [
@@ -192,7 +175,7 @@ def simulate(spec: SimulationSpec) -> SimulatedSample:
 
     for i, index in enumerate(template):
         allele = spec.alleles[index]
-        molecule = _amplify(rng, allele, spec.stutter)
+        molecule = _amplify(rng, allele, spec.stutter, spec.ccg_slippage)
         molecules[molecule] += 1
         insert = spec.amplicon.sequence(molecule.repeat_sequence())
         r1.append(
@@ -214,16 +197,20 @@ def simulate(spec: SimulationSpec) -> SimulatedSample:
     return SimulatedSample(spec, r1, r2, molecules, off_target_pairs)
 
 
-def _amplify(rng: np.random.Generator, allele: SimAllele, stutter: StutterModel) -> AlleleStructure:
+def _amplify(
+    rng: np.random.Generator, allele: SimAllele, stutter: StutterCurve, ccg_slippage: float
+) -> AlleleStructure:
+    """One PCR product. optional extra somatic expansion, then stutter on template."""
     structure = allele.structure
     cag = structure.cag
     if allele.somatic_fraction and rng.random() < allele.somatic_fraction:
         cag += int(rng.geometric(1 / allele.somatic_mean))
-    cag = max(1, cag + int(rng.choice(_CAG_SHIFTS, p=stutter.cag_shift_probabilities(cag))))
+    shifts, probabilities = cag_kernel(stutter, cag)
+    cag = max(1, cag + int(rng.choice(shifts, p=probabilities)))
     ccg = structure.ccg
-    if (u := rng.random()) < stutter.ccg:
+    if (u := rng.random()) < ccg_slippage:
         ccg -= 1
-    elif u < 2 * stutter.ccg:
+    elif u < 2 * ccg_slippage:
         ccg += 1
     return structure.with_counts(cag=cag, ccg=max(1, ccg))
 
