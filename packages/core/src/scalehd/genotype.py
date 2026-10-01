@@ -92,9 +92,9 @@ class CallerSettings:
     # molecules, so the likelihood is weighted down to at most this many. Without it,
     # tiny misfits in peak shape outweigh every prior once a sample has 10^5 reads.
     effective_molecules: int | None = 3000
-    # How far the stutter kernel reaches (below, above) an allele The peak region is 
+    # How far the stutter kernel reaches (below, above) an allele The peak region is
     # where the information about N is. With a wide kernel, distant shoulders and junk
-    # (common in ScaleHD 1.x alignments) pulled on the tail ratios and tipped N by one 
+    # (common in ScaleHD 1.x alignments) pulled on the tail ratios and tipped N by one
     # against a clear peak/mode.
     stutter_window: tuple[int, int] = _WINDOW
     # Candidate alleles: the most frequent complete structures, plus CAG +/-1 of the top
