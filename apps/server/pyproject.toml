@@ -1,0 +1,25 @@
+[project]
+name = "scalehd-server"
+version = "2.0.0.dev0"
+description = "ScaleHD web API, job runner and database"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Alastair Maxwell" }]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.142.2",
+    "pydantic-settings>=2.15.0",
+    "scalehd",
+    "sqlalchemy>=2.1.1",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+scalehd-server = "scalehd_server.cli:main"
+
+[tool.uv.sources]
+scalehd = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.8,<0.13"]
+build-backend = "uv_build"

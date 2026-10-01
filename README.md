@@ -60,13 +60,16 @@ call plus flags for the cases that deserve a look. See `packages/core/src/scaleh
 
 ```
 packages/core/        scalehd: pure-Python library and CLI (no web or DB dependencies)
-  src/scalehd/        structure, amplicon, parse, pairs, counts, simulate, seqio, cli
+  src/scalehd/        structure, amplicon, parse, pairs, counts, calibration, genotype,
+                      simulate, seqio, cli
   tests/              unit, property-based and end-to-end tests
   benchmarks/         accuracy on simulated data and the legacy labelled matrix
+apps/server/          scalehd-server: FastAPI, job runner, SQLite database (skeleton)
+apps/web/             web interface: React, TypeScript, Vite (skeleton)
+Dockerfile            one image with the server, the core and the built frontend
+compose.yaml          runs that image with a data volume and a read-only FASTQ folder
 legacy/               ScaleHD 1.x, for reference only
 ```
-
-Planned: `apps/server` (FastAPI, jobs, database) and `apps/web` (frontend).
 
 ## Quick start
 
@@ -193,13 +196,22 @@ show how reads fared:
   (`scalehd.calibration.HTT_MISEQ`). Very different chemistry or cycle numbers may need
   a recalibrated curve, passed via `CallerSettings(stutter=...)`. also still WIP.
 
+## Web interface and API (skeleton)
+
+Only the outline exists so far. The server starts, creates its database and serves
+the frontend, but apart from `/api/health` its routes answer "not implemented yet".
+See [`apps/server/README.md`](apps/server/README.md) for what is real and what's a stub.
+
+Don't bother running anything. Massively WIP.
+
 ## Development
 
 ```sh
-uv run pytest                 # tests
-uv run ruff check packages    # lint
-uv run ruff format packages   # format
-uv run mypy                   # types
+uv run pytest                        # tests
+uv run ruff check packages apps      # lint
+uv run ruff format packages apps     # format
+uv run mypy                          # types
+(cd apps/web && npm run build)       # frontend type-check and build
 uv run python packages/core/benchmarks/parse_accuracy.py
 uv run python packages/core/benchmarks/genotype_simulated.py
 uv run python packages/core/benchmarks/legacy_matrix.py

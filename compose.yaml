@@ -1,0 +1,22 @@
+# docker compose up --build, then open http://localhost:8000
+# Settings go in .env (copy .env.example).
+services:
+  scalehd:
+    build: .
+    image: scalehd:dev
+    ports:
+      # Only this machine for now. Drop "127.0.0.1:" to let the rest of the network
+      # in, once accounts work.
+      - "127.0.0.1:8000:8000"
+    volumes:
+      # Database and job outputs.
+      - scalehd-data:/data
+      # FASTQ files users can pick from, read-only.
+      - ${SCALEHD_INPUT:-./input}:/input:ro
+    env_file:
+      - path: .env
+        required: false
+    restart: unless-stopped
+
+volumes:
+  scalehd-data:

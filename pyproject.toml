@@ -2,10 +2,11 @@
 name = "scalehd-workspace"
 version = "0"
 requires-python = ">=3.13"
-dependencies = ["scalehd"]
+dependencies = ["scalehd", "scalehd-server"]
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.1",
     "hypothesis>=6.100",
     "mypy>=1.11",
     "pytest>=8.3",
@@ -17,10 +18,11 @@ dev = [
 package = false
 
 [tool.uv.workspace]
-members = ["packages/*"]
+members = ["packages/*", "apps/server"]
 
 [tool.uv.sources]
 scalehd = { workspace = true }
+scalehd-server = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -37,12 +39,13 @@ allowed-confusables = ["γ", "β", "μ", "α"]
 
 [tool.mypy]
 python_version = "3.13"
-files = ["packages/core/src"]
+files = ["packages/core/src", "apps/server/src"]
+plugins = ["pydantic.mypy"]
 disallow_untyped_defs = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 strict_equality = true
 
 [tool.pytest.ini_options]
-testpaths = ["packages/core/tests"]
-addopts = "-ra"
+testpaths = ["packages/core/tests", "apps/server/tests"]
+addopts = "-ra --import-mode=importlib"

@@ -1,0 +1,92 @@
+"""Database tables: accounts, jobs, and the samples in each job."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
+
+from sqlalchemy import JSON, ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from .db import Base
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
+class JobStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    FINISHED = "finished"  # every sample has run, though some may have failed
+    FAILED = "failed"  # the job itself could not run
+    CANCELLED = "cancelled"
+
+
+class SampleStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    FINISHED = "finished"
+    FAILED = "failed"
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(64), unique=True)
+    password_hash: Mapped[str]
+    is_admin: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+    # Starting settings for this user's new jobs, as a schemas.JobSettings dict.
+    default_settings: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+    jobs: Mapped[list[Job]] = relationship(back_populates="owner")
+
+
+class Job(Base):
+    """A named batch of samples run with one set of settings."""
+
+    __tablename__ = "jobs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    name: Mapped[str] = mapped_column(String(200))
+    status: Mapped[JobStatus] = mapped_column(default=JobStatus.QUEUED)
+    settings: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+    started_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]
+    error: Mapped[str | None]
+
+    owner: Mapped[User] = relationship(back_populates="jobs")
+    samples: Mapped[list[Sample]] = relationship(
+        back_populates="job", cascade="all, delete-orphan", order_by="Sample.id"
+    )
+
+
+class Sample(Base):
+    """One sample's FASTQ input and, once run, its genotype call.
+
+    Counts stay on disk under ``data_dir/jobs/<job>/<sample>/``. The call is also
+    stored here, with its label, quality and flags copied out so job pages can list
+    them without reading the JSON.
+    """
+
+    __tablename__ = "samples"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"))
+    name: Mapped[str] = mapped_column(String(200))
+    # Paths relative to the server's input directory.
+    r1: Mapped[str]
+    r2: Mapped[str | None]
+    status: Mapped[SampleStatus] = mapped_column(default=SampleStatus.QUEUED)
+    genotype: Mapped[str | None]
+    quality: Mapped[float | None]
+    flags: Mapped[list[str]] = mapped_column(JSON, default=list)
+    call: Mapped[dict[str, Any] | None] = mapped_column(JSON)  # scalehd.call/1
+    error: Mapped[str | None]
+
+    job: Mapped[Job] = relationship(back_populates="samples")

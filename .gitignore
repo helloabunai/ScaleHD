@@ -12,3 +12,7 @@ dist/
 htmlcov/
 .DS_Store
 /scratch/
+node_modules/
+.env
+/data/
+/input/

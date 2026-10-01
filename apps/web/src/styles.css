@@ -1,0 +1,74 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color-scheme: light dark;
+  --muted: #777;
+  --error: #c33;
+  --line: #8884;
+}
+
+body {
+  margin: 0;
+}
+
+.layout {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+header {
+  display: flex;
+  gap: 2rem;
+  align-items: baseline;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+nav {
+  display: flex;
+  gap: 1rem;
+}
+
+nav a.active {
+  font-weight: 600;
+}
+
+footer {
+  padding: 1rem 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.login {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 20rem;
+}
+
+.login label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.error {
+  color: var(--error);
+}
