@@ -1,0 +1,41 @@
+[project]
+name = "scalehd-workspace"
+version = "0"
+requires-python = ">=3.13"
+dependencies = ["scalehd"]
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.100",
+    "mypy>=1.11",
+    "pytest>=8.3",
+    "ruff>=0.6",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+scalehd = { workspace = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "NPY", "PT"]
+
+[tool.mypy]
+python_version = "3.13"
+files = ["packages/core/src"]
+disallow_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+testpaths = ["packages/core/tests"]
+addopts = "-ra"
