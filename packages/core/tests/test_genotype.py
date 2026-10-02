@@ -90,9 +90,8 @@ def test_allele_beyond_read_length_is_a_lower_bound() -> None:
     assert long.label.endswith("+_1_1_7_2")
     assert long.allele.structure.cag <= 95
     assert Flag.BEYOND_READ_LENGTH in call.flags
-    assert long.cag_estimate is not None
-    _, low, high = long.cag_estimate
-    assert low <= 95 <= high
+    # No read spans the tract, so the reads set no upper limit and there is no estimate.
+    assert long.cag_estimate is None
 
 
 def test_low_depth_is_less_certain() -> None:

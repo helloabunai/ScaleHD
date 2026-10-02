@@ -104,8 +104,7 @@ def sample_folders(job: Job) -> dict[int, Path]:
 
 
 def remove_job_folder(workspace: Path, username: str, folder: Path) -> None:
-    """Delete a job's folder, but only if it is inside the user's own folder.
-    """
+    """Delete a job's folder, but only if it is inside the user's own folder."""
     mine = user_folder(workspace, username).resolve()
     target = folder.resolve()
     if target == mine or not target.is_relative_to(mine):

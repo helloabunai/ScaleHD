@@ -64,8 +64,8 @@ def test_run_task_simulates_calls_and_checks_the_truth(tmp_path: Path) -> None:
     assert result.sample_id == 7
     assert result.genotype == "17_1_1_7_2/43_1_1_7_2"
     assert result.matches_truth is True
-    assert result.quality is not None
-    assert result.quality > 0
+    assert result.confidence is not None
+    assert result.confidence > 0
     assert all(isinstance(flag, str) for flag in result.flags)
     folder = tmp_path / "expanded"
     assert (folder / "input" / "expanded_R1.fastq.gz").exists()

@@ -110,7 +110,7 @@ def report(results: list[Result]) -> None:
         return f"{hits}/{len(rs)} ({100 * hits / len(rs):.1f}%)"
 
     print(f"samples {len(results)}\n")
-    print(f"{'subset':<28}{'exact':>20}{'CAG only':>20}{'within ±1 CAG':>20}")
+    print(f"{'subset':<28}{'exact':>20}{'CAG only':>20}{'within +/-1 CAG':>20}")
     groups: dict[str, list[Result]] = {"all": results}
     for r in results:
         groups.setdefault(category(r), []).append(r)

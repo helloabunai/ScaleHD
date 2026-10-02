@@ -124,7 +124,7 @@ def test_the_demo_runs_end_to_end(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
         assert sample["status"] == "finished", sample["error"]
         assert sample["genotype"] == sample["truth"]
         assert sample["matches_truth"] is True
-        assert sample["quality"] > 0
+        assert sample["confidence"] > 0
         folder = Path(job["output_dir"]) / sample["name"]
         assert (folder / "counts.json").exists()
         assert (folder / "call.json").exists()

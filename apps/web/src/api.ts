@@ -64,7 +64,8 @@ export interface Sample {
   r2: string | null;
   status: SampleStatus;
   genotype: string | null;
-  quality: number | null;
+  /** Phred-scaled confidence of the call (the call's quality). */
+  confidence: number | null;
   flags: string[];
   /** Simulated samples: the true genotype, and whether the call matched it. */
   truth: string | null;
@@ -91,6 +92,110 @@ export interface Job extends JobSummary {
   settings: JobSettings;
   samples: Sample[];
   error: string | null;
+}
+
+export interface Stutter {
+  contraction: number;
+  contraction_step: number;
+  contraction_tail: number;
+  expansion: number;
+  expansion_step: number;
+  expansion_tail: number;
+}
+
+/** One allele of a saved call (scalehd.call/1). */
+export interface CalledAllele {
+  structure: string;
+  beyond_read_length: boolean;
+  cag: number;
+  caacag: number;
+  ccgcca: number;
+  ccg: number;
+  cct: number;
+  typical: boolean;
+  polyglutamine_length: number | null;
+  fraction: number;
+  molecules: number;
+  stutter: Stutter;
+  backward_slippage: number | null;
+  somatic_mosaicism: number | null;
+  expansion_index: number | null;
+  contraction_index: number | null;
+  /** For an allele beyond read length: [best, low, high] estimate of its CAG. */
+  cag_estimate: [number, number, number] | null;
+}
+
+/** A sample's saved genotype call (scalehd.call/1). */
+export interface GenotypeCall {
+  genotype: string;
+  posterior: number;
+  quality: number;
+  flags: string[];
+  alleles: CalledAllele[];
+  alternatives: { genotype: string; posterior: number }[];
+  molecules: number;
+  background: number;
+  ccg_slippage: number;
+  misread: number;
+  unexplained: { structure: string; molecules: number }[];
+  coarsened_above: number | null;
+}
+
+export interface CagBar {
+  cag: number;
+  molecules: number;
+  /** Molecules only known to be at least this long. */
+  lower_bound: number;
+}
+
+export interface CagChart {
+  caacag: number;
+  ccgcca: number;
+  ccg: number;
+  cct: number;
+  alleles: string[];
+  /** The called alleles' CAG lengths, ascending (lower bounds for alleles beyond read length). */
+  called: number[];
+  bars: CagBar[];
+}
+
+export interface CcgBar {
+  ccg: number;
+  molecules: number;
+}
+
+export interface Cell {
+  cag: number;
+  ccg: number;
+  molecules: number;
+}
+
+export interface Reads {
+  molecules: number;
+  complete: number;
+  partial: number;
+  dropped: number;
+  unusable: number;
+  read_outcomes: Record<string, number>;
+  discordant: Record<string, number>;
+}
+
+export type SampleFile = "call" | "counts" | "r1" | "r2";
+
+export interface SampleDetail {
+  sample: Sample;
+  job_id: number;
+  job_name: string;
+  demo: boolean;
+  folder: string | null;
+  call: GenotypeCall | null;
+  cag_charts: CagChart[];
+  ccg: CcgBar[];
+  cells: Cell[];
+  reads: Reads | null;
+  files: SampleFile[];
+  previous_id: number | null;
+  next_id: number | null;
 }
 
 export class ApiError extends Error {
@@ -161,6 +266,10 @@ export const api = {
   listJobs: () => request<JobSummary[]>("/jobs"),
   getJob: (id: number) => request<Job>(`/jobs/${id}`),
   deleteJob: (id: number) => request<void>(`/jobs/${id}`, { method: "DELETE" }),
+  getSample: (jobId: number, sampleId: number) =>
+    request<SampleDetail>(`/jobs/${jobId}/samples/${sampleId}`),
+  sampleFileUrl: (jobId: number, sampleId: number, file: SampleFile) =>
+    `/api/jobs/${jobId}/samples/${sampleId}/files/${file}`,
   createJob: (job: JobCreate) => request<Job>("/jobs", post(job)),
   createDemoJob: () => request<Job>("/jobs/demo", post()),
   cancelJob: (id: number) => request<Job>(`/jobs/${id}/cancel`, post()),

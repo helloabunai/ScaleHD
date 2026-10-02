@@ -41,7 +41,8 @@ class SampleResult:
     sample_id: int
     call: dict[str, Any] | None
     genotype: str | None
-    quality: float | None
+    # The call's Phred-scaled confidence (GenotypeCall.quality).
+    confidence: float | None
     flags: list[str]
     matches_truth: bool | None
 
@@ -84,7 +85,7 @@ def run_task(task: SampleTask) -> SampleResult:
         sample_id=task.sample_id,
         call=call.to_dict(),
         genotype=call.label,
-        quality=call.quality,
+        confidence=call.quality,
         flags=[str(flag) for flag in call.flags],
         matches_truth=matches,
     )

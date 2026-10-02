@@ -19,7 +19,7 @@ def test_job_out_counts_progress_and_carries_the_truth(sessions: sessionmaker[Se
                 name="normal-heterozygote",
                 status=SampleStatus.FINISHED,
                 genotype="17_1_1_7_2/21_1_1_7_2",
-                quality=40.0,
+                confidence=40.0,
                 flags=["low_depth"],
                 simulation={"alleles": ["17_1_1_7_2", "21_1_1_7_2"], "pairs": 5000, "seed": 1},
                 truth="17_1_1_7_2/21_1_1_7_2",

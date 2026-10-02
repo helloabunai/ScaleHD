@@ -5,7 +5,6 @@ events could replace polling later without changing anything else.
 """
 
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response, status
 from fastapi.responses import FileResponse
@@ -17,9 +16,18 @@ from ..auth import CurrentUser
 from ..config import ServerConfig
 from ..db import DbSession
 from ..errors import not_implemented
-from ..models import Job, JobStatus, User
+from ..models import Job, JobStatus, Sample, User
+from ..results import FileKind, sample_detail, sample_file
 from ..runner import Runner
-from ..schemas import JobCreate, JobOut, JobSettings, JobSummary, job_out, job_summary
+from ..schemas import (
+    JobCreate,
+    JobOut,
+    JobSettings,
+    JobSummary,
+    SampleDetail,
+    job_out,
+    job_summary,
+)
 from ..worker import RUNNABLE_METHODS
 from ..workspace import WorkspaceError, remove_job_folder, write_job_folder
 
@@ -105,20 +113,33 @@ def delete_job(job_id: int, user: CurrentUser, session: DbSession, config: Serve
     session.commit()
 
 
-@router.get("/{job_id}/samples/{sample_id}/call")
-def sample_call(
-    job_id: int, sample_id: int, user: CurrentUser, session: DbSession
-) -> dict[str, Any]:
-    """The full genotype call (``scalehd.call/1`` JSON)."""
-    raise not_implemented("jobs")
+def _job_sample(job: Job, sample_id: int) -> Sample:
+    for sample in job.samples:
+        if sample.id == sample_id:
+            return sample
+    raise HTTPException(status.HTTP_404_NOT_FOUND, "no such sample")
 
 
-@router.get("/{job_id}/samples/{sample_id}/counts", response_class=FileResponse)
-def sample_counts(
-    job_id: int, sample_id: int, user: CurrentUser, config: ServerConfig, session: DbSession
+@router.get("/{job_id}/samples/{sample_id}")
+def get_sample(job_id: int, sample_id: int, user: CurrentUser, session: DbSession) -> SampleDetail:
+    """Sample results = genotype call, read distributions and summary info.
+    Files for download not finalised."""
+    job = _own_job(session, user, job_id)
+    return sample_detail(job, _job_sample(job, sample_id))
+
+
+@router.get("/{job_id}/samples/{sample_id}/files/{kind}", response_class=FileResponse)
+def get_sample_file(
+    job_id: int, sample_id: int, kind: FileKind, user: CurrentUser, session: DbSession
 ) -> FileResponse:
-    """The sample's molecule counts (``scalehd.counts/1`` JSON), as written by the runner."""
-    raise not_implemented("jobs")
+    """Download sample results + associated data"""
+    job = _own_job(session, user, job_id)
+    sample = _job_sample(job, sample_id)
+    path = sample_file(job, sample, kind)
+    if path is None or not path.is_file():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no such file")
+    name = path.name if kind in ("r1", "r2") else f"{path.parent.name}-{path.name}"
+    return FileResponse(path, filename=name)
 
 
 @router.get("/{job_id}/report", response_class=Response)

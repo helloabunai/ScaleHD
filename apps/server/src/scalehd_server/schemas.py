@@ -129,7 +129,7 @@ class SampleOut(BaseModel):
     r2: str | None
     status: SampleStatus
     genotype: str | None
-    quality: float | None
+    confidence: float | None
     flags: list[str]
     truth: str | None
     matches_truth: bool | None
@@ -186,3 +186,66 @@ def job_out(job: Job) -> JobOut:
         samples=[SampleOut.model_validate(sample) for sample in job.samples],
         error=job.error,
     )
+
+
+class CagBar(BaseModel):
+    cag: int
+    molecules: int
+    # Molecules whose CAG is only known to be at least this (reads ended in the tract).
+    lower_bound: int
+
+
+class CagChart(BaseModel):
+    """Molecules at each CAG length within one structure of the called alleles."""
+
+    caacag: int
+    ccgcca: int
+    ccg: int
+    cct: int
+    # The called alleles on this structure, and their CAG lengths (to highlight).
+    alleles: list[str]
+    called: list[int]
+    bars: list[CagBar]
+
+
+class CcgBar(BaseModel):
+    ccg: int
+    molecules: int
+
+
+class Cell(BaseModel):
+    cag: int
+    ccg: int
+    molecules: int
+
+
+class Reads(BaseModel):
+    """Sample read information"""
+
+    molecules: int
+    complete: int
+    partial: int
+    dropped: int
+    unusable: int
+    read_outcomes: dict[str, int]
+    discordant: dict[str, int]
+
+
+class SampleDetail(BaseModel):
+    """All data needed in an indv sample result page"""
+
+    sample: SampleOut
+    job_id: int
+    job_name: str
+    demo: bool
+    folder: str | None
+    # The full call (scalehd.call/1), once the sample has been called.
+    call: dict[str, Any] | None
+    cag_charts: list[CagChart]
+    ccg: list[CcgBar]
+    cells: list[Cell]
+    reads: Reads | None
+    # Which files can be downloaded: "call", "counts", "r1", "r2".
+    files: list[str]
+    previous_id: int | None
+    next_id: int | None

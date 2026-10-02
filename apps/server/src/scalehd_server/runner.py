@@ -165,7 +165,7 @@ class JobRunner:
             else:
                 sample.status = SampleStatus.FINISHED
                 sample.call, sample.genotype = result.call, result.genotype
-                sample.quality, sample.flags = result.quality, result.flags
+                sample.confidence, sample.flags = result.confidence, result.flags
                 sample.matches_truth = result.matches_truth
             job = sample.job
             if all(other.status in _DONE for other in job.samples):

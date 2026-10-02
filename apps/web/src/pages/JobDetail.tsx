@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { api, type Job, type Sample, type SampleStatus as Stage } from "../api";
 import { useApi } from "../useApi";
 import { DemoTag, formatTime, isActive } from "./jobDisplay";
@@ -45,7 +45,13 @@ export function JobDetail() {
             )}
           </dl>
           <JobProgress samples={job.samples} />
-          {!isActive(job.status) && <DeleteJob job={job} />}
+          <div className="job-actions">
+            <button type="button" disabled title="Coming soon">
+              Export job results
+            </button>
+            <span className="muted">coming soon</span>
+            {!isActive(job.status) && <DeleteJob job={job} />}
+          </div>
           <table>
             <thead>
               <tr>
@@ -53,7 +59,7 @@ export function JobDetail() {
                 <th>Status</th>
                 <th>Progress</th>
                 <th>Genotype</th>
-                <th>Quality</th>
+                <th>Confidence</th>
                 <th>Flags</th>
                 {job.demo && <th>Truth</th>}
                 {job.demo && <th>Match</th>}
@@ -62,7 +68,13 @@ export function JobDetail() {
             <tbody>
               {job.samples.map((sample) => (
                 <tr key={sample.id}>
-                  <td>{sample.name}</td>
+                  <td>
+                    {sample.status === "finished" || sample.status === "failed" ? (
+                      <Link to={`/jobs/${job.id}/samples/${sample.id}`}>{sample.name}</Link>
+                    ) : (
+                      sample.name
+                    )}
+                  </td>
                   <td>
                     <SampleStatus sample={sample} />
                   </td>
@@ -70,7 +82,7 @@ export function JobDetail() {
                     <SampleProgress stage={sample.status} />
                   </td>
                   <td>{sample.genotype ?? "–"}</td>
-                  <td>{sample.quality?.toFixed(1) ?? "–"}</td>
+                  <td>{sample.confidence?.toFixed(1) ?? "–"}</td>
                   <td>{sample.flags.join(", ")}</td>
                   {job.demo && <td>{sample.truth ?? "–"}</td>}
                   {job.demo && (
@@ -119,12 +131,12 @@ function DeleteJob({ job }: { job: Job }) {
   }
 
   return (
-    <p>
+    <>
       <button type="button" className="danger" onClick={remove} disabled={busy}>
         Delete job
       </button>
-      {error && <span className="error"> {error}</span>}
-    </p>
+      {error && <span className="error">{error}</span>}
+    </>
   );
 }
 
@@ -145,7 +157,7 @@ function samplesDone(samples: Sample[]): string {
 }
 
 /** overall progress bar for job */
-function JobProgress({ samples }: { samples: Sample[] }) {
+function JobProgress({ samples }: Readonly<{ samples: Sample[] }>) {
   const total = Math.max(samples.length, 1);
   const parts: Stage[] = ["finished", "failed", "running"];
   return (
@@ -169,7 +181,7 @@ function JobProgress({ samples }: { samples: Sample[] }) {
 
 // TODO: real progress for running samples (stage and share of reads counted) once
 // jobs read real FASTQ files; until then a running sample shows a moving bar.
-function SampleProgress({ stage }: { stage: Stage }) {
+function SampleProgress({ stage }: Readonly<{ stage: Stage }>) {
   return (
     <div className="progress small" aria-label={stage}>
       {stage !== "queued" && <span className={`segment ${stage}`} style={{ width: "100%" }} />}

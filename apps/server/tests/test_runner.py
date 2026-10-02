@@ -65,7 +65,7 @@ def result_for(task: Any) -> SampleResult:
         sample_id=task.sample_id,
         call={"genotype": "21_1_1_7_2/21_1_1_7_2"},
         genotype="21_1_1_7_2/21_1_1_7_2",
-        quality=42.0,
+        confidence=42.0,
         flags=["homozygous"],
         matches_truth=True,
     )
@@ -97,7 +97,7 @@ def test_one_worker_runs_one_sample_at_a_time(
         assert job.started_at is not None
         assert job.finished_at is not None
         first = job.samples[0]
-        assert (first.genotype, first.quality, first.flags) == (
+        assert (first.genotype, first.confidence, first.flags) == (
             "21_1_1_7_2/21_1_1_7_2",
             42.0,
             ["homozygous"],

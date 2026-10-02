@@ -72,6 +72,9 @@ _STUTTER_PARAMS = len(_STUTTER_BOUNDS)
 _BALANCE_BOUNDS = (-6.0, 6.0)
 # Range of N averaged over for an allele beyond read length.
 _LONG_ALLELE_SPAN = 60
+# Posterior at the longest N tried, relative to its peak, above which the reads set no
+# upper limit on an allele beyond read length.
+_NO_UPPER_LIMIT = 0.01
 _NUISANCE_BOUNDS = (
     (logit(1e-6), logit(0.2)),  # CCG slippage
     (logit(1e-6), logit(0.2)),  # CCG misassigned
@@ -192,7 +195,8 @@ class AlleleCall:
     contraction_index: float | None
     # For an allele beyond read length, a model-based estimate of N from its readable contractions
     # (most likely, lower, upper) bounds of a 90% interval. It leans on the stutter
-    # curve beyond the longest CAG it was measured at, so treat it as rough.
+    # curve beyond the longest CAG it was measured at, so treat it as rough. None when
+    # the reads set no upper limit.
     cag_estimate: tuple[int, int, int] | None = None
 
     @property
@@ -411,7 +415,7 @@ def _log_kernel(
 def _log_survival(
     bound: np.ndarray, n: np.ndarray | int, s: Stutter, window: tuple[int, int] = _WINDOW
 ) -> np.ndarray:
-    """log P(CAG ≥ bound) for molecules from alleles of n units. bound and n broadcast."""
+    """log P(CAG >= bound) for molecules from alleles of n units. bound and n broadcast."""
     length = np.asarray(n, dtype=float)
     z = 1 + _contracted(np.ones_like(length), length, s, window) + _expanded(np.ones(1), s, window)
     x = np.maximum(bound, 1).astype(float)
@@ -786,8 +790,14 @@ def _allele_calls(table: _Table, fit: _Fit) -> tuple[AlleleCall, AlleleCall]:
     return calls[0], calls[1]
 
 
-def _estimate_long_allele(table: _Table, fit: _Fit, allele: Candidate) -> tuple[int, int, int]:
-    """Posterior over N for an allele beyond read length, other parameters held at fit."""
+def _estimate_long_allele(
+    table: _Table, fit: _Fit, allele: Candidate
+) -> tuple[int, int, int] | None:
+    """Posterior over N for an allele beyond read length, other parameters held at fit.
+
+    None when the posterior has not fallen away by the longest N tried: the reads then
+    set no upper limit, and any interval would only reflect how far the search went.
+    """
     lengths = np.arange(allele.structure.cag, allele.structure.cag + _LONG_ALLELE_SPAN)
     loglik = []
     for n in lengths:
@@ -796,6 +806,8 @@ def _estimate_long_allele(table: _Table, fit: _Fit, allele: Candidate) -> tuple[
         total, _ = _row_loglik(table, _Model(alleles), fit.params)
         loglik.append(float(table.fit_weight @ total))
     posterior = np.exp(np.array(loglik) - logsumexp(loglik))
+    if posterior[-1] > _NO_UPPER_LIMIT * posterior.max():
+        return None
     cumulative = np.cumsum(posterior)
     low = int(lengths[int(np.searchsorted(cumulative, 0.05))])
     high = int(lengths[min(int(np.searchsorted(cumulative, 0.95)), lengths.size - 1)])

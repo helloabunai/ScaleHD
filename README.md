@@ -27,9 +27,152 @@ somatic expansion, length bias, sequencing errors that rise along the read, spac
 and adapter read-through, so the pipeline can be tested before real data is
 available.
 
-### Developing
+### Development
 
-within `tools/` subdir is a mini script to refresh your docker dev stack. cos lazy
+within `tools/` subdir is a mini script to refresh your docker dev stack. cos any dev is probably lazy
+
+```sh
+uv run pytest                        # tests
+uv run ruff check packages apps      # lint
+uv run ruff format packages apps     # format
+uv run mypy                          # types
+(cd apps/web && npm run build)       # frontend type-check and build
+uv run python packages/core/benchmarks/parse_accuracy.py
+uv run python packages/core/benchmarks/genotype_simulated.py
+uv run python packages/core/benchmarks/legacy_matrix.py
+```
+
+`tools/check.sh` runs every check above in order (lint, format, types, frontend build, tests) and stops at the first failure. A git pre-push hook runs it before each push and
+blocks the push if anything fails. Turn the hook in your local repo clone:
+
+```sh
+git config core.hooksPath tools/git-hooks
+```
+
+`git push --no-verify` skips it for one push.  Maybe don't do that.
+
+#### From scratch: running the server with Docker
+
+Everything (server, web interface, genotyping) runs in one container, so the machine
+only needs Docker, Docker Compose and git.
+
+1. Install Docker and Compose.
+
+Example from scratch with ubuntu, except installing docker direct
+from docker's repository as the OS repo is typically out of date.
+
+```sh
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl git
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+    | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+Then let your user run Docker without `sudo`, and log out and back in for it to take
+effect (or run `newgrp docker` in the current shell):
+
+```sh
+sudo usermod -aG docker "$USER"
+```
+
+Membership of the `docker` group is root-equivalent on that machine, so only add
+users who should have it.
+
+Check both work:
+
+```sh
+docker run --rm hello-world
+docker compose version
+```
+
+2. Get this code (currently on rework branch)
+
+```sh
+git clone https://github.com/helloabunai/scalehd.git
+cd scalehd
+git switch rework
+```
+
+3. Pick the folders and write `.env`.
+
+The server needs two folders on the host. The container sees each at the same path as
+the host does, so paths shown in the web interface are real host paths.
+
+- A data folder with the sequencing runs (FASTQ files), mounted read-only. A network
+  share works if it is mounted on the host before the container starts.
+- A workspace folder for results, mounted read-write. ScaleHD will create a folder per user,
+  and a subfolder per job. The root workspace/results folder must exist before starting. On Linux it must be writable by the container's user (the following paths are made up examples):
+
+  ```sh
+  sudo mkdir -p /srv/scalehd/workspace
+  sudo chown 1000 /srv/scalehd/workspace
+  ```
+
+Specify such folder locations in the env file (copy the example template).
+
+```sh
+cp .env.example .env
+```
+
+Then edit `.env`. Only the first two settings are required at the moment:
+
+| setting | default | meaning |
+|---|---|---|
+| `SCALEHD_DATA_ROOT` | required | sequencing data users can browse, read-only (absolute path) |
+| `SCALEHD_WORKSPACE` | required | where results go (absolute path, must exist) |
+| `SCALEHD_WORKERS` | every core | samples processed at once, one process each |
+| `SCALEHD_ALLOW_REGISTRATION` | `true` | whether anyone who can reach the server may create an account (the first account, the admin, can always be created) |
+| `SCALEHD_SESSION_DAYS` | `30` | how long a login lasts |
+
+The database lives in a Docker volume (`scalehd_scalehd-data`), separate from the
+workspace. `SCALEHD_DATABASE_DIR` and `SCALEHD_WEB_DIR` are set by the image; leave
+them alone.
+
+Most settings are work in progress:
+
+- The data folder is mounted but can't be browsed from the web interface yet, so
+  only the demo job (simulated samples) runs.
+- Of the genotyping methods (Settings page, and per job), Legacy (ScaleHD 1.x) is not
+  available yet and New (model-based) is a beta. The demo always uses New.
+- The flag thresholds and the other job settings are not fully implemented yet so ignore those.
+
+4. Start it
+
+```sh
+docker compose up -d --build
+docker compose ps        # STATUS should become "healthy"
+docker compose logs -f   # server log (Ctrl+C stops following, not the server)
+```
+
+The container restarts on its own after a reboot (`restart: unless-stopped`).
+`docker compose down` stops it; the database volume and the folders are kept.
+
+5. Open the web interface.
+
+On the same machine: <http://localhost:8000>. The first account you register is
+the admin. From there, "Run demo" on the home page runs the simulated samples
+end to end. If you were running the docker on a lab computer then
+you'd access it at <http://whatever_dedicated_ip_address:8000> from the same internal network. 
+
+Network and port customisation will be implemented at some point in the future.
+
+### Updating
+
+```sh
+git pull
+docker compose up -d --build
+```
+
+There are no database migrations yet. If the server refuses to start because the
+database is from an older version (`docker compose logs` says so), `tools/refresh.sh`
+deletes the database volume and rebuilds. All accounts and job history are lost;
+files in the workspace are kept. Development work in progress baby !!!
 
 ## What's different
 
@@ -162,8 +305,9 @@ On a machine with many cores, cap the number running at once (for example with
 - Allele labels are same as ScaleHD 1.x `CAG_CAACAG_CCGCCA_CCG_CCT`.
   `42_0_1_7_2` is a loss of the CAA interruption, `19_2_1_10_2` a CAACAG duplication.
   `83+_1_1_7_2` means no read spanned the CAG tract, so only a lower bound is known.
-  The rough estimate of the true length that goes with it leans on the stutter model 
-  beyond the lengths it was measured at.
+  A rough estimate of the true length is given only when the reads also limit it from
+  above, and it leans on the stutter model beyond the lengths it was measured at. On
+  simulated data the reads never do, so expect the lower bound alone.
 - Flags mark what deserves a manual inspection (unchanged really from previous):
 
   | flag | meaning |
@@ -206,19 +350,6 @@ Basic interface and user account system. Everything else answers "not implemente
 See [`apps/server/README.md`](apps/server/README.md) for what is real and what's a stub.
 
 Don't bother running anything. Massively WIP.
-
-## Development
-
-```sh
-uv run pytest                        # tests
-uv run ruff check packages apps      # lint
-uv run ruff format packages apps     # format
-uv run mypy                          # types
-(cd apps/web && npm run build)       # frontend type-check and build
-uv run python packages/core/benchmarks/parse_accuracy.py
-uv run python packages/core/benchmarks/genotype_simulated.py
-uv run python packages/core/benchmarks/legacy_matrix.py
-```
 
 ## Licence
 

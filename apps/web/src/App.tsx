@@ -7,6 +7,7 @@ import { Jobs } from "./pages/Jobs";
 import { Login } from "./pages/Login";
 import { NewJob } from "./pages/NewJob";
 import { Register } from "./pages/Register";
+import { SampleResults } from "./pages/SampleResults";
 import { Settings } from "./pages/Settings";
 import { Welcome } from "./pages/Welcome";
 import { useApi } from "./useApi";
@@ -25,6 +26,7 @@ export function App() {
               <Route path="/jobs" element={<Jobs />} />
               <Route path="/jobs/new" element={<NewJob />} />
               <Route path="/jobs/:jobId" element={<JobDetail />} />
+              <Route path="/jobs/:jobId/samples/:sampleId" element={<SampleResults />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/account" element={<Account />} />
             </Route>

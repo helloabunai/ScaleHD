@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Git pre-push hook: run every check, and block the push if any fails.
+#
+# Turn it on once in each clone of the repository:
+#   git config core.hooksPath tools/git-hooks
+# Skip it for one push:
+#   git push --no-verify
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+echo "==> pre-push: running tools/check.sh (git push --no-verify skips this)"
+if ! "$REPO_ROOT/tools/check.sh"; then
+    echo >&2
+    echo "Push blocked: a check failed (see above)." >&2
+    exit 1
+fi

@@ -90,7 +90,7 @@ class Sample(Base):
     """One sample's input and, once run, its genotype call.
 
     Counts and call files are in the sample's folder inside the job's folder. The call
-    is also stored here, with its label, quality and flags copied out so job pages can
+    is also stored here, with its label, confidence and flags copied out so job pages can
     list them without reading the JSON.
     """
 
@@ -109,7 +109,7 @@ class Sample(Base):
     matches_truth: Mapped[bool | None]
     status: Mapped[SampleStatus] = mapped_column(default=SampleStatus.QUEUED)
     genotype: Mapped[str | None]
-    quality: Mapped[float | None]
+    confidence: Mapped[float | None]
     flags: Mapped[list[str]] = mapped_column(JSON, default=list)
     call: Mapped[dict[str, Any] | None] = mapped_column(JSON)  # scalehd.call/1
     error: Mapped[str | None]
