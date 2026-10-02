@@ -230,3 +230,41 @@ input {
 .success {
   color: var(--success);
 }
+
+.tag {
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  background: var(--line);
+  font-size: 0.75rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.card button {
+  margin-top: 0.75rem;
+}
+
+code {
+  font-size: 0.9em;
+}
+
+.folders {
+  margin: 1.5rem 0;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+
+.folders h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+}
+
+.folders h3 {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.95rem;
+}
+
+.folders p {
+  margin: 0.15rem 0;
+}

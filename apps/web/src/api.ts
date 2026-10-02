@@ -18,6 +18,15 @@ export interface User {
   created_at: string;
 }
 
+export interface Folders {
+  /** Sequencing data to pick from, read-only. Null when the server has none set. */
+  data_root: string | null;
+  /** Where every user's results go. */
+  workspace: string;
+  /** This user's folder in the workspace: their jobs are saved here. */
+  your_folder: string;
+}
+
 export interface Registration {
   open: boolean;
   first_account: boolean;
@@ -48,22 +57,32 @@ export interface JobCreate {
   settings?: JobSettings;
 }
 
-export interface Sample extends InputPair {
+export interface Sample {
   id: number;
+  name: string;
+  r1: string | null;
+  r2: string | null;
   status: SampleStatus;
   genotype: string | null;
   quality: number | null;
   flags: string[];
+  /** Simulated samples: the true genotype, and whether the call matched it. */
+  truth: string | null;
+  matches_truth: boolean | null;
   error: string | null;
 }
 
 export interface JobSummary {
   id: number;
   name: string;
+  demo: boolean;
+  method: GenotypeMethod;
   status: JobStatus;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
+  /** The job's folder in the workspace, a path on the server machine. */
+  output_dir: string | null;
   sample_count: number;
   samples_done: number;
 }
@@ -122,6 +141,7 @@ const post = (body?: unknown): RequestInit => ({
 
 export const api = {
   health: () => request<Health>("/health"),
+  folders: () => request<Folders>("/folders"),
 
   registration: () => request<Registration>("/auth/registration"),
   register: (username: string, password: string) =>
@@ -141,6 +161,7 @@ export const api = {
   listJobs: () => request<JobSummary[]>("/jobs"),
   getJob: (id: number) => request<Job>(`/jobs/${id}`),
   createJob: (job: JobCreate) => request<Job>("/jobs", post(job)),
+  createDemoJob: () => request<Job>("/jobs/demo", post()),
   cancelJob: (id: number) => request<Job>(`/jobs/${id}/cancel`, post()),
   reportUrl: (id: number) => `/api/jobs/${id}/report`,
 

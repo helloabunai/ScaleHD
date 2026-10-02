@@ -5,18 +5,48 @@ export type Loaded<T> =
   | { state: "error"; error: Error }
   | { state: "done"; data: T };
 
-/** Load once per change of `deps`. TODO: polling for running jobs. */
-export function useApi<T>(load: () => Promise<T>, deps: unknown[] = []): Loaded<T> {
+export interface Refresh<T> {
+  /** Milliseconds between refreshes. */
+  every: number;
+  /** Keep refreshing while this holds for the latest data. */
+  while: (data: T) => boolean;
+}
+
+/** Load once per change of `deps`, then optionally refresh on a timer. */
+export function useApi<T>(
+  load: () => Promise<T>,
+  deps: unknown[] = [],
+  refresh?: Refresh<T>,
+): Loaded<T> {
   const [result, setResult] = useState<Loaded<T>>({ state: "loading" });
   useEffect(() => {
     let current = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let loadedOnce = false;
+    const fetchOnce = () => {
+      load().then(
+        (data) => {
+          if (!current) return;
+          loadedOnce = true;
+          setResult({ state: "done", data });
+          if (refresh?.while(data)) timer = setTimeout(fetchOnce, refresh.every);
+        },
+        (error: Error) => {
+          if (!current) return;
+          // A failed refresh keeps the last data on screen and tries again.
+          if (loadedOnce && refresh) {
+            timer = setTimeout(fetchOnce, refresh.every);
+            return;
+          }
+          setResult({ state: "error", error });
+        },
+      );
+    };
     setResult({ state: "loading" });
-    load().then(
-      (data) => current && setResult({ state: "done", data }),
-      (error: Error) => current && setResult({ state: "error", error }),
-    );
+    fetchOnce();
     return () => {
       current = false;
+      clearTimeout(timer);
     };
   }, deps);
   return result;

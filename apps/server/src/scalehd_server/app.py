@@ -14,9 +14,9 @@ from starlette.types import Scope
 
 from . import __version__, models
 from .config import ServerSettings
-from .db import make_engine
+from .db import OutdatedDatabaseError, check_schema, make_engine
 from .routes import api
-from .runner import JobRunner
+from .runner import ExecutorFactory, JobRunner, process_pool
 
 
 class SinglePageApp(StaticFiles):
@@ -31,17 +31,24 @@ class SinglePageApp(StaticFiles):
             return await super().get_response("index.html", scope)
 
 
-def create_app(settings: ServerSettings | None = None) -> FastAPI:
+def create_app(
+    settings: ServerSettings | None = None, *, executor_factory: ExecutorFactory = process_pool
+) -> FastAPI:
     settings = settings or ServerSettings()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        settings.data_dir.mkdir(parents=True, exist_ok=True)
+        settings.database_dir.mkdir(parents=True, exist_ok=True)
         engine = make_engine(settings.database)
+        try:
+            check_schema(engine)
+        except OutdatedDatabaseError:
+            engine.dispose()
+            raise
         # TODO: Alembic migrations once the tables settle.
         models.Base.metadata.create_all(engine)
         sessions = sessionmaker(engine)
-        runner = JobRunner(sessions, settings.data_dir / "jobs", settings.workers)
+        runner = JobRunner(sessions, settings.workers, executor_factory)
         runner.start()
         app.state.settings = settings
         app.state.sessions = sessions

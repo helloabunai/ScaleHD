@@ -7,20 +7,25 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, Request
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class ServerSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="SCALEHD_")
 
-    # Job outputs (counts and calls per sample) and, by default, the SQLite database.
-    data_dir: Path = Path("data")
-    # SQLAlchemy URL. Unset means SQLite in data_dir, which is plenty for one machine.
+    # The SQLite database, unless database_url says otherwise. In Docker it lives in
+    # its own volume, apart from the workspace, so nobody browsing results over a share
+    # can delete it.
+    database_dir: Path = Path("data")
+    # SQLAlchemy URL. Unset means SQLite in database_dir, which is plenty for one machine.
     database_url: str | None = None
-    # FASTQ files users can pick from in the web interface. Mounted read-only in Docker,
-    # so sequencing runs never pass through the browser.
-    input_dir: Path | None = None
+    # Sequencing data users can browse, read-only. In Docker it is mounted at the same
+    # path as on the host, so paths in the web interface match the host.
+    data_root: Path | None = None
+    # Results: a folder per user, a subfolder per job. Mounted read-write, at the same
+    # path as on the host.
+    workspace: Path = Path("workspace")
     # The built web frontend (apps/web/dist) to serve at /. Unset in development, where
     # Vite serves the frontend and forwards /api here.
     web_dir: Path | None = None
@@ -32,9 +37,14 @@ class ServerSettings(BaseSettings):
     # How long a login lasts.
     session_days: float = Field(default=30, gt=0)
 
+    @field_validator("data_root", "workspace")
+    @classmethod
+    def _absolute(cls, folder: Path | None) -> Path | None:
+        return None if folder is None else folder.expanduser().resolve()
+
     @property
     def database(self) -> str:
-        return self.database_url or f"sqlite:///{self.data_dir / 'scalehd.db'}"
+        return self.database_url or f"sqlite:///{self.database_dir / 'scalehd.db'}"
 
 
 def get_settings(request: Request) -> ServerSettings:

@@ -1,6 +1,6 @@
 """FASTQ files on the server that jobs can use. Not built yet.
 
-Files are read from the input directory (``SCALEHD_INPUT_DIR``) rather than uploaded,
+Files are read from the input directory (``SCALEHD_DATA_ROOT``) rather than uploaded,
 because a MiSeq run is gigabytes and the server is usually the machine the run was
 copied to. Uploads for small one-off samples could come later.
 """

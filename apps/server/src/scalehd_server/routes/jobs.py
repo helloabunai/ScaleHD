@@ -1,4 +1,4 @@
-"""Jobs: create, list, follow and cancel, and fetch each sample's results. Not built yet.
+"""List and follow jobs. Spawn jobs/fetch each sample's results.
 
 The web interface follows progress by polling ``GET /jobs/{job_id}``. Server-sent
 events could replace polling later without changing anything else.
@@ -8,21 +8,33 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response, status
 from fastapi.responses import FileResponse
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
+from .. import demo
 from ..auth import CurrentUser
 from ..config import ServerConfig
 from ..db import DbSession
 from ..errors import not_implemented
-from ..runner import RUNNABLE_METHODS, Runner
-from ..schemas import JobCreate, JobOut, JobSettings, JobSummary
+from ..models import Job
+from ..runner import Runner
+from ..schemas import JobCreate, JobOut, JobSettings, JobSummary, job_out, job_summary
+from ..worker import RUNNABLE_METHODS
+from ..workspace import WorkspaceError, write_job_folder
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
 @router.get("")
 def list_jobs(user: CurrentUser, session: DbSession) -> list[JobSummary]:
-    """The user's jobs, newest first. Admins see everyone's."""
-    raise not_implemented("jobs")
+    """The user's own jobs, newest first."""
+    jobs = session.scalars(
+        select(Job)
+        .where(Job.owner_id == user.id)
+        .options(selectinload(Job.samples))
+        .order_by(Job.created_at.desc(), Job.id.desc())
+    ).all()
+    return [job_summary(job) for job in jobs]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -39,9 +51,31 @@ def create_job(
     raise not_implemented("jobs")
 
 
+@router.post("/demo", status_code=status.HTTP_201_CREATED)
+def create_demo_job(
+    user: CurrentUser, session: DbSession, config: ServerConfig, runner: Runner
+) -> JobOut:
+    """Simulated samples with known genotypes, run like any other job."""
+    job = demo.demo_job(user, JobSettings.model_validate(user.default_settings))
+    session.add(job)
+    session.flush()
+    try:
+        job.output_dir = str(write_job_folder(config.workspace, job))
+    except WorkspaceError as exc:
+        session.rollback()
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(exc)) from None
+    session.commit()
+    runner.submit(job.id)
+    return job_out(job)
+
+
 @router.get("/{job_id}")
 def get_job(job_id: int, user: CurrentUser, session: DbSession) -> JobOut:
-    raise not_implemented("jobs")
+    job = session.get(Job, job_id)
+    # Someone else's job looks the same as a missing one, so ids can't be probed.
+    if job is None or job.owner_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no such job")
+    return job_out(job)
 
 
 @router.post("/{job_id}/cancel")

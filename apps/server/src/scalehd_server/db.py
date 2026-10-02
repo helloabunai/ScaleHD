@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any, ClassVar
 
 from fastapi import Depends, Request
-from sqlalchemy import DateTime, Dialect, Engine, TypeDecorator, create_engine, event
+from sqlalchemy import DateTime, Dialect, Engine, TypeDecorator, create_engine, event, inspect
 from sqlalchemy.orm import DeclarativeBase, Session
 
 
@@ -41,9 +41,39 @@ def make_engine(url: str) -> Engine:
         cursor = connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.execute("PRAGMA journal_mode=WAL")
+        # Request handlers and the job runner's callback thread both write: wait up
+        # to 5 s for the other instead of failing.
+        cursor.execute("PRAGMA busy_timeout=5000")
         cursor.close()
 
     return engine
+
+
+class OutdatedDatabaseError(RuntimeError):
+    """The database was made by an older ScaleHD and lacks columns this version needs."""
+
+
+def check_schema(engine: Engine) -> None:
+    """Stop with a clear message if existing tables lack columns the models have.
+
+    create_all only creates missing tables; it can't add columns to old ones.
+    TODO: Alembic migrations before releasing.
+    """
+    inspector = inspect(engine)
+    for table in Base.metadata.sorted_tables:
+        if not inspector.has_table(table.name):
+            continue
+        existing = {column["name"] for column in inspector.get_columns(table.name)}
+        if any(column.name not in existing for column in table.columns):
+            where = (
+                engine.url.database
+                if engine.url.get_backend_name() == "sqlite"
+                else engine.url.render_as_string(hide_password=True)
+            )
+            raise OutdatedDatabaseError(
+                f"database at {where} is from an older ScaleHD version: "
+                "delete it and restart (all accounts will be lost)"
+            )
 
 
 def get_session(request: Request) -> Iterator[Session]:

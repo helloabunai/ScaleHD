@@ -19,9 +19,10 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -29,6 +30,9 @@ from .amplicon import HTT_AMPLICON, AmpliconSpec
 from .calibration import HTT_MISEQ, StutterCurve, cag_kernel
 from .seqio import FastqRecord, open_text, reverse_complement, write_fastq
 from .structure import AlleleStructure
+
+if TYPE_CHECKING:
+    from .genotype import Candidate
 
 SCHEMA = "scalehd.simulation/1"
 
@@ -226,3 +230,34 @@ def _add_errors(rng: np.random.Generator, sequence: str, profile: np.ndarray) ->
         shifted = (_BASE_INDEX[bases[hits]] + rng.integers(1, 4, size=hits.size)) % 4
         bases[hits] = _BASES[shifted]
     return bases.tobytes().decode("ascii")
+
+
+def true_genotype(alleles: Sequence[AlleleStructure]) -> tuple[AlleleStructure, AlleleStructure]:
+    """A simulated sample's two true alleles, sorted, from its one or two structures."""
+    if len(alleles) == 1:
+        return alleles[0], alleles[0]
+    if len(alleles) == 2:
+        first, second = sorted(alleles)
+        return first, second
+    raise ValueError(f"a sample has one or two alleles, not {len(alleles)}")
+
+
+def call_matches(called: Sequence[Candidate], truth: Sequence[AlleleStructure]) -> bool:
+    """Whether a call's alleles are the true ones. To the best of
+    our ability to know what is true currently.
+
+    Both sides are sorted by their whole structure.
+    An allele beyond read length matches when its other fields
+    agree and its lower bound is at or below the "true" CAG.
+    """
+    if len(called) != len(truth):
+        return False
+    pairs = zip(sorted(called, key=lambda c: c.structure), sorted(truth), strict=True)
+    for allele, expected in pairs:
+        structure = allele.structure
+        if allele.beyond_read_length:
+            if structure.counts[1:] != expected.counts[1:] or structure.cag > expected.cag:
+                return False
+        elif structure != expected:
+            return False
+    return True

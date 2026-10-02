@@ -37,13 +37,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev --no-editable --package scalehd-server
 
 FROM python:${PYTHON}
-RUN useradd --create-home --uid 1000 scalehd && mkdir /data /input && chown scalehd /data
+RUN useradd --create-home --uid 1000 scalehd && mkdir /data && chown scalehd /data
 COPY --from=python /app/.venv /app/.venv
 COPY --from=web /web/dist /app/web
 ENV PATH=/app/.venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \
-    SCALEHD_DATA_DIR=/data \
-    SCALEHD_INPUT_DIR=/input \
+    SCALEHD_DATABASE_DIR=/data \
     SCALEHD_WEB_DIR=/app/web
 USER scalehd
 VOLUME /data

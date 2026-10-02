@@ -14,7 +14,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstra
 from scalehd.genotype import CallerSettings
 from scalehd.pairs import DiscordancePolicy
 
-from .models import JobStatus, SampleStatus
+from .models import Job, JobStatus, SampleStatus
 
 
 class Health(BaseModel):
@@ -46,6 +46,15 @@ class NewAccount(BaseModel):
 class PasswordChange(BaseModel):
     current_password: str = Field(max_length=256)
     new_password: _NewPassword
+
+
+class Folders(BaseModel):
+    """Data folders from host machine i.e. sequencing data to pick from, and where results go."""
+
+    data_root: str | None
+    workspace: str
+    # <workspace>/<username>: this user's jobs are saved here.
+    your_folder: str
 
 
 class Registration(BaseModel):
@@ -116,22 +125,27 @@ class SampleOut(BaseModel):
 
     id: int
     name: str
-    r1: str
+    r1: str | None
     r2: str | None
     status: SampleStatus
     genotype: str | None
     quality: float | None
     flags: list[str]
+    truth: str | None
+    matches_truth: bool | None
     error: str | None
 
 
 class JobSummary(BaseModel):
     id: int
     name: str
+    demo: bool
+    method: GenotypeMethod
     status: JobStatus
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
+    output_dir: str | None
     sample_count: int
     samples_done: int
 
@@ -140,3 +154,35 @@ class JobOut(JobSummary):
     settings: JobSettings
     samples: list[SampleOut]
     error: str | None
+
+
+def _summary(job: Job) -> dict[str, Any]:
+    done = (SampleStatus.FINISHED, SampleStatus.FAILED)
+    return {
+        "id": job.id,
+        "name": job.name,
+        "demo": job.demo,
+        "method": JobSettings.model_validate(job.settings).method,
+        "status": job.status,
+        "created_at": job.created_at,
+        "started_at": job.started_at,
+        "finished_at": job.finished_at,
+        "output_dir": job.output_dir,
+        "sample_count": len(job.samples),
+        "samples_done": sum(sample.status in done for sample in job.samples),
+    }
+
+
+def job_summary(job: Job) -> JobSummary:
+    """A job for the jobs list. Call inside an open session."""
+    return JobSummary(**_summary(job))
+
+
+def job_out(job: Job) -> JobOut:
+    """A job with its samples. Call inside an open session."""
+    return JobOut(
+        **_summary(job),
+        settings=JobSettings.model_validate(job.settings),
+        samples=[SampleOut.model_validate(sample) for sample in job.samples],
+        error=job.error,
+    )

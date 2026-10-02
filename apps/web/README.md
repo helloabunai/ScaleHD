@@ -5,6 +5,11 @@ Logging in, registering (the first account on a new server is the admin), the we
 page, the account page (change password) and default job settings (the genotyping
 method) are present but mostly just placeholders.
 
+There's additionally a demo via the "Run a demo" button on the homepage.
+It starts a job of nine simulated samples, and the jobs and job pages follow it live, with each sample's call next to its true genotype.
+
+mostly just a proof of concept before real data can exist
+
 Stylings etc are all placeholders. wip wip wip
 
 ```sh

@@ -10,13 +10,26 @@ services:
       # unless the network is trusted.
       - "127.0.0.1:8000:8000"
     volumes:
-      # Database and job outputs.
+      # The database.
       - scalehd-data:/data
-      # FASTQ files users can pick from, read-only.
-      - ${SCALEHD_INPUT:-./input}:/input:ro
+      # Sequencing data to browse, read-only, at the same path as on the host. A
+      # network share mounted under it must be mounted on the host before the
+      # container starts, or add `bind: {propagation: rslave}` here.
+      - type: bind
+        source: ${SCALEHD_DATA_ROOT:?set SCALEHD_DATA_ROOT in .env}
+        target: ${SCALEHD_DATA_ROOT}
+        read_only: true
+      # Results, read-write, at the same path as on the host. The folder must exist
+      # and be writable by uid 1000, the container's user.
+      - type: bind
+        source: ${SCALEHD_WORKSPACE:?set SCALEHD_WORKSPACE in .env}
+        target: ${SCALEHD_WORKSPACE}
     env_file:
       - path: .env
         required: false
+    environment:
+      SCALEHD_DATA_ROOT: ${SCALEHD_DATA_ROOT}
+      SCALEHD_WORKSPACE: ${SCALEHD_WORKSPACE}
     restart: unless-stopped
 
 volumes:

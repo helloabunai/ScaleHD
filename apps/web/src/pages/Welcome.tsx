@@ -1,4 +1,6 @@
-import { Link } from "react-router";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router";
+import { api } from "../api";
 import { useUser } from "../auth";
 
 export function Welcome() {
@@ -15,6 +17,7 @@ export function Welcome() {
         via an API. In theory. Not yet .. :) 
       </p>
       <div className="cards">
+        <DemoCard />
         <Link className="card" to="/jobs/new">
           <h2>Start a job</h2>
           <p>Pick FASTQ files from the server's input folder and genotype them.</p>
@@ -30,5 +33,34 @@ export function Welcome() {
       </div>
       {user.is_admin && <p className="muted">You're this server's admin. Go nuts.</p>}
     </>
+  );
+}
+
+function DemoCard() {
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run() {
+    setBusy(true);
+    setError(null);
+    try {
+      const job = await api.createDemoJob();
+      navigate(`/jobs/${job.id}`);
+    } catch (e) {
+      setError((e as Error).message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <h2>Run a demo</h2>
+      <p>Genotype nine simulated samples with known genotypes, end to end.</p>
+      <button type="button" onClick={run} disabled={busy}>
+        {busy ? "Starting…" : "Run demo"}
+      </button>
+      {error && <p className="error">{error}</p>}
+    </div>
   );
 }

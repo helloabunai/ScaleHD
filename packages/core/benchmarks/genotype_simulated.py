@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 from scalehd.counts import count_reads
 from scalehd.genotype import GenotypeCall, call_genotype
-from scalehd.simulate import SimAllele, SimulationSpec, simulate
+from scalehd.simulate import SimAllele, SimulationSpec, call_matches, simulate, true_genotype
 from scalehd.structure import AlleleStructure
 
 
@@ -57,20 +57,8 @@ def run(task: tuple[Scenario, int]) -> tuple[str, bool, GenotypeCall]:
         (a.sequence, b.sequence) for a, b in zip(sample.r1, sample.r2, strict=True)
     )
     call = call_genotype(counts)
-    truth = sorted(structures * (2 if len(structures) == 1 else 1))
-    return scenario.name, _correct(call, truth), call
-
-
-def _correct(call: GenotypeCall, truth: list[AlleleStructure]) -> bool:
-    called = sorted(call.alleles, key=lambda a: a.allele.structure.cag)
-    for allele, expected in zip(called, truth, strict=True):
-        s = allele.allele.structure
-        if allele.allele.beyond_read_length:
-            if s.counts[1:] != expected.counts[1:] or s.cag > expected.cag:
-                return False
-        elif s != expected:
-            return False
-    return True
+    truth = true_genotype(structures)
+    return scenario.name, call_matches([a.allele for a in call.alleles], truth), call
 
 
 def main() -> None:

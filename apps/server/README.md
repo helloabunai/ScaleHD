@@ -8,8 +8,19 @@ response types,  but most things implemented are just placeholders. Anything els
 uv run scalehd-server --reload     # http://127.0.0.1:8000, API docs at /api/docs
 ```
 
-Settings are `SCALEHD_*` environment variables (`config.py`): `DATA_DIR`,
-`DATABASE_URL`, `INPUT_DIR`, `WEB_DIR`, `WORKERS`, `ALLOW_REGISTRATION`, `SESSION_DAYS`.
+Settings are `SCALEHD_*` environment variables (`config.py`): `DATABASE_DIR`,
+`DATABASE_URL`, `DATA_ROOT`, `WORKSPACE`, `WEB_DIR`, `WORKERS`, `ALLOW_REGISTRATION`,
+`SESSION_DAYS`.
+
+### Folders
+
+- `SCALEHD_DATA_ROOT`: sequencing data users can browse, read-only.
+- `SCALEHD_WORKSPACE`: results, `<workspace>/<username>/<job id>-<job name>/`.
+- `SCALEHD_DATABASE_DIR`: the SQLite database, kept apart from the workspace.
+
+In Docker the first two are mounted at the same path as on the host, so paths in the
+web interface and in result files are host paths. A database made by an older version
+stops startup with a message naming it: delete it (accounts are lost) and restart.
 
 ### Accounts
 
@@ -38,7 +49,13 @@ Each job runs one of two methods (`JobSettings.method`):
 
 `GET`/`PUT /api/settings` hold each user's default (stored in `users.default_settings`).
 A new job uses its own `settings` if given, otherwise the user's default.
-`RUNNABLE_METHODS` in `runner.py` lists what jobs can use.
+`RUNNABLE_METHODS` in `worker.py` lists what jobs can use.
+
+### Simple job demo
+
+Basically written just to test the end to end/API functionality.
+
+Gets some simulated data from the simulator and runs the new genotyping (only one that exists at the moment) model with data reported back to the frontend.
 
 | module | what | state |
 |---|---|---|
@@ -46,6 +63,8 @@ A new job uses its own `settings` if given, otherwise the user's default.
 | `config.py` | settings from the environment | works |
 | `db.py`, `models.py` | SQLAlchemy engine, sessions; users, login sessions, jobs, samples tables | works, tables created at startup (no migrations yet) |
 | `schemas.py` | API request and response bodies, job settings → `CallerSettings` | works |
-| `runner.py` | `run_sample` (count and call one sample); `JobRunner` process pool | `run_sample` works, queueing is a stub |
+| `runner.py`, `worker.py` | the job runner (queue, worker pool, recording) and one sample's work | works |
+| `workspace.py` | job folders and `job.json` in the workspace | works |
+| `demo.py` | the demo job's simulated samples | works |
 | `auth.py` | password hashing, session cookie, current user | works |
-| `routes/` | `health`, `accounts`, `inputs`, `jobs`, `settings` | `health`, `accounts` and `settings` work |
+| `routes/` | `health`, `accounts`, `folders`, `inputs`, `jobs`, `settings` | all but `inputs` and the real-input/cancel/delete/report `jobs` routes work |

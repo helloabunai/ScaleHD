@@ -76,6 +76,9 @@ class Job(Base):
     started_at: Mapped[datetime | None]
     finished_at: Mapped[datetime | None]
     error: Mapped[str | None]
+    demo: Mapped[bool] = mapped_column(default=False)
+    # The job's folder in the workspace.
+    output_dir: Mapped[str | None]
 
     owner: Mapped[User] = relationship(back_populates="jobs")
     samples: Mapped[list[Sample]] = relationship(
@@ -84,11 +87,11 @@ class Job(Base):
 
 
 class Sample(Base):
-    """One sample's FASTQ input and, once run, its genotype call.
+    """One sample's input and, once run, its genotype call.
 
-    Counts stay on disk under ``data_dir/jobs/<job>/<sample>/``. The call is also
-    stored here, with its label, quality and flags copied out so job pages can list
-    them without reading the JSON.
+    Counts and call files are in the sample's folder inside the job's folder. The call
+    is also stored here, with its label, quality and flags copied out so job pages can
+    list them without reading the JSON.
     """
 
     __tablename__ = "samples"
@@ -96,9 +99,14 @@ class Sample(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"))
     name: Mapped[str] = mapped_column(String(200))
-    # Paths relative to the server's input directory.
-    r1: Mapped[str]
+    # Paths of real input files, inside the data root. None for simulated samples.
+    r1: Mapped[str | None]
     r2: Mapped[str | None]
+    # Simulated samples: {"alleles": [labels], "pairs": n, "seed": s}.
+    simulation: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    # Simulated samples: the true genotype label, and whether the call matched it.
+    truth: Mapped[str | None]
+    matches_truth: Mapped[bool | None]
     status: Mapped[SampleStatus] = mapped_column(default=SampleStatus.QUEUED)
     genotype: Mapped[str | None]
     quality: Mapped[float | None]

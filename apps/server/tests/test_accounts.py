@@ -1,4 +1,4 @@
-"""Accounts: registering, logging in and out, sessions, and changing password."""
+"""Accounts. Registering, logging in and out, sessions, and changing password."""
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -15,11 +15,15 @@ from sqlalchemy import select, update
 PASSWORD = "correct horse"
 
 
-def register(client: TestClient, username: str = "alice", password: str = PASSWORD) -> Response:
+def register(
+    client: TestClient, username: str = "autotest-user", password: str = PASSWORD
+) -> Response:
     return client.post("/api/auth/register", json={"username": username, "password": password})
 
 
-def login(client: TestClient, username: str = "alice", password: str = PASSWORD) -> Response:
+def login(
+    client: TestClient, username: str = "autotest-user", password: str = PASSWORD
+) -> Response:
     return client.post("/api/auth/login", json={"username": username, "password": password})
 
 
@@ -27,10 +31,10 @@ def test_first_account_is_the_admin_and_is_logged_in(client: TestClient) -> None
     assert client.get("/api/auth/registration").json() == {"open": True, "first_account": True}
     response = register(client)
     assert response.status_code == 201
-    alice = response.json()
-    assert alice["is_admin"]
-    assert datetime.fromisoformat(alice["created_at"]).tzinfo is not None
-    assert client.get("/api/auth/me").json() == alice
+    first = response.json()
+    assert first["is_admin"]
+    assert datetime.fromisoformat(first["created_at"]).tzinfo is not None
+    assert client.get("/api/auth/me").json() == first
     assert client.get("/api/auth/registration").json() == {"open": True, "first_account": False}
 
     client.cookies.clear()
@@ -53,12 +57,12 @@ def test_password_is_stored_hashed(client: TestClient) -> None:
 
 
 def test_usernames_are_case_insensitive_and_unique(client: TestClient) -> None:
-    assert register(client, "Alice").json()["username"] == "alice"
+    assert register(client, "Autotest-User").json()["username"] == "autotest-user"
     client.cookies.clear()
-    assert register(client, "alice").status_code == 409
-    response = login(client, " ALICE ")
+    assert register(client, "autotest-user").status_code == 409
+    response = login(client, " AUTOTEST-USER ")
     assert response.status_code == 200
-    assert response.json()["username"] == "alice"
+    assert response.json()["username"] == "autotest-user"
 
 
 @pytest.mark.parametrize(
@@ -66,7 +70,7 @@ def test_usernames_are_case_insensitive_and_unique(client: TestClient) -> None:
     [
         ("", PASSWORD),
         ("a b", PASSWORD),
-        ("-alice", PASSWORD),
+        ("-autotest-user", PASSWORD),
         ("a" * 65, PASSWORD),
         ("bob", "short"),
     ],
@@ -106,7 +110,12 @@ def test_expired_session_is_rejected(client: TestClient) -> None:
 
 
 def test_registration_can_be_closed_after_the_admin(tmp_path: Path) -> None:
-    settings = ServerSettings(data_dir=tmp_path, workers=1, allow_registration=False)
+    settings = ServerSettings(
+        database_dir=tmp_path / "data",
+        workspace=tmp_path / "ws",
+        workers=1,
+        allow_registration=False,
+    )
     with TestClient(create_app(settings)) as client:
         assert client.get("/api/auth/registration").json()["open"]
         assert register(client).status_code == 201

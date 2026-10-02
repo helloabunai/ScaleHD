@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter
 
-from . import accounts, health, inputs, jobs, settings
+from . import accounts, folders, health, inputs, jobs, settings
 
 api = APIRouter(prefix="/api")
-for _module in (health, accounts, inputs, jobs, settings):
+for _module in (health, accounts, folders, inputs, jobs, settings):
     api.include_router(_module.router)

@@ -15,4 +15,4 @@ htmlcov/
 node_modules/
 .env
 /data/
-/input/
+/workspace/
