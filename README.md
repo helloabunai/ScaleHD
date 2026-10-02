@@ -94,8 +94,8 @@ docker compose version
 2. Get this code (currently on rework branch)
 
 ```sh
-git clone https://github.com/helloabunai/scalehd.git
-cd scalehd
+git clone https://github.com/helloabunai/ScaleHD.git
+cd ScaleHD
 git switch rework
 ```
 
@@ -354,3 +354,12 @@ Don't bother running anything. Massively WIP.
 ## Licence
 
 MIT, see [LICENSE](LICENSE).
+
+## Ideas/planned features
+
+- extract legacy genotyping to be selectable from frontend for samples
+- GPU processing for data?
+- ollama based model calling?
+- report exporting
+- admin features needed (changing users passwords, etc)
+- more stuff probably

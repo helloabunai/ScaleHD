@@ -17,19 +17,20 @@ from scalehd_server.models import Job, JobStatus
 from sqlalchemy import update
 
 
-def test_demo_job_queues_nine_simulated_samples(quiet_client: TestClient, pools: Any) -> None:
+def test_demo_job_queues_ten_simulated_samples(quiet_client: TestClient, pools: Any) -> None:
     response = quiet_client.post("/api/jobs/demo")
     assert response.status_code == 201
     job = response.json()
-    assert job["name"] == "Demo: 9 simulated samples"
+    assert job["name"] == "Demo: 10 simulated samples"
     assert job["demo"] is True
     assert job["method"] == "model"
-    assert job["sample_count"] == 9
+    assert job["sample_count"] == 10
     assert [s["name"] for s in job["samples"]] == [s.name for s in DEMO_SAMPLES]
     truths = {s["name"]: s["truth"] for s in job["samples"]}
     assert truths["loss-of-interruption"] == "19_1_1_7_2/42_0_1_7_2"
     assert truths["homozygous"] == "21_1_1_7_2/21_1_1_7_2"
     assert truths["ccg-7-and-10"] == "17_1_1_7_2/17_1_1_10_2"
+    assert truths["caacag-duplication"] == "19_2_1_10_2/40_1_1_7_2"
     assert len(pools.submitted) == 1  # one worker: one sample handed out
 
 
@@ -40,7 +41,7 @@ def test_demo_job_writes_its_folder(quiet_client: TestClient, tmp_path: Path) ->
     record = json.loads((folder / "job.json").read_text())
     assert record["owner"] == "autotest-user"
     assert record["settings"]["method"] == "model"
-    assert len(record["samples"]) == 9
+    assert len(record["samples"]) == 10
 
 
 def test_demo_uses_the_model_method_even_when_the_default_is_legacy(

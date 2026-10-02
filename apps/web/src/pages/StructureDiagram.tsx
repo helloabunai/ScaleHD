@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import type { CalledAllele } from "../api";
 
 type TractKey = "cag" | "caacag" | "ccgcca" | "ccg" | "cct";
@@ -7,20 +8,30 @@ interface Tract {
   key: TractKey;
   /** The count in a typical allele, or null where any count is typical (CAG, CCG). */
   typical: number | null;
+  /** Part of the intervening sequence between the CAG and CCG tracts. */
+  intervening?: boolean;
 }
 
 // (CAG)n (CAACAG)a (CCGCCA)b (CCG)m (CCT)k, in read order.
 const TRACTS: Tract[] = [
   { unit: "CAG", key: "cag", typical: null },
-  { unit: "CAACAG", key: "caacag", typical: 1 },
-  { unit: "CCGCCA", key: "ccgcca", typical: 1 },
+  { unit: "CAACAG", key: "caacag", typical: 1, intervening: true },
+  { unit: "CCGCCA", key: "ccgcca", typical: 1, intervening: true },
   { unit: "CCG", key: "ccg", typical: null },
   { unit: "CCT", key: "cct", typical: 2 },
 ];
 
-/** Bases from the start of the intervening sequence to the end of the CCT tract. */
+/** Units a tract takes on the diagram i.e. its own, or the typical count where it has fewer. */
+function drawnUnits(allele: CalledAllele, tract: Tract): number {
+  return Math.max(allele[tract.key], tract.typical ?? 0);
+}
+
+/** Drawn bases from the start of the intervening sequence to the end of the CCT tract. */
 function rightOfJunction(allele: CalledAllele): number {
-  return TRACTS.slice(1).reduce((sum, tract) => sum + allele[tract.key] * tract.unit.length, 0);
+  return TRACTS.slice(1).reduce(
+    (sum, tract) => sum + drawnUnits(allele, tract) * tract.unit.length,
+    0,
+  );
 }
 
 /**
@@ -32,7 +43,7 @@ export function StructureDiagrams({ alleles }: Readonly<{ alleles: CalledAllele[
   const total = left + Math.max(...alleles.map(rightOfJunction));
   return (
     <>
-      <Legend />
+      <Legend atypical={alleles.some((allele) => !allele.typical)} />
       {alleles.map((allele) => (
         <figure key={allele.structure} className="structure">
           <figcaption>
@@ -57,36 +68,57 @@ function Row({ allele, left, total }: Readonly<{ allele: CalledAllele; left: num
   let x = left - allele.cag * 3;
   const blocks = TRACTS.map((tract) => {
     const count = allele[tract.key];
-    const bases = count * tract.unit.length;
+    const length = tract.unit.length;
     const start = x;
-    x += bases;
-    if (count === 0) {
-      return (
-        <div
-          key={tract.key}
-          className="tract-missing"
-          style={{ left: at(start) }}
-          title={`no ${tract.unit} (a typical allele has ${tract.typical})`}
-        />
-      );
-    }
+    x += drawnUnits(allele, tract) * length;
+    const missing = Math.max((tract.typical ?? 0) - count, 0);
+    const extra = tract.typical === null ? 0 : Math.max(count - tract.typical, 0);
     const open = tract.key === "cag" && allele.beyond_read_length;
-    const atypical = tract.typical !== null && count !== tract.typical;
     const times = `${open ? ">=" : "×"}${count}`;
+    // Extra CCT units get a block of their own, so the count label stays clear of the glow.
+    const whole = extra > 0 && tract.intervening === true;
+    const own = whole ? count : count - extra;
     return (
-      <div
-        key={tract.key}
-        className={["tract", `tract-${tract.key}`, atypical ? " atypical" : "", open ? "open" : ""].join(" ")}
-        style={{ left: at(start), width: at(bases) }}
-        title={`${tract.unit} repeated ${count} time${count === 1 ? "" : "s"}${
-          open ? " or more (reads ended inside this tract)" : ""
-        }: ${bases} bases`}
-      >
-        <span className="full">
-          {tract.unit} {times}
-        </span>
-        <span className="short">{times}</span>
-      </div>
+      <Fragment key={tract.key}>
+        {own > 0 && (
+          <div
+            className={[
+              "tract",
+              `tract-${tract.key}`,
+              open ? "open" : "",
+              whole ? "tract-extra" : "",
+            ].join(" ")}
+            style={{ left: at(start), width: at(own * length) }}
+            title={`${tract.unit} repeated ${count} time${count === 1 ? "" : "s"}${
+              open ? " or more (reads ended inside this tract)" : ""
+            }${whole ? `, ${extra} more than a typical allele (which has ${tract.typical})` : ""}: ${
+              count * length
+            } bases`}
+          >
+            <span className="full">
+              {tract.unit} {times}
+            </span>
+            <span className="short">{times}</span>
+          </div>
+        )}
+        {extra > 0 && !whole && (
+          <div
+            className={`tract tract-${tract.key} tract-extra`}
+            style={{ left: at(start + own * length), width: at(extra * length) }}
+            title={`${extra} more ${tract.unit} than a typical allele (which has ${tract.typical})`}
+          >
+            <span className="full">+{extra}</span>
+            <span className="short">+{extra}</span>
+          </div>
+        )}
+        {missing > 0 && (
+          <div
+            className="tract-missing"
+            style={{ left: at(start + count * length), width: at(missing * length) }}
+            title={`${missing} ${tract.unit} fewer than a typical allele (which has ${tract.typical})`}
+          />
+        )}
+      </Fragment>
     );
   });
   return (
@@ -97,7 +129,7 @@ function Row({ allele, left, total }: Readonly<{ allele: CalledAllele; left: num
   );
 }
 
-function Legend() {
+function Legend({ atypical }: Readonly<{ atypical: boolean }>) {
   return (
     <div className="structure-legend" aria-hidden>
       {TRACTS.map((tract) => (
@@ -110,6 +142,18 @@ function Legend() {
         <span className="swatch strand" />
         rest of the strand, outside the repeat
       </span>
+      {atypical && (
+        <>
+          <span>
+            <span className="swatch tract-missing" />
+            missing: a typical allele has it
+          </span>
+          <span>
+            <span className="swatch tract-extra" />
+            extra: more than a typical allele
+          </span>
+        </>
+      )}
       <span className="muted">expected start of the intervening sequence,  visualisation aligned here</span>
     </div>
   );

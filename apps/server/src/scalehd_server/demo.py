@@ -31,6 +31,8 @@ DEMO_SAMPLES: tuple[DemoSample, ...] = (
     # CCG 6 and 12 have not been through the caller before; a wrong call here is a
     # finding, not a demo bug.
     DemoSample("rare-ccg", ("16_1_1_6_2", "24_1_1_12_2"), seed=9),
+    # Two CAACAG and CCG 10 on the normal allele
+    DemoSample("caacag-duplication", ("19_2_1_10_2", "40_1_1_7_2"), seed=10),
 )
 
 

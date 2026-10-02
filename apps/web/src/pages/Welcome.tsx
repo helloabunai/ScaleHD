@@ -56,7 +56,7 @@ function DemoCard() {
   return (
     <div className="card">
       <h2>Run a demo</h2>
-      <p>Genotype nine simulated samples with known genotypes, end to end.</p>
+      <p>Genotype ten simulated samples with known genotypes, end to end.</p>
       <button type="button" onClick={run} disabled={busy}>
         {busy ? "Starting…" : "Run demo"}
       </button>
