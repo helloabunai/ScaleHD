@@ -9,6 +9,28 @@ is more professional.
 I am no longer working with the Monckton research group at University of Glasgow 
 anymore so this is mostly just a hobby project that may or may not go anywhere.
 
+## Quick start
+
+Requires [uv](https://docs.astral.sh/uv/) and Python 3.13+.
+
+```sh
+uv sync
+uv run scalehd simulate -a 17_1_1_7_2 -a 43_1_1_7_2 -n 20000 -o scratch --name s1
+uv run scalehd count scratch/s1_R1.fastq.gz scratch/s1_R2.fastq.gz -o scratch/s1.counts.json
+uv run scalehd call scratch/s1.counts.json -o scratch/s1.call.json
+```
+
+`scalehd genotype R1 R2` counts and calls in one step.
+
+`simulate` writes paired FASTQ plus a `.truth.json`. Its model covers PCR stutter,
+somatic expansion, length bias, sequencing errors that rise along the read, spacers
+and adapter read-through, so the pipeline can be tested before real data is
+available.
+
+### Developing
+
+within `tools/` subdir is a mini script to refresh your docker dev stack. cos lazy
+
 ## What's different
 
 The original implementation of ScaleHD was a command line python package, which took settings
@@ -70,24 +92,6 @@ Dockerfile            one image with the server, the core and the built frontend
 compose.yaml          runs that image with a data volume and a read-only FASTQ folder
 legacy/               ScaleHD 1.x, for reference only
 ```
-
-## Quick start
-
-Requires [uv](https://docs.astral.sh/uv/) and Python 3.13+.
-
-```sh
-uv sync
-uv run scalehd simulate -a 17_1_1_7_2 -a 43_1_1_7_2 -n 20000 -o scratch --name s1
-uv run scalehd count scratch/s1_R1.fastq.gz scratch/s1_R2.fastq.gz -o scratch/s1.counts.json
-uv run scalehd call scratch/s1.counts.json -o scratch/s1.call.json
-```
-
-`scalehd genotype R1 R2` counts and calls in one step.
-
-`simulate` writes paired FASTQ plus a `.truth.json`. Its model covers PCR stutter,
-somatic expansion, length bias, sequencing errors that rise along the read, spacers
-and adapter read-through, so the pipeline can be tested before real data is
-available.
 
 ## Using real FASTQ files
 
