@@ -6,6 +6,8 @@
   --success: #2a7;
   --accent: #36c;
   --on-accent: white;
+  --warning: #8a5300;
+  --warning-bg: #fdf0d5;
   --line: #8884;
 }
 
@@ -13,6 +15,8 @@
   :root {
     --accent: #7aa7ff;
     --on-accent: #0b1730;
+    --warning: #f0b45a;
+    --warning-bg: #3a2a10;
   }
 }
 
@@ -121,6 +125,68 @@ input {
 
 .form button {
   justify-self: start;
+}
+
+.form.wide {
+  max-width: 40rem;
+}
+
+.methods {
+  display: grid;
+  gap: 0.9rem;
+  margin: 0;
+  padding: 0.75rem 1rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+
+.methods legend {
+  padding: 0 0.25rem;
+  font-weight: 600;
+}
+
+.methods label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.6rem;
+  align-items: start;
+  cursor: pointer;
+}
+
+.methods label > span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.methods input {
+  margin: 0.3rem 0 0;
+  padding: 0;
+}
+
+.method-name {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  font-weight: 600;
+}
+
+.method-name .muted {
+  font-size: 0.85rem;
+  font-weight: normal;
+}
+
+.badge {
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.note {
+  color: var(--warning);
+  font-size: 0.9rem;
 }
 
 .cards {

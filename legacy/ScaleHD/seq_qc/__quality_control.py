@@ -12,9 +12,10 @@ import warnings; warnings.simplefilter("ignore") ## lazy
 
 ##
 ## Backend junk
+from multiprocessing import cpu_count
+
 from ..__backend import Colour as clr
 from ..__backend import mkdir_p
-from multiprocessing import cpu_count
 
 THREADS = str(cpu_count())
 TR_REPORT = []
@@ -156,7 +157,7 @@ class SeqQC:
 		fastqc_process.wait()
 
 		target = fqfile.split('/')[-1].split('.')[0]
-		reportDir = os.path.join(fastqc_outdir,'{}_fastqc'.format(target),'fastqc_data.txt')
+		reportDir = os.path.join(fastqc_outdir,f'{target}_fastqc','fastqc_data.txt')
 		self.fastqc_report.append(reportDir)
 
 	def get_qcreports(self):
@@ -227,8 +228,8 @@ class BatchadaptWrapper:
 			sys.exit(2)
 
 		## Build commands
-		if forward_run: forward_command = '{} {}'.format(forward_adapter_argument, self.forward_adapter)
-		if reverse_run: reverse_command = '{} {}'.format(reverse_adapter_argument, self.reverse_adapter)
+		if forward_run: forward_command = f'{forward_adapter_argument} {self.forward_adapter}'
+		if reverse_run: reverse_command = f'{reverse_adapter_argument} {self.reverse_adapter}'
 
 		minlen_command = ''; maxlen_command = ''
 		if self.min_length != '': minlen_command = '{} {}'.format('-min', self.min_length)

@@ -1,14 +1,29 @@
-import { api } from "../api";
+import { useState } from "react";
+import { api, type JobSettings } from "../api";
 import { useApi } from "../useApi";
+import { MethodPicker } from "./MethodPicker";
 import { Status } from "./Status";
 
-// TODO: browse folders of the input directory, tick samples, name the job, adjust
-// settings (prefilled from /api/settings), submit, then go to the job's page.
 export function NewJob() {
-  const inputs = useApi(api.listInputs);
+  const defaults = useApi(api.getSettings);
   return (
     <>
       <h1>New job</h1>
+      <Status of={defaults}>{(settings) => <NewJobForm defaults={settings} />}</Status>
+    </>
+  );
+}
+
+// TODO: browse folders of the input directory, tick samples, name the job, submit with
+// api.createJob({ name, samples, settings: { ...defaults, method } }), then go to the
+// job's page.
+function NewJobForm({ defaults }: { defaults: JobSettings }) {
+  const [method, setMethod] = useState(defaults.method);
+  const inputs = useApi(api.listInputs);
+  return (
+    <div className="form wide">
+      <MethodPicker value={method} onChange={setMethod} defaultMethod={defaults.method} />
+      <h2>Samples</h2>
       <Status of={inputs}>
         {(pairs) => (
           <ul>
@@ -20,6 +35,6 @@ export function NewJob() {
           </ul>
         )}
       </Status>
-    </>
+    </div>
   );
 }

@@ -1,10 +1,9 @@
-"""Each user's default settings for new jobs. Not built yet."""
+"""Each user's default settings for new jobs."""
 
 from fastapi import APIRouter
 
 from ..auth import CurrentUser
 from ..db import DbSession
-from ..errors import not_implemented
 from ..schemas import JobSettings
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -12,9 +11,11 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 
 @router.get("")
 def get_settings(user: CurrentUser) -> JobSettings:
-    raise not_implemented("settings")
+    return JobSettings.model_validate(user.default_settings)
 
 
 @router.put("")
 def save_settings(new: JobSettings, user: CurrentUser, session: DbSession) -> JobSettings:
-    raise not_implemented("settings")
+    user.default_settings = new.model_dump(mode="json")
+    session.commit()
+    return new

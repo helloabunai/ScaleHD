@@ -1,6 +1,7 @@
 import { useParams } from "react-router";
 import { api } from "../api";
 import { useApi } from "../useApi";
+import { METHODS } from "./MethodPicker";
 import { Status } from "./Status";
 
 // TODO: poll while the job runs, a cancel button, each sample's full call
@@ -14,7 +15,8 @@ export function JobDetail() {
         <>
           <h1>{job.name}</h1>
           <p>
-            {job.status} · {job.samples_done}/{job.sample_count} samples ·{" "}
+            {job.status} · {METHODS[job.settings.method].label} · {job.samples_done}/
+            {job.sample_count} samples ·{" "}
             <a href={api.reportUrl(job.id)}>PDF report</a>
           </p>
           <table>

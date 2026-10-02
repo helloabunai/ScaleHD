@@ -4,18 +4,13 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ## imports
 import os
-import pysam
+
 import numpy as np
-import pkg_resources
-from .. import align
-from .. import predict
-from shutil import move
+import pysam
 from fadapa import Fadapa
-from shutil import copyfile
-from tempfile import mkstemp
-from os import fdopen, remove
-from ..__backend import mkdir_p
-from collections import Counter
+
+from .. import align, predict
+
 
 class genHTML:
     def __init__(self, scalehdResults=None, shdVersion=None, jobLabel=None, outputPath=None):
@@ -51,7 +46,7 @@ class genHTML:
         ## WRITE EVERYTHING COLLECTED TO BASE HTML TEMPLATE
         ## THIS IS THE FINAL OUTPUT CURATION STAGE
         base_template = os.path.join(self.TEMPLATES_BASE, 'base.html')
-        f = open(base_template, 'r')
+        f = open(base_template)
         output = ''
 
         for line in f:
@@ -63,7 +58,7 @@ class genHTML:
             CCG_TITLE = allele_dict['CCG_TITLE'], CCG_DESCR=allele_dict['CCG_DESCR'], CCG_LABELS = allele_dict['CCG_LABELS'], CCG_VALUES = allele_dict['CCG_VALUES'], CCG_X = allele_dict['CCG_X'], CCG_Y = allele_dict['CCG_Y'],
             ALLELETABLE = alleletable_str, SEQDATA=analysis_str, JAVASCRIPT=script_str
             )
-            output = '{0}{1}'.format(output, line)
+            output = f'{output}{line}'
         f.close()
 
         ## Write to final output HMTL
@@ -120,7 +115,7 @@ class genHTML:
         ccg_labels = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20']
 
         ## CAG Summary
-        allele_dict['CAG_TITLE'] = 'CAG allele distribution for {}'.format(jobLabel)
+        allele_dict['CAG_TITLE'] = f'CAG allele distribution for {jobLabel}'
         allele_dict['CAG_DESCR'] = '# of alleles present'
         allele_dict['CAG_LABELS'] = str(cag_labels)
         allele_dict['CAG_VALUES'] = str(cag_summary)
@@ -128,7 +123,7 @@ class genHTML:
         allele_dict['CAG_Y'] = 'Allele count'
 
         ## CCG Summary
-        allele_dict['CCG_TITLE'] = 'CCG allele distribution for {}'.format(jobLabel)
+        allele_dict['CCG_TITLE'] = f'CCG allele distribution for {jobLabel}'
         allele_dict['CCG_DESCR'] = '# of alleles present'
         allele_dict['CCG_LABELS'] = str(ccg_labels)
         allele_dict['CCG_VALUES'] = str(ccg_summary)
@@ -143,12 +138,12 @@ class genHTML:
         css_string = ''
 
         ## gridism styling
-        f = open(gridism_path, 'r')
+        f = open(gridism_path)
         for line in f:
             css_string += line
         f.close()
         ## scalehd styling
-        f = open(scalehd_path, 'r')
+        f = open(scalehd_path)
         for line in f:
             css_string += line
         f.close()
@@ -168,37 +163,37 @@ class genHTML:
 
 
         ## jquery scripts
-        f = open(jquery_path, 'r')
+        f = open(jquery_path)
         for line in f:
             js_string += line
         f.close()
         ## MSA sequence viewer scripts
-        f = open(seqview_path, 'r')
+        f = open(seqview_path)
         for line in f:
             js_string += line
         f.close()
         ## chart.js scripts
-        f = open(chart_path, 'r')
+        f = open(chart_path)
         for line in f:
             js_string += line
         f.close()
         ## chart.js boxplot extension
-        f = open(chartBox_path, 'r')
+        f = open(chartBox_path)
         for line in f:
             js_string += line
         f.close()
         ## chart.js zoom extension
-        f = open(chartZoom_path, 'r')
+        f = open(chartZoom_path)
         for line in f:
             js_string += line
         f.close()
         ## tablefilter
-        f = open(tablefilter_path, 'r')
+        f = open(tablefilter_path)
         for line in f:
             js_string += line
         f.close()
         ## scalehd scripts
-        f = open(scalehd_path, 'r')
+        f = open(scalehd_path)
         for line in f:
             js_string += line
         f.close()
@@ -215,7 +210,7 @@ class genHTML:
         list_template = os.path.join(self.TEMPLATES_BASE, 'list.html')
         return_str = ''
 
-        f = open(list_template, 'r')
+        f = open(list_template)
 
         for sequence in self.SAMPLES:
 
@@ -232,7 +227,7 @@ class genHTML:
 
             for line in f:
                 line = line.format(UNICODE_INDICATOR=unicode_indicator, ID=sequence)
-                return_str = '{0}{1}'.format(return_str, line)
+                return_str = f'{return_str}{line}'
 
             f.seek(0)
 
@@ -244,7 +239,7 @@ class genHTML:
         tablerow_template = os.path.join(self.TEMPLATES_BASE, 'alleletable.html')
         return_str = ''
 
-        f = open(tablerow_template, 'r')
+        f = open(tablerow_template)
         for sequence in self.SAMPLES:
 
             targetObject = None
@@ -272,7 +267,7 @@ class genHTML:
                 SAMPLE_ID = sequence, A1_CAG = primary_cag, A1_CCG = primary_ccg, A1_STRUCTURE = primary_structure, A1_CONFIDENCE = primary_confidence,
                 A2_CAG = secondary_cag, A2_CCG = secondary_ccg, A2_STRUCTURE = secondary_structure, A2_CONFIDENCE = secondary_confidence
                 )
-                return_str = '{0}{1}'.format(return_str, line)
+                return_str = f'{return_str}{line}'
             f.seek(0)
         f.close()
 
@@ -287,7 +282,7 @@ class genHTML:
         seqdata_template = os.path.join(self.TEMPLATES_BASE, 'sequencedata.html')
         return_str = ''
 
-        f = open(seqdata_template, 'r')
+        f = open(seqdata_template)
         for sequence in self.SAMPLES:
 
             targetObject = None
@@ -301,7 +296,7 @@ class genHTML:
             secondary_fwmap = ''; secondary_fwmap_pcnt = ''; secondary_fwmap_purge = ''; secondary_rvmap = ''; secondary_rvmap_pcnt = ''; secondary_rvmap_purge = ''
             exceptions = targetObject.get_exceptionraised(); passfail=''
             if exceptions == 'N/A': passfail = 'completed'
-            else: passfail = 'incomplete (exception raised on {})'.format(exceptions)
+            else: passfail = f'incomplete (exception raised on {exceptions})'
 
             ## allele objects
             primary_allele = targetObject.get_primaryallele(); secondary_allele = targetObject.get_secondaryallele()
@@ -326,7 +321,7 @@ class genHTML:
                 A1_FWMAP=primary_fwmap, A1_FWMAP_PCNT=primary_fwmap_pcnt, A1_FWMAP_PURGE=primary_fwmap_purge, A1_RVMAP=primary_rvmap, A1_RVMAP_PCNT=primary_rvmap_pcnt, A1_RVMAP_PURGE=primary_rvmap_purge,
                 A2_FWMAP=secondary_fwmap, A2_FWMAP_PCNT=secondary_fwmap_pcnt, A2_FWMAP_PURGE=secondary_fwmap_purge, A2_RVMAP=secondary_rvmap, A2_RVMAP_PCNT=secondary_rvmap_pcnt, A2_RVMAP_PURGE=secondary_rvmap_purge,
                 SEQ_QC=sample_seqqc, SEQ_ALN=sample_seqaln, GTYPE=sample_gtype)
-                return_str = '{0}{1}'.format(return_str, line)
+                return_str = f'{return_str}{line}'
             f.seek(0)
         f.close()
 
@@ -352,17 +347,17 @@ class genHTML:
         forwardTrimReport = targetObject.get_trimreport()[0]; forwardTrimString = ''
         reverseTrimReport = targetObject.get_trimreport()[1]; reverseTrimString = ''
         try:
-            with open(forwardTrimReport, 'r') as infi:
+            with open(forwardTrimReport) as infi:
                 forwardTrimString=infi.read()
             forwardTrimString = self.format_trimming(forwardTrimString)
         except Exception as e:
-            forwardTrimString = 'We could not find/process a forward trimming report! Exception raised: {}'.format(e)
+            forwardTrimString = f'We could not find/process a forward trimming report! Exception raised: {e}'
         try:
-            with open(reverseTrimReport, 'r') as infi:
+            with open(reverseTrimReport) as infi:
                 reverseTrimString=infi.read()
             reverseTrimString = self.format_trimming(reverseTrimString)
         except Exception as e:
-            reverseTrimString = 'We could not find/process a reverse trimming report! Exception raised: {}'.format(e)
+            reverseTrimString = f'We could not find/process a reverse trimming report! Exception raised: {e}'
 
         ################################################################
         ## Check for FastQC report! scrape data and format if present ##
@@ -371,7 +366,7 @@ class genHTML:
         try:
             forwardFQCString = self.format_fastqc(forwardFQCReport, currSample)
         except Exception as e:
-            forwardFQCString = 'We could not find/process a FastQC report! Exception raised: {}'.format(e)
+            forwardFQCString = f'We could not find/process a FastQC report! Exception raised: {e}'
 
         #########################################################################
         ## Get FastQC graph data and append it to attribute tags in seqqc.html ##
@@ -379,7 +374,7 @@ class genHTML:
         forwardFQCReport = targetObject.get_fqcreport()[0]; fastqc_graphdata = {}
         try:
             fastqc_graphdata = self.format_fastqc_graphs(forwardFQCReport, currSample)
-        except Exception as e:
+        except Exception:
             fastqc_graphdata = {
             'PBSQ_TITLE': 'FastQC failure :(', 'PBSQ_LABELS': '', 'PBSQ_VALUES': '', 'PBSQ_MEANVAL': '', 'PBSQ_DESCR': '', 'PBSQ_X': '', 'PBSQ_Y': '',
             'PBNC_TITLE': 'FastQC failure :(', 'PBNC_LABELS': '', 'PBNC_VALUES': '', 'PBNC_DESCR': '', 'PBNC_X': '', 'PBNC_Y': '',
@@ -390,7 +385,7 @@ class genHTML:
         ## Apply scraped and formatted data into HTML template for SeqQC ##
         ###################################################################
         qc_template = os.path.join(self.TEMPLATES_BASE, 'seqqc.html')
-        f = open(qc_template, 'r')
+        f = open(qc_template)
         qc_return = ''
         for line in f:
             line = line.format(ID=currSample, FORWARD_TRIM=forwardTrimString, REVERSE_TRIM=reverseTrimString, FASTQC=forwardFQCString,
@@ -398,7 +393,7 @@ class genHTML:
             PBNC_TITLE=fastqc_graphdata['PBNC_TITLE'], PBNC_LABELS=fastqc_graphdata['PBNC_LABELS'], PBNC_VALUES=fastqc_graphdata['PBNC_VALUES'], PBNC_DESCR=fastqc_graphdata['PBNC_DESCR'], PBNC_X=fastqc_graphdata['PBNC_X'], PBNC_Y=fastqc_graphdata['PBNC_Y'],
             SQLD_TITLE=fastqc_graphdata['SQLD_TITLE'], SQLD_LABELS=fastqc_graphdata['SQLD_LABELS'], SQLD_VALUES=fastqc_graphdata['SQLD_VALUES'], SQLD_DESCR=fastqc_graphdata['SQLD_DESCR'], SQLD_X=fastqc_graphdata['SQLD_X'], SQLD_Y=fastqc_graphdata['SQLD_Y'],
             )
-            qc_return = '{0}{1}'.format(qc_return, line)
+            qc_return = f'{qc_return}{line}'
         f.close()
 
         return qc_return
@@ -423,10 +418,10 @@ class genHTML:
         adapterSummary = adapterSummary.replace(';', '<br />')
 
         trim_return = ''
-        f = open(trim_template, 'r')
+        f = open(trim_template)
         for line in f:
             line = line.format(TECHNICAL=techSummary, SUMMARY=trimSummary, ADAPTER=adapterSummary)
-            trim_return = '{0}{1}'.format(trim_return, line)
+            trim_return = f'{trim_return}{line}'
         f.close()
 
         ## Return formatted trimming report
@@ -442,9 +437,9 @@ class genHTML:
 
         ## Module status data
         module_summary = fqc_object.summary()
-        module_stats = module_summary[1][0]; module_pbsq = module_summary[2][0]; module_ptsq = module_summary[3][0];
-        module_psqs = module_summary[4][0]; module_pbsc = module_summary[5][0]; module_psgcc = module_summary[6][0];
-        module_pbnc = module_summary[7][0]; module_seqlendist = module_summary[8][0]; module_seqdup = module_summary[9][0];
+        module_stats = module_summary[1][0]; module_pbsq = module_summary[2][0]; module_ptsq = module_summary[3][0]
+        module_psqs = module_summary[4][0]; module_pbsc = module_summary[5][0]; module_psgcc = module_summary[6][0]
+        module_pbnc = module_summary[7][0]; module_seqlendist = module_summary[8][0]; module_seqdup = module_summary[9][0]
         module_overrep = module_summary[10][0]; module_adapter = module_summary[11][0]
 
         ## Basic statistics data
@@ -455,7 +450,7 @@ class genHTML:
 
         ## FastQC html template file with data inserted
         fqc_return = ''
-        f = open(fastqc_template, 'r')
+        f = open(fastqc_template)
         for line in f:
             line = line.format(
             MODULE_STATS = module_stats, MODULE_PBSQ = module_pbsq, MODULE_PTSQ = module_ptsq,
@@ -466,7 +461,7 @@ class genHTML:
             FQC_TOTALSEQ = total_sequences, FQC_POORQUAL = poor_quality, FQC_SEQLEN = seq_len,
             FQC_GCPCNT = gc_pcnt
             )
-            fqc_return = '{0}{1}'.format(fqc_return, line)
+            fqc_return = f'{fqc_return}{line}'
         f.close()
 
         ## return formatted FastQC report
@@ -506,7 +501,7 @@ class genHTML:
 
         ##
         ## Per Base Pair N Content
-        fastqc_graphdata['PBNC_TITLE'] = 'FastQC Per base N content for {}'.format(currSample)
+        fastqc_graphdata['PBNC_TITLE'] = f'FastQC Per base N content for {currSample}'
         pbnc_labels = []; pbnc_values = []
         for item in fqc_pbnc_data[1:]:
             pbnc_labels.append(item[0]); pbnc_values.append(item[1])
@@ -518,7 +513,7 @@ class genHTML:
 
         ##
         ## Sequence Length Distribution
-        fastqc_graphdata['SQLD_TITLE'] = 'FastQC Sequence length distribution for {}'.format(currSample)
+        fastqc_graphdata['SQLD_TITLE'] = f'FastQC Sequence length distribution for {currSample}'
         dist_labels = []; dist_values = []
         for item in fqc_seqlen_data[1:]:
             dist_labels.append(item[0]); dist_values.append(item[1])
@@ -551,7 +546,7 @@ class genHTML:
         pri_sequences = ''; counter = 1; pri_reads = None; pri_err_string = ''
         ## if atypical, then the labelling format generated in custom XML/FA is different
         if targetObject.get_primaryallele().get_allelestatus() == 'Atypical':
-            pri_contig = '{}_CAG{}_CCG{}_CCT{}'.format(pri_contig, targetObject.get_primaryallele().get_cag(), targetObject.get_primaryallele().get_ccg(), targetObject.get_primaryallele().get_cct())
+            pri_contig = f'{pri_contig}_CAG{targetObject.get_primaryallele().get_cag()}_CCG{targetObject.get_primaryallele().get_ccg()}_CCT{targetObject.get_primaryallele().get_cct()}'
 
         try:
             pri_reads = pri_assembly_object.fetch(reference=pri_contig)
@@ -562,17 +557,17 @@ class genHTML:
             for item in present_references: similar_contigs.append((item, align.similar(pri_contig,item)))
             pri_contig = sorted(similar_contigs, key=lambda a: a[1], reverse=True)[0][0]
             pri_reads = pri_assembly_object.fetch(reference=pri_contig)
-            pri_err_string = '<p>ScaleHD was unable to extract reads for the contig: {}. Extracted data is from the best contig match: {}</p>'.format(targetObject.get_primaryallele().get_reflabel(), pri_contig)
+            pri_err_string = f'<p>ScaleHD was unable to extract reads for the contig: {targetObject.get_primaryallele().get_reflabel()}. Extracted data is from the best contig match: {pri_contig}</p>'
 
         pri_count = pri_assembly_object.count(reference=pri_contig)
         if pri_count < 100:
-            pri_err_string += '<p>There are a very small number of reads ({}) aligned to this (a)typical reference. Alignment may have not been successful; please check the typically aligned reference to confirm results.</p>'.format(pri_count)
+            pri_err_string += f'<p>There are a very small number of reads ({pri_count}) aligned to this (a)typical reference. Alignment may have not been successful; please check the typically aligned reference to confirm results.</p>'
 
         ## select 40 reads to send to HTML
         for read in pri_reads:
             target_sequence = read.query_alignment_sequence
             if 1 < counter < 45:
-                pri_sequences += ">{}\n{}\n".format(counter, target_sequence)
+                pri_sequences += f">{counter}\n{target_sequence}\n"
             counter += 1
 
         ##
@@ -582,7 +577,7 @@ class genHTML:
         sec_sequences = ''; counter = 1; sec_reads = None; sec_err_string = ''
         ## if atypical, then the labelling format generated in custom XML/FA is different
         if targetObject.get_secondaryallele().get_allelestatus() == 'Atypical':
-            sec_contig = '{}_CAG{}_CCG{}_CCT{}'.format(sec_contig, targetObject.get_secondaryallele().get_cag(), targetObject.get_secondaryallele().get_ccg(), targetObject.get_secondaryallele().get_cct())
+            sec_contig = f'{sec_contig}_CAG{targetObject.get_secondaryallele().get_cag()}_CCG{targetObject.get_secondaryallele().get_ccg()}_CCT{targetObject.get_secondaryallele().get_cct()}'
 
         try:
             sec_reads = sec_assembly_object.fetch(reference=sec_contig)
@@ -593,28 +588,28 @@ class genHTML:
             for item in present_references: similar_contigs.append((item, align.similar(sec_contig,item)))
             sec_contig = sorted(similar_contigs, key=lambda a: a[1], reverse=True)[0][0]
             sec_reads = sec_assembly_object.fetch(reference=sec_contig)
-            sec_err_string = '<p>ScaleHD was unable to extract reads for the contig: {}. Extracted data is from the best contig match: {}</p>'.format(targetObject.get_secondaryallele().get_reflabel(), sec_contig)
+            sec_err_string = f'<p>ScaleHD was unable to extract reads for the contig: {targetObject.get_secondaryallele().get_reflabel()}. Extracted data is from the best contig match: {sec_contig}</p>'
 
         sec_count = sec_assembly_object.count(reference=sec_contig)
         if sec_count < 100:
-            sec_err_string += '<p>There are a very small number of reads ({}) aligned to this (a)typical reference. Alignment may have not been successful; please check the typically aligned reference to confirm results.</p>'.format(sec_count)
+            sec_err_string += f'<p>There are a very small number of reads ({sec_count}) aligned to this (a)typical reference. Alignment may have not been successful; please check the typically aligned reference to confirm results.</p>'
 
         ## select 40 reads to send to HTML
         for read in sec_reads:
             target_sequence = read.query_alignment_sequence
             if 1 < counter < 45:
-                sec_sequences += ">{}\n{}\n".format(counter, target_sequence)
+                sec_sequences += f">{counter}\n{target_sequence}\n"
             counter += 1
 
         ###################################################################
         ## Apply scraped and formatted data into HTML template for SeqQC ##
         ###################################################################
         aln_template = os.path.join(self.TEMPLATES_BASE, 'seqALN.html')
-        f = open(aln_template, 'r')
+        f = open(aln_template)
         aln_return = ''
         for line in f:
             line = line.format(ID = currSample, PRI_ERR_STRING = pri_err_string, PRI_CONTIG = pri_contig, SEC_ERR_STRING = sec_err_string, SEC_CONTIG = sec_contig, PRI_SEQUENCES = pri_sequences, SEC_SEQUENCES = sec_sequences)
-            aln_return = '{0}{1}'.format(aln_return, line)
+            aln_return = f'{aln_return}{line}'
         f.close()
 
         return aln_return
@@ -642,11 +637,11 @@ class genHTML:
         ##################################
         ## Summary genotype information ##
         ##################################
-        pri_cag = primary_allele.get_cag(); pri_ccg = primary_allele.get_ccg(); pri_structurelabel = primary_allele.get_allelestatus();
+        pri_cag = primary_allele.get_cag(); pri_ccg = primary_allele.get_ccg(); pri_structurelabel = primary_allele.get_allelestatus()
         pri_structure = primary_allele.get_reflabel(); pri_intervening = primary_allele.get_intervening(); pri_slippage = primary_allele.get_backwardsslippage()
         pri_mosaicism = primary_allele.get_somaticmosaicism(); pri_confidence = primary_allele.get_alleleconfidence()
 
-        sec_cag = secondary_allele.get_cag(); sec_ccg = secondary_allele.get_ccg(); sec_structurelabel = secondary_allele.get_allelestatus();
+        sec_cag = secondary_allele.get_cag(); sec_ccg = secondary_allele.get_ccg(); sec_structurelabel = secondary_allele.get_allelestatus()
         sec_structure = secondary_allele.get_reflabel(); sec_intervening = secondary_allele.get_intervening(); sec_slippage = secondary_allele.get_backwardsslippage()
         sec_mosaicism = secondary_allele.get_somaticmosaicism(); sec_confidence = secondary_allele.get_alleleconfidence()
 
@@ -657,7 +652,7 @@ class genHTML:
         pri_rvarray = primary_allele.get_rvarray(); sec_rvarray = secondary_allele.get_rvarray()
         allele_super = [0] + np.asarray([a + b for a, b in zip(pri_rvarray,sec_rvarray)]).tolist() ## 0 added to offset label indexing from 0
 
-        gtype_data['CCGDIST_TITLE'] = 'CCG Distribution for {}'.format(currSample)
+        gtype_data['CCGDIST_TITLE'] = f'CCG Distribution for {currSample}'
         gtype_data['CCGDIST_DESCR'] = '# of reads present'
         gtype_data['CCGDIST_LABELS'] = str(ccg_labels)
         gtype_data['CCGDIST_VALUES'] = str(allele_super)
@@ -672,12 +667,12 @@ class genHTML:
         pri_fwarray = primary_allele.get_fwarray().copy(); sec_fwarray = secondary_allele.get_fwarray().copy()
         pri_split = predict.split_cag_target(pri_fwarray); sec_split = predict.split_cag_target(sec_fwarray)
 
-        pri_target = pri_split['CCG{}'.format(pri_ccg)].tolist(); sec_target = sec_split['CCG{}'.format(sec_ccg)].tolist()
+        pri_target = pri_split[f'CCG{pri_ccg}'].tolist(); sec_target = sec_split[f'CCG{sec_ccg}'].tolist()
         pri_target = pri_target[0:100]; sec_target = sec_target[0:100]
 
-        gtype_data['CAGDIST_TITLE'] = 'CAG Distribution for {}'.format(currSample)
-        gtype_data['PRI_DIST_DESCR'] = 'CCG{}'.format(pri_ccg)
-        gtype_data['SEC_DIST_DESCR'] = 'CCG{}'.format(sec_ccg)
+        gtype_data['CAGDIST_TITLE'] = f'CAG Distribution for {currSample}'
+        gtype_data['PRI_DIST_DESCR'] = f'CCG{pri_ccg}'
+        gtype_data['SEC_DIST_DESCR'] = f'CCG{sec_ccg}'
         gtype_data['CAGDIST_LABELS'] = str(cag_labels)
         gtype_data['CAGDIST_PRI_VALUES'] = str(pri_target)
         gtype_data['CAGDIST_SEC_VALUES'] = str(sec_target)
@@ -693,18 +688,18 @@ class genHTML:
         ############################
         ## ScaleHD analysis flags ##
         ############################
-        shd_exception = targetObject.get_exceptionraised(); shd_homozygous = targetObject.get_homozygoushaplotype(); shd_neighbours = targetObject.get_neighbouringpeaks();
+        shd_exception = targetObject.get_exceptionraised(); shd_homozygous = targetObject.get_homozygoushaplotype(); shd_neighbours = targetObject.get_neighbouringpeaks()
         shd_diminished = targetObject.get_diminishedpeaks(); shd_novelatypical = targetObject.get_novel_atypical_structure(); shd_alignmentwarn = targetObject.get_alignmentwarning()
         shd_atypicalalignmentwarn = targetObject.get_atypical_alignmentwarning(); shd_ccgrewrite = targetObject.get_atypical_ccgrewrite(); shd_zygrewrite = targetObject.get_atypical_zygrewrite()
-        shd_ccguncertain = targetObject.get_ccguncertainty(); shd_cctuncertain = targetObject.get_cctuncertainty(); shd_svmfail = targetObject.get_svm_failure();
-        shd_diffconfuse = targetObject.get_differential_confusion(); shd_missedexpansion = targetObject.get_missed_expansion(); shd_heuristicfilter = targetObject.get_heuristicfilter();
+        shd_ccguncertain = targetObject.get_ccguncertainty(); shd_cctuncertain = targetObject.get_cctuncertainty(); shd_svmfail = targetObject.get_svm_failure()
+        shd_diffconfuse = targetObject.get_differential_confusion(); shd_missedexpansion = targetObject.get_missed_expansion(); shd_heuristicfilter = targetObject.get_heuristicfilter()
         shd_peakinspection = targetObject.get_peakinspection_warning(); shd_lowdistreads = targetObject.get_distribution_readcount_warning(); shd_lowpeakreads = targetObject.get_fatalreadallele()
 
         ###################################################################
         ## Apply scraped and formatted data into HTML template for SeqQC ##
         ###################################################################
         gtype_template = os.path.join(self.TEMPLATES_BASE, 'seqGTYPE.html')
-        f = open(gtype_template, 'r')
+        f = open(gtype_template)
         gtype_return = ''
         for line in f:
             line = line.format(
@@ -721,6 +716,6 @@ class genHTML:
             SHDFLAG_SVMFAIL = shd_svmfail, SHDFLAG_DIFFCONFUSE = shd_diffconfuse, SHDFLAG_MISSEDEXP = shd_missedexpansion, SHDFLAG_FILTERPASS = shd_heuristicfilter, SHDFLAG_PEAKINSPECT = shd_peakinspection,
             SHDFLAG_LOWDISTREADS = shd_lowdistreads, SHDFLAG_LOWPEAKREADS = shd_lowpeakreads
             )
-            gtype_return = '{0}{1}'.format(gtype_return, line)
+            gtype_return = f'{gtype_return}{line}'
         f.close()
         return gtype_return

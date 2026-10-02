@@ -2,8 +2,8 @@
 
 The ScaleHD web interface: React and TypeScript, built with Vite. Mostly a skeleton.
 Logging in, registering (the first account on a new server is the admin), the welcome
-page and the account page (change password) work. Pages exist for jobs, new jobs,
-job results and settings, but what they ask the API for returns "not implemented yet".
+page, the account page (change password) and default job settings (the genotyping
+method) are present but mostly just placeholders.
 
 Stylings etc are all placeholders. wip wip wip
 

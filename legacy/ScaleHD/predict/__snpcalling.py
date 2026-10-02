@@ -2,12 +2,15 @@
 __version__ = '1.0'
 __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
-import os
-import vcf
-import subprocess
-import numpy as np
 import logging as log
+import os
+import subprocess
+
+import numpy as np
+import vcf
+
 from ..__backend import Colour as clr
+
 
 class DetermineMutations:
 	def __init__(self, sequencepair_object, instance_params):
@@ -46,7 +49,7 @@ class DetermineMutations:
 				dict_path = '/'.join(fw_idx.split('/')[:-1])+'/'+indiv_typical_reference_name+'.dict'
 				if not os.path.isfile(dict_path):
 					## picard dict creation
-					picard_string = 'picard {} {}'.format(fw_idx, dict_path)
+					picard_string = f'picard {fw_idx} {dict_path}'
 					picard_subprocess = subprocess.Popen([picard_string], shell=True,
 					 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 					picard_log = picard_subprocess.communicate(); picard_subprocess.wait()
@@ -63,7 +66,7 @@ class DetermineMutations:
 				indiv_atypical_reference_name = fw_idx.split('/')[-2:-1][0]
 				dict_path = '/'.join(fw_idx.split('/')[:-1])+'/'+indiv_atypical_reference_name+'.dict'
 				## picard dict creation
-				picard_string = 'picard {} {}'.format(fw_idx, dict_path)
+				picard_string = f'picard {fw_idx} {dict_path}'
 				picard_subprocess = subprocess.Popen([picard_string], shell=True,
 					stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 				picard_log = picard_subprocess.communicate(); picard_subprocess.wait()
@@ -76,9 +79,8 @@ class DetermineMutations:
 
 			## freebayes haplotype caller
 			observation_threshold = self.sequencepair_object.get_snpobservationvalue()
-			freebayes_output = os.path.join(predpath, '{}_FreeBayesVariantCall.vcf'.format(header))
-			freebayes_string = 'freebayes -f {} -B 4000 -C {} {}'.format(
-				fw_idx, observation_threshold, fw_assembly)
+			freebayes_output = os.path.join(predpath, f'{header}_FreeBayesVariantCall.vcf')
+			freebayes_string = f'freebayes -f {fw_idx} -B 4000 -C {observation_threshold} {fw_assembly}'
 			freebayes_outfi = open(freebayes_output, 'w')
 			freebayes_subprocess = subprocess.Popen([freebayes_string], shell=True,
 													stdout=freebayes_outfi, stderr=subprocess.PIPE)
@@ -111,7 +113,7 @@ class DetermineMutations:
 			freebayes_matched = []; freebayes_unmatched = []
 			if allele.get_allelestatus() == 'Typical': target = allele.get_reflabel()
 			if allele.get_allelestatus() == 'Atypical': target = allele.get_reflabel().split('CAG')[0]
-			freebayes_reader = vcf.Reader(open(allele.get_freebayes_file(), 'r'))
+			freebayes_reader = vcf.Reader(open(allele.get_freebayes_file()))
 			for record in freebayes_reader:
 				origin = ''
 				if allele.get_allelestatus() == 'Typical': origin = record.CHROM
@@ -124,7 +126,7 @@ class DetermineMutations:
 			## sort and remove records which are < user specified cutoff
 			## todo again generalise this code you absolute throbber
 			freebayes_sorted = sorted(freebayes_matched, key=lambda a:a.QUAL, reverse=True)
-			freebayes_sorted = [x for x in freebayes_sorted if x.QUAL > variant_cutoff]
+			freebayes_sorted = [x for x in freebayes_sorted if variant_cutoff < x.QUAL]
 
 			##
 			## PCR amplification results in fake mutations from the primer sequence
@@ -141,8 +143,8 @@ class DetermineMutations:
 				## we have snps!
 				freebayes_str = ''; mutation_calls = ''; mutation_scores = ''
 				for mutation in freebayes_sorted:
-					mutation_calls += '{}->{}@{}   '.format(mutation.REF, mutation.ALT[0], mutation.POS)
-					mutation_scores += '{}   '.format(mutation.QUAL)
+					mutation_calls += f'{mutation.REF}->{mutation.ALT[0]}@{mutation.POS}   '
+					mutation_scores += f'{mutation.QUAL}   '
 				allele.set_variantcall(mutation_calls)
 				allele.set_variantscore(freebayes_score)
 			else:
@@ -154,8 +156,7 @@ class DetermineMutations:
 			target_dir = os.path.join(self.sequencepair_object.get_predictpath(), 'IrrelevantVariants.txt')
 			with open(target_dir, 'w') as outfi:
 				for record in freebayes_unmatched:
-					record_str = 'Freebayes: {} = {} -> {} @ {}. Qual: {}'.format(record.CHROM, record.REF,
-																		record.ALT, record.POS, record.QUAL)
+					record_str = f'Freebayes: {record.CHROM} = {record.REF} -> {record.ALT} @ {record.POS}. Qual: {record.QUAL}'
 					outfi.write(record_str+'\n')
 				outfi.write('\n')
 

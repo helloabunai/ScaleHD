@@ -122,7 +122,7 @@ class SeqAlign:
 	def subsample_input(self, target_file, suffix):
 
 		if self.individual_allele is None:
-			target_sample = '{}_SUB_{}.fastq'.format(self.sequencepair_object.get_label(), suffix)
+			target_sample = f'{self.sequencepair_object.get_label()}_SUB_{suffix}.fastq'
 			target_output = os.path.join(self.sequencepair_object.get_alignpath(),target_sample)
 			target_outfi = open(target_output, 'w')
 			seqtk_process = subprocess.Popen(['seqtk', 'sample', '-s100', target_file, str(self.subsample_flag)], stdout=target_outfi)
@@ -248,7 +248,7 @@ class SeqAlign:
 		##User feedback on alignment progress.. maybe improve later
 		##if you're reading this and want better feedback, you probably know 'htop' exists
 		log.info('{}{}{}{}'.format(clr.bold,'shd__ ',clr.end,feedback_string))
-		sample_string = '{}_{}_{}'.format(self.sample_root, io_index, typical_flag)
+		sample_string = f'{self.sample_root}_{io_index}_{typical_flag}'
 		alignment_outdir = os.path.join(self.target_output, sample_string)
 		if os.path.exists(alignment_outdir):
 			alignment_outdir = os.path.join(self.target_output, '{}_{}'.format(sample_string, 'alternate'))
@@ -286,8 +286,8 @@ class SeqAlign:
 									    stdout=aln_outfi, stderr=subprocess.PIPE)
 
 		bwa_error = bwa_process.communicate()[1]
-		if 'illegal'.encode() in bwa_error: raise Exception('Illegal BWA behaviour: {}'.format(bwa_error))
-		if '[E::'.encode() in bwa_error: raise Exception('Illegal BWA behaviour: {}'.format(bwa_error))
+		if b'illegal' in bwa_error: raise Exception(f'Illegal BWA behaviour: {bwa_error}')
+		if b'[E::' in bwa_error: raise Exception(f'Illegal BWA behaviour: {bwa_error}')
 		bwa_process.wait()
 		aln_outfi.close()
 

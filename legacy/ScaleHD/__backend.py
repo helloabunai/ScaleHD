@@ -4,24 +4,23 @@ __author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
 ## Imports
-import string
-import os
-import errno
-import shutil
-import sys
-import glob
-import datetime
-import subprocess
-import logging as log
-import numpy as np
 import csv
-from io import StringIO
-import PyPDF2
-from sklearn import preprocessing
+import datetime
+import errno
+import glob
+import logging as log
+import os
+import shutil
+import string
+import subprocess
+import sys
 from collections import defaultdict
 from xml.etree import cElementTree
+
+import numpy as np
 from lxml import etree
-from reportlab.pdfgen import canvas
+from sklearn import preprocessing
+
 
 class Colour:
 
@@ -39,7 +38,7 @@ class Colour:
 	underline = '\033[4m'
 	end = '\033[0m'
 
-class ConfigReader(object):
+class ConfigReader:
 
 	"""
 	The configuration file reader.
@@ -77,14 +76,14 @@ class ConfigReader(object):
 
 		##
 		## Open > etree.DTD object
-		dtd_file = open(self.dtd_filename, 'r')
+		dtd_file = open(self.dtd_filename)
 		dtd_object = etree.DTD(dtd_file)
 
 		##
 		## If validation fails, close the object (memory) and raise an error
 		if not dtd_object.validate(self.config_file):
 			dtd_file.close()
-			log.error("DTD validation failure {0}: {1}".format(self.config_filename, dtd_object.error_log.filter_from_errors()[0]))
+			log.error(f"DTD validation failure {self.config_filename}: {dtd_object.error_log.filter_from_errors()[0]}")
 			sys.exit(2)
 		dtd_file.close()
 
@@ -249,12 +248,12 @@ class ConfigReader(object):
 			if not quality_threshold.isdigit():
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified quality threshold integer is invalid.'))
 				trigger = True
-			elif not int(quality_threshold) in range(0,39):
+			elif int(quality_threshold) not in range(0,39):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified quality threshold integer out of range (0-38).'))
 				trigger = True
 			trim_adapters = ['-a','-g','-a$','-g^','-b']
 			adapter_flag = self.config_dict['trim_flags']['@adapter_flag']
-			if not (adapter_flag in trim_adapters):
+			if adapter_flag not in trim_adapters:
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified trimming adapter not valid selection.'))
 				trigger = True
 			forward_adapter = self.config_dict['trim_flags']['@forward_adapter']
@@ -271,7 +270,7 @@ class ConfigReader(object):
 			if not isinstance(float(error_tolerance), float):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified error tolerance is not a valid float.'))
 				trigger = True
-			if not float(error_tolerance) in np.arange(0,1.1,0.01):
+			if float(error_tolerance) not in np.arange(0,1.1,0.01):
 				log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: Specified error tolerance is not 0.0 < x < 1.0.'))
 				trigger = True
 
@@ -348,7 +347,7 @@ class ConfigReader(object):
 		if genotype_flag == 'True':
 			snp_observation_pcnt = self.config_dict['prediction_flags']['@snp_observation_threshold']
 			if not snp_observation_pcnt.isdigit():
-				if not int(snp_observation_pcnt) in range(1,5):
+				if int(snp_observation_pcnt) not in range(1,5):
 					log.error('{}{}{}{}'.format(Colour.red, 'shd__ ', Colour.end, 'XML Config: SNP Observation value invalid! Please use 1-10.'))
 					trigger = True
 
@@ -453,7 +452,7 @@ def sanitise_inputs(parsed_arguments):
 	## Jobname prefix validity check
 	if parsed_arguments.jobname:
 		for character in parsed_arguments.jobname:
-			if character is ' ' or character is '/':
+			if character == ' ' or character == '/':
 				log.error('{}{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Specified Job Name has invalid characters: "', character, '"'))
 				trigger = True
 
@@ -561,12 +560,12 @@ def initialise_libraries(instance_params):
 	## Changed from WHICH as apparently type functions over different shells/config files
 	def type_func(binary):
 		binary_result = []
-		binary_string = 'type {}'.format(binary)
+		binary_string = f'type {binary}'
 		binary_subprocess = subprocess.Popen([binary_string], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		binary_result = binary_subprocess.communicate()
 		binary_subprocess.wait()
 
-		if 'not found'.encode() in binary_result[0] or binary_result[1]:
+		if b'not found' in binary_result[0] or binary_result[1]:
 			log.critical('{}{}{}{}{}{}'.format(Colour.red,'shd__ ',Colour.end,'Missing binary: ', binary, '!'))
 			raise NameError
 
@@ -675,7 +674,7 @@ def scrape_summary_data(stage, input_report_file):
 	##
 	## If the argument input_report_file is from trimming..
 	if stage == 'trim':
-		with open(input_report_file, 'r') as trpf:
+		with open(input_report_file) as trpf:
 			trim_lines = trpf.readlines()
 			##
 			## Determine buffer size to slice from above array
@@ -697,7 +696,7 @@ def scrape_summary_data(stage, input_report_file):
 	##
 	## If the argument input_report_file is from alignment..
 	if stage == 'align':
-		with open(input_report_file, 'r') as alnrpf:
+		with open(input_report_file) as alnrpf:
 			align_lines = alnrpf.readlines()
 			alnrpf.close()
 		##
@@ -719,7 +718,7 @@ def generate_atypical_xml(label, allele_object, index_path, direction):
 	"""
 	##TODO docstring
 
-	atypical_path = os.path.join(index_path, '{}{}_{}.xml'.format(direction, label, allele_object.get_reflabel()))
+	atypical_path = os.path.join(index_path, f'{direction}{label}_{allele_object.get_reflabel()}.xml')
 	fp_flank = 'GCGACCCTGGAAAAGCTGATGAAGGCCTTCGAGTCCCTCAAGTCCTTC'
 	cagstart = ''; cagend = ''
 	intv = allele_object.get_intervening()

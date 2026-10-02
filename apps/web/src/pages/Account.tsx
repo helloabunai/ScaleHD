@@ -1,4 +1,5 @@
 import { type SubmitEvent, useState } from "react";
+import { Link } from "react-router";
 import { api } from "../api";
 import { useUser } from "../auth";
 
@@ -39,6 +40,10 @@ export function Account() {
       <p className="muted">
         {user.is_admin ? "Admin" : "User"} · account created{" "}
         {new Date(user.created_at).toLocaleDateString()}
+      </p>
+      <p>
+        <Link to="/settings">Default job settings</Link>: the genotyping method and thresholds
+        your new jobs start with.
       </p>
       <form className="form" onSubmit={submit}>
         <h2>Change password</h2>

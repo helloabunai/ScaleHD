@@ -1,6 +1,7 @@
-from setuptools import setup, find_packages
 from codecs import open
 from os import path
+
+from setuptools import find_packages, setup
 
 # Get the long description from the relevant file
 here = path.abspath(path.dirname(__file__))

@@ -6,15 +6,15 @@ events could replace polling later without changing anything else.
 
 from typing import Any
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, HTTPException, Response, status
 from fastapi.responses import FileResponse
 
 from ..auth import CurrentUser
 from ..config import ServerConfig
 from ..db import DbSession
 from ..errors import not_implemented
-from ..runner import Runner
-from ..schemas import JobCreate, JobOut, JobSummary
+from ..runner import RUNNABLE_METHODS, Runner
+from ..schemas import JobCreate, JobOut, JobSettings, JobSummary
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -30,6 +30,12 @@ def create_job(
     job: JobCreate, user: CurrentUser, session: DbSession, config: ServerConfig, runner: Runner
 ) -> JobOut:
     """Check each sample's files exist in the input directory, store the job, queue it."""
+    settings = job.settings or JobSettings.model_validate(user.default_settings)
+    if settings.method not in RUNNABLE_METHODS:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"{settings.method} genotyping is not available yet. Placeholder flag.",
+        )
     raise not_implemented("jobs")
 
 

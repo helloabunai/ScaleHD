@@ -23,7 +23,10 @@ export interface Registration {
   first_account: boolean;
 }
 
+export type GenotypeMethod = "legacy" | "model";
+
 export interface JobSettings {
+  method: GenotypeMethod;
   call: boolean;
   discordant: "drop" | "prefer";
   min_molecules: number | null;
@@ -41,7 +44,8 @@ export interface InputPair {
 export interface JobCreate {
   name: string;
   samples: InputPair[];
-  settings?: Partial<JobSettings>;
+  /** Left out, the job uses the user's default settings. */
+  settings?: JobSettings;
 }
 
 export interface Sample extends InputPair {

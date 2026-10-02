@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime
+from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
@@ -63,9 +64,21 @@ class UserOut(BaseModel):
     created_at: datetime
 
 
+class GenotypeMethod(StrEnum):
+    """How a job genotypes its samples. The web interface holds the names people see."""
+
+    # ScaleHD 1.x: align reads to the reference library, then the 1.x genotyper.
+    # Not runnable yet as it needs extracting from legacy/, alignment included.
+    LEGACY = "legacy"
+    # Read the repeat structure straight from each read, then the model-based caller
+    # (scalehd.genotype). Work in progress.
+    MODEL = "model"
+
+
 class JobSettings(BaseModel):
     """What a job runs, and with which settings. Unset thresholds keep the core defaults."""
 
+    method: GenotypeMethod = GenotypeMethod.LEGACY
     # Call genotypes, or only count each sample's repeat structures.
     call: bool = True
     discordant: DiscordancePolicy = DiscordancePolicy.DROP
@@ -94,7 +107,8 @@ class InputPair(BaseModel):
 class JobCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     samples: list[InputPair] = Field(min_length=1)
-    settings: JobSettings = JobSettings()
+    # Unset means the user's default settings.
+    settings: JobSettings | None = None
 
 
 class SampleOut(BaseModel):

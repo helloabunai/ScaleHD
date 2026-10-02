@@ -19,7 +19,10 @@ from scalehd.counts import count_fastq
 from scalehd.genotype import call_genotype
 from sqlalchemy.orm import Session, sessionmaker
 
-from .schemas import JobSettings
+from .schemas import GenotypeMethod, JobSettings
+
+# Methods jobs can use. SHD 1.x joins once it is extracted from legacy/.
+RUNNABLE_METHODS = frozenset({GenotypeMethod.MODEL})
 
 
 def run_sample(
@@ -30,6 +33,8 @@ def run_sample(
     Writes ``counts.json`` and, when calling, ``call.json`` to out_dir. Returns the
     call, or None for a count-only job.
     """
+    if settings.method not in RUNNABLE_METHODS:
+        raise ValueError(f"{settings.method} genotyping is not available yet")
     out_dir.mkdir(parents=True, exist_ok=True)
     counts = count_fastq(r1, r2, policy=settings.discordant)
     counts.write_json(out_dir / "counts.json")
