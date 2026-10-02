@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 import time
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,8 @@ from scalehd_server import demo
 from scalehd_server.app import create_app
 from scalehd_server.config import ServerSettings
 from scalehd_server.demo import DEMO_SAMPLES, DemoSample
+from scalehd_server.models import Job, JobStatus
+from sqlalchemy import update
 
 
 def test_demo_job_queues_nine_simulated_samples(quiet_client: TestClient, pools: Any) -> None:
@@ -70,6 +73,7 @@ def test_jobs_are_private(quiet_client: TestClient) -> None:
 def test_jobs_need_a_login(client: TestClient) -> None:
     assert client.post("/api/jobs/demo").status_code == 401
     assert client.get("/api/jobs/1").status_code == 401
+    assert client.delete("/api/jobs/1").status_code == 401
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root can write anywhere")
@@ -125,3 +129,61 @@ def test_the_demo_runs_end_to_end(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
         assert (folder / "counts.json").exists()
         assert (folder / "call.json").exists()
         assert (folder / "input" / f"{sample['name']}_R1.fastq.gz").exists()
+
+
+def _set_job(client: TestClient, job_id: int, **values: Any) -> None:
+    """Change a stored job directly, e.g. mark it finished without running it."""
+    with client.app.state.sessions() as session:
+        session.execute(update(Job).where(Job.id == job_id).values(**values))
+        session.commit()
+
+
+def test_deleting_a_finished_job_removes_its_folder_and_records(
+    quiet_client: TestClient,
+) -> None:
+    job = quiet_client.post("/api/jobs/demo").json()
+    _set_job(quiet_client, job["id"], status=JobStatus.FINISHED)
+    folder = Path(job["output_dir"])
+    assert folder.exists()
+    assert quiet_client.delete(f"/api/jobs/{job['id']}").status_code == 204
+    assert not folder.exists()
+    assert quiet_client.get(f"/api/jobs/{job['id']}").status_code == 404
+    assert quiet_client.get("/api/jobs").json() == []
+
+
+def test_a_running_job_cannot_be_deleted(quiet_client: TestClient) -> None:
+    job = quiet_client.post("/api/jobs/demo").json()
+    response = quiet_client.delete(f"/api/jobs/{job['id']}")
+    assert response.status_code == 409
+    assert response.json() == {"detail": "the job is still running"}
+    assert Path(job["output_dir"]).exists()
+
+
+def test_someone_elses_job_cannot_be_deleted(quiet_client: TestClient) -> None:
+    job = quiet_client.post("/api/jobs/demo").json()
+    _set_job(quiet_client, job["id"], status=JobStatus.FINISHED)
+    bob = TestClient(quiet_client.app)
+    bob.post("/api/auth/register", json={"username": "bob", "password": "correct horse"})
+    assert bob.delete(f"/api/jobs/{job['id']}").status_code == 404
+    assert Path(job["output_dir"]).exists()
+
+
+def test_a_job_whose_folder_is_already_gone_can_be_deleted(quiet_client: TestClient) -> None:
+    job = quiet_client.post("/api/jobs/demo").json()
+    _set_job(quiet_client, job["id"], status=JobStatus.FINISHED)
+    shutil.rmtree(job["output_dir"])
+    assert quiet_client.delete(f"/api/jobs/{job['id']}").status_code == 204
+
+
+def test_a_folder_outside_your_workspace_is_never_deleted(
+    quiet_client: TestClient, tmp_path: Path
+) -> None:
+    precious = tmp_path / "precious"
+    precious.mkdir()
+    job = quiet_client.post("/api/jobs/demo").json()
+    _set_job(quiet_client, job["id"], status=JobStatus.FINISHED, output_dir=str(precious))
+    response = quiet_client.delete(f"/api/jobs/{job['id']}")
+    assert response.status_code == 500
+    assert response.json()["detail"].startswith(f"won't delete {precious}")
+    assert precious.exists()
+    assert [j["id"] for j in quiet_client.get("/api/jobs").json()] == [job["id"]]

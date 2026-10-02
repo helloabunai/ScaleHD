@@ -12,6 +12,7 @@ from scalehd_server.schemas import GenotypeMethod, JobSettings
 from scalehd_server.workspace import (
     WorkspaceError,
     folder_name,
+    remove_job_folder,
     sample_folder_names,
     sample_folders,
     write_job_folder,
@@ -102,3 +103,22 @@ def test_unwritable_workspace_names_the_folder(
     assert str(caught.value).startswith(
         f"can't write to the workspace at {workspace}/autotest-user/"
     )
+
+
+def test_a_job_folder_that_links_outside_your_folder_is_not_deleted(tmp_path: Path) -> None:
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    mine = tmp_path / "workspace" / "autotest-user"
+    mine.mkdir(parents=True)
+    (mine / "1-demo").symlink_to(elsewhere)
+    with pytest.raises(WorkspaceError, match="won't delete"):
+        remove_job_folder(tmp_path / "workspace", "autotest-user", mine / "1-demo")
+    assert elsewhere.exists()
+
+
+def test_your_own_folder_itself_is_not_deleted(tmp_path: Path) -> None:
+    mine = tmp_path / "workspace" / "autotest-user"
+    mine.mkdir(parents=True)
+    with pytest.raises(WorkspaceError, match="won't delete"):
+        remove_job_folder(tmp_path / "workspace", "autotest-user", mine)
+    assert mine.exists()

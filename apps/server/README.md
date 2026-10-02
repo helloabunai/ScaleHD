@@ -67,4 +67,4 @@ Gets some simulated data from the simulator and runs the new genotyping (only on
 | `workspace.py` | job folders and `job.json` in the workspace | works |
 | `demo.py` | the demo job's simulated samples | works |
 | `auth.py` | password hashing, session cookie, current user | works |
-| `routes/` | `health`, `accounts`, `folders`, `inputs`, `jobs`, `settings` | all but `inputs` and the real-input/cancel/delete/report `jobs` routes work |
+| `routes/` | `health`, `accounts`, `folders`, `inputs`, `jobs`, `settings` | all but `inputs` and the real-input/cancel/report `jobs` routes work |

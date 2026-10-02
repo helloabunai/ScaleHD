@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import unicodedata
 from collections.abc import Sequence
 from pathlib import Path
@@ -100,3 +101,18 @@ def sample_folders(job: Job) -> dict[int, Path]:
         sample.id: Path(job.output_dir) / name
         for sample, name in zip(job.samples, names, strict=True)
     }
+
+
+def remove_job_folder(workspace: Path, username: str, folder: Path) -> None:
+    """Delete a job's folder, but only if it is inside the user's own folder.
+    """
+    mine = user_folder(workspace, username).resolve()
+    target = folder.resolve()
+    if target == mine or not target.is_relative_to(mine):
+        raise WorkspaceError(f"won't delete {folder}: it is not inside {mine}")
+    try:
+        shutil.rmtree(target)
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise WorkspaceError(f"can't delete {folder}: {exc.strerror or exc}") from exc

@@ -160,6 +160,7 @@ export const api = {
 
   listJobs: () => request<JobSummary[]>("/jobs"),
   getJob: (id: number) => request<Job>(`/jobs/${id}`),
+  deleteJob: (id: number) => request<void>(`/jobs/${id}`, { method: "DELETE" }),
   createJob: (job: JobCreate) => request<Job>("/jobs", post(job)),
   createDemoJob: () => request<Job>("/jobs/demo", post()),
   cancelJob: (id: number) => request<Job>(`/jobs/${id}/cancel`, post()),

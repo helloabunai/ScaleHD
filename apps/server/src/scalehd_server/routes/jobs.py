@@ -4,6 +4,7 @@ The web interface follows progress by polling ``GET /jobs/{job_id}``. Server-sen
 events could replace polling later without changing anything else.
 """
 
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response, status
@@ -16,11 +17,11 @@ from ..auth import CurrentUser
 from ..config import ServerConfig
 from ..db import DbSession
 from ..errors import not_implemented
-from ..models import Job
+from ..models import Job, JobStatus, User
 from ..runner import Runner
 from ..schemas import JobCreate, JobOut, JobSettings, JobSummary, job_out, job_summary
 from ..worker import RUNNABLE_METHODS
-from ..workspace import WorkspaceError, write_job_folder
+from ..workspace import WorkspaceError, remove_job_folder, write_job_folder
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -69,13 +70,17 @@ def create_demo_job(
     return job_out(job)
 
 
-@router.get("/{job_id}")
-def get_job(job_id: int, user: CurrentUser, session: DbSession) -> JobOut:
+def _own_job(session: DbSession, user: User, job_id: int) -> Job:
     job = session.get(Job, job_id)
     # Someone else's job looks the same as a missing one, so ids can't be probed.
     if job is None or job.owner_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such job")
-    return job_out(job)
+    return job
+
+
+@router.get("/{job_id}")
+def get_job(job_id: int, user: CurrentUser, session: DbSession) -> JobOut:
+    return job_out(_own_job(session, user, job_id))
 
 
 @router.post("/{job_id}/cancel")
@@ -84,9 +89,20 @@ def cancel_job(job_id: int, user: CurrentUser, session: DbSession, runner: Runne
 
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_job(job_id: int, user: CurrentUser, session: DbSession) -> None:
-    """Delete a finished or cancelled job and its output files."""
-    raise not_implemented("jobs")
+def delete_job(job_id: int, user: CurrentUser, session: DbSession, config: ServerConfig) -> None:
+    """Delete a job that has stopped (job folder in workspace, and DB records)
+    A running job is refused. cos it's running.
+    """
+    job = _own_job(session, user, job_id)
+    if job.status in (JobStatus.QUEUED, JobStatus.RUNNING):
+        raise HTTPException(status.HTTP_409_CONFLICT, "the job is still running")
+    if job.output_dir is not None:
+        try:
+            remove_job_folder(config.workspace, user.username, Path(job.output_dir))
+        except WorkspaceError as exc:
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(exc)) from None
+    session.delete(job)
+    session.commit()
 
 
 @router.get("/{job_id}/samples/{sample_id}/call")
