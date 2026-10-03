@@ -10,22 +10,17 @@ import pytest
 from scalehd.calibration import HTT_MISEQ
 from scalehd.cli import main
 from scalehd.counts import SampleCounts, count_reads
-from scalehd.genotype import (
+from scalehd.genotype import CallerSettings, Candidate, Flag, NoMoleculesError, call_genotype
+from scalehd.genotype.model.kernel import _log_kernel, _log_survival
+from scalehd.genotype.model.likelihood import (
     _LONG_ALLELE_SPAN,
-    CallerSettings,
-    Candidate,
-    Flag,
-    NoMoleculesError,
-    _log_kernel,
-    _log_survival,
     _Model,
     _prior,
     _row_loglik,
-    _Table,
     _total_loglik,
     _unpack,
-    call_genotype,
 )
+from scalehd.genotype.model.table import _Table
 from scalehd.simulate import SimAllele, SimulationSpec, simulate
 from scalehd.structure import AlleleStructure
 from scipy.special import logsumexp

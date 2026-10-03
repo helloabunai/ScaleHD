@@ -224,7 +224,8 @@ confidence, was rough in the previous implementation. Now each candidate genotyp
 mixture of two alleles, each smeared by a PCR stutter kernel whose shape depends on
 repeat length (calibrated on the ScaleHD 1.x training matrix). Candidates are compared
 by how well they explain every molecule, which gives a posterior probability for the
-call plus flags for the cases that deserve a look. See `packages/core/src/scalehd/genotype.py`.
+call plus flags for the cases that deserve a look. See `packages/core/src/scalehd/genotype/model/`
+(the model is explained in its `__init__.py`).
 
 ## Layout
 
