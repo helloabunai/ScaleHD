@@ -79,3 +79,10 @@ def test_observation_labels() -> None:
     assert partial.label == "84+_?_?_?_?"
     with pytest.raises(ValueError, match="incomplete"):
         partial.structure()
+
+
+def test_unconfirmed_count_label() -> None:
+    status = (FieldStatus.UNCONFIRMED,) + (FieldStatus.UNOBSERVED,) * 4
+    observation = Observation((80, 0, 0, 0, 0), status)
+    assert observation.label == "80~_?_?_?_?"
+    assert not observation.is_complete

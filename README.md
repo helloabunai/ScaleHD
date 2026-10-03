@@ -208,7 +208,10 @@ from each read instead:
    PCR stutter is shared. For long alleles, R1 supplies the CAG tract and R2 the CCG
    and CCT tracts.
 4. A read that ends inside the repeat only gives a lower bound (`83+`).
-   It is never forced onto a reference.
+   It is never forced onto a reference. A read that ends just after the end of a repeat tract
+   gives that tract's count, but marked as an estimate (`80~`). A sequencing error near the end of
+   a read could create misleading data (even if this is a rare situation) so the genotype caller
+   treats it with appropriate caution.
 
 One major issue with me attempting to do this re-write is that because I'm no longer at the
 university, I have no access to test data. But I'm bored so I'm doing it anyway. I've written a
@@ -309,7 +312,8 @@ On a machine with many cores, cap the number running at once (for example with
   `83+_1_1_7_2` means no read spanned the CAG tract, so only a lower bound is known.
   A rough estimate of the true length is given only when the reads also limit it from
   above, and it leans on the stutter model beyond the lengths it was measured at. On
-  simulated data the reads never do, so expect the lower bound alone.
+  simulated 300-base reads that happens up to about 7 CAG past the read limit (an
+  estimate like 93, 90-94 for a true 90); beyond that, expect the lower bound alone.
 - Flags mark what deserves a manual inspection (unchanged really from previous):
 
   | flag | meaning |

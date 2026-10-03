@@ -42,12 +42,16 @@ def _cag_chart(counts: SampleCounts, rest: _Rest, alleles: list[dict[str, Any]])
     lower_bounds: Counter[int] = Counter()
     for observation, n in counts.partial.items():
         cag_status, *rest_status = observation.status
-        if (
-            cag_status is FieldStatus.LOWER_BOUND
-            and all(status is FieldStatus.EXACT for status in rest_status)
+        if not (
+            all(status is FieldStatus.EXACT for status in rest_status)
             and tuple(observation.counts[1:]) == rest
         ):
+            continue
+        if cag_status is FieldStatus.LOWER_BOUND:
             lower_bounds[observation.counts[0]] += n
+        elif cag_status is FieldStatus.UNCONFIRMED:
+            # Read to the tract's end, just not confirmed: almost always that length.
+            exact[observation.counts[0]] += n
     called = sorted({allele["cag"] for allele in alleles})
     cags = set(exact) | set(lower_bounds) | set(called)
     return CagChart(

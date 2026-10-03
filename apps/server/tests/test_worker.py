@@ -25,7 +25,7 @@ def test_run_sample_counts_and_calls(tmp_path: Path) -> None:
     assert call is not None
     assert call.label == "17_1_1_7_2/43_1_1_7_2"
     assert json.loads((out / "call.json").read_text()) == call.to_dict()
-    assert json.loads((out / "counts.json").read_text())["schema"] == "scalehd.counts/1"
+    assert json.loads((out / "counts.json").read_text())["schema"] == "scalehd.counts/2"
 
 
 def test_count_only_job_skips_the_call(tmp_path: Path) -> None:

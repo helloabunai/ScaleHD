@@ -120,7 +120,7 @@ class Sample(Base):
     genotype: Mapped[str | None]
     confidence: Mapped[float | None]
     flags: Mapped[list[str]] = mapped_column(JSON, default=list)
-    call: Mapped[dict[str, Any] | None] = mapped_column(JSON)  # scalehd.call/1
+    call: Mapped[dict[str, Any] | None] = mapped_column(JSON)  # scalehd.call/2
     error: Mapped[str | None]
 
     job: Mapped[Job] = relationship(back_populates="samples")

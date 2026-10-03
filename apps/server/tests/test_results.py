@@ -60,6 +60,20 @@ def test_two_alleles_of_one_structure_share_a_cag_chart() -> None:
     assert bars[83] == (0, 7)  # only known to be at least 83 TODO: verify bounds of sequencing
 
 
+def test_unconfirmed_cag_counts_are_molecules_at_that_length() -> None:
+    # Read to the end of repeat tract but too near the read's own end to confirm autonomously.
+    counts = _counts()
+    unconfirmed = (FieldStatus.UNCONFIRMED,) + (FieldStatus.EXACT,) * 4
+    counts.partial[Observation((80, 1, 1, 7, 2), unconfirmed)] = 12
+    counts.partial[Observation((43, 1, 1, 7, 2), unconfirmed)] = 4
+    call = {"alleles": [_allele("17_1_1_7_2"), _allele("43_1_1_7_2")]}
+    (chart,) = cag_charts(counts, call)
+    bars = {bar.cag: (bar.molecules, bar.lower_bound) for bar in chart.bars}
+    assert bars[80] == (12, 0)
+    assert bars[43] == (204, 0)
+    assert bars[83] == (0, 7)
+
+
 def test_alleles_on_different_ccgs_get_a_chart_each() -> None:
     call = {"alleles": [_allele("17_1_1_10_2"), _allele("43_1_1_7_2")]}
     charts = cag_charts(_counts(), call)

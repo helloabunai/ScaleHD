@@ -14,15 +14,19 @@ M(A) is what PCR and sequencing make of allele A:
 - each of the CAACAG, CCGCCA and CCT counts is misread with probability μ.
 
 A molecule whose CAG tract ran past both reads contributes P(CAG >= its bound), and
-unobserved fields are dropped out. An allele beyond read length has
-an unknown N >= L and is averaged over N in [L, L + 60), so it must explain the data as
-well as a specific N would. The readable contracted molecules then give an estimate of N.
+unobserved fields are dropped out. An allele beyond read length has one unknown N >= L,
+shared by all its molecules: the sample's likelihood is averaged over N in [L, L + 60),
+so it must explain the data as well as a specific N would. The readable contracted
+molecules then give an estimate of N. Where reads stop at L, exact candidates stay
+below L, since lengths from L up can only be told apart through that average.
 
-Whether a molecule's CAG tract is read in full depends on its length, so treating
-truncated molecules as plain lower bounds would bias N near the read-length limit.
-When a sample has many truncated molecules, every CAG count above a threshold T (a
-little below their usual bound) is coarsened to "more than T", readable or not, which
-makes truncation independent of length.
+Near read length, many molecules' CAG tracts are read to their end, but too near the
+end of the read to rule out a sequencing error etc influencing the genotype. Such an unconfirmed
+count is likely to be real, but scored with appropriate caution (``unconfirmed_error``).
+
+Only a read that ends inside the tract gives a lower genotype call boundary, and where a read
+ends depends on where it starts, so lower call boundaries don't bias N.
+
 
 Each candidate is fitted by maximum a posteriori. Candidates are then compared by a
 Laplace approximation to their marginal likelihood, which gives a posterior probability
@@ -49,10 +53,11 @@ from .calibration import HTT_MISEQ, Stutter, StutterCurve, from_transformed, log
 from .counts import SampleCounts
 from .structure import AlleleStructure, FieldStatus, Observation
 
-SCHEMA = "scalehd.call/1"
+SCHEMA = "scalehd.call/2"
 
 _EXACT = int(FieldStatus.EXACT)
 _LOWER = int(FieldStatus.LOWER_BOUND)
+_UNCONFIRMED = int(FieldStatus.UNCONFIRMED)
 # Number of values the background component spreads over, per sub-struct
 # (cag, caacag, ccgcca, ccg, cct).
 _BACKGROUND_SPAN = np.array([250, 4, 4, 25, 5])
@@ -85,7 +90,7 @@ _NUISANCE_BOUNDS = (
 # The floor spreads over CAG 1 .. (longest observed + this margin).
 _FLOOR_MARGIN = 10
 # Default reach of the stutter kernel (below, above); see CallerSettings.stutter_window.
-_WINDOW = (8, 30)
+_WINDOW = (20, 30)
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,24 +100,28 @@ class CallerSettings:
     # molecules, so the likelihood is weighted down to at most this many. Without it,
     # tiny misfits in peak shape outweigh every prior once a sample has 10^5 reads.
     effective_molecules: int | None = 3000
-    # How far the stutter kernel reaches (below, above) an allele The peak region is
-    # where the information about N is. With a wide kernel, distant shoulders and junk
-    # (common in ScaleHD 1.x alignments) pulled on the tail ratios and tipped N by one
-    # against a clear peak/mode.
+    # How far the stutter kernel reaches (below, above) an allele. The peak region is
+    # where the information about N is. With a much wider kernel, distant shoulders and
+    # junk (common in ScaleHD 1.x alignments) pulled on the tail ratios and tipped N by
+    # one against a clear peak/mode. Below reaches 20 because long alleles' contractions
+    # fall off slowly. At 8, the molecules further down pulled N one low from about
+    # CAG 55, and the exact-N step then overshot it by one.
     stutter_window: tuple[int, int] = _WINDOW
     # Candidate alleles: the most frequent complete structures, plus CAG +/-1 of the top
     # few.
     max_candidates: int = 6
     neighbour_candidates: int = 3
     min_truncated_fraction: float = 0.03
-    # CAG counts above (most common truncation boundary) with some margin.
-    truncation_margin: int = 6
     # Candidate genotypes that get a full fit after a quick screen.
     refine: int = 6
     # Exact N of each separated allele is chosen among N +/- local_shift using only its own
     # structure's molecules within +/- local_radius of the peak (re: _local_n).
     local_radius: int = 6
     local_shift: int = 2
+    # Above this share (relative to those read in full) of molecules near the peak that
+    # reads didn't finish or confirm, the peak is cut by read length and N is compared
+    # on every molecule instead.
+    unread_share: float = 0.05
     # Priors as (median, SD) on the logit scale. Balance is the shorter allele's share
     # of molecules, whose median in the ScaleHD 1.x training matrix is 0.48.
     balance_prior: tuple[float, float] = (0.0, 0.6)
@@ -133,6 +142,11 @@ class CallerSettings:
     max_dropped: float = 0.15
     balance_range: tuple[float, float] = (0.2, 0.8)
     unexplained_fraction: float = 0.02
+    # Chance that a CAG end read too near the read's own end to confirm was influenced by
+    # sequencing error/quality etc, so the tract goes on.
+    # About 1 in 50 in simulated reads whose error rate rises to 2% at the end.
+    # Pending change upon real data reception
+    unconfirmed_error: float = 0.03
 
 
 class Flag(StrEnum):
@@ -241,8 +255,6 @@ class GenotypeCall:
     ccg_slippage: float
     misread: float
     unexplained: tuple[tuple[str, int], ...] = field(default=())
-    # CAG counts above this were treated as "more than" (docstring).
-    coarsened_above: int | None = None
 
     @property
     def label(self) -> str:
@@ -266,7 +278,6 @@ class GenotypeCall:
             "ccg_slippage": self.ccg_slippage,
             "misread": self.misread,
             "unexplained": [{"structure": s, "molecules": n} for s, n in self.unexplained],
-            "coarsened_above": self.coarsened_above,
         }
 
 
@@ -290,8 +301,10 @@ class _Table:
         counts: SampleCounts,
         effective: int | None = None,
         window: tuple[int, int] = _WINDOW,
+        unconfirmed_error: float = 0.03,
     ) -> None:
         self.window = window
+        self.unconfirmed_error = unconfirmed_error
         rows: list[tuple[Observation, int]] = [
             (Observation.exact(s), n) for s, n in counts.complete.items()
         ]
@@ -303,9 +316,11 @@ class _Table:
         status = np.array(
             [[int(s) for s in o.status] for o in self.observations], dtype=np.int64
         ).reshape(-1, 5)
-        self.exact = status == _EXACT
+        unconfirmed = status == _UNCONFIRMED
+        self.complete = (status == _EXACT).all(axis=1)
+        self.exact = (status == _EXACT) | (unconfirmed & (np.arange(5) > 0))
         self.lower = status == _LOWER
-        self.complete = self.exact.all(axis=1)
+        self.unconfirmed_cag = unconfirmed[:, 0]
         self.total = float(self.weight.sum())
         scale = 1.0 if effective is None or self.total <= 0 else min(1.0, effective / self.total)
         self.fit_weight = self.weight * scale
@@ -313,27 +328,32 @@ class _Table:
         # CAG terms depend only on the value, so they are computed once per distinct value.
         self.cag_exact = np.unique(self.value[self.exact[:, 0], 0], return_inverse=True)
         self.cag_lower = np.unique(self.value[self.lower[:, 0], 0], return_inverse=True)
+        self.cag_unconfirmed = np.unique(self.value[self.unconfirmed_cag, 0], return_inverse=True)
         self._terms: dict[AlleleStructure, _AlleleTerms] = {}
-        seen = self.value[self.exact[:, 0] | self.lower[:, 0], 0]
+        seen = self.value[self.exact[:, 0] | self.lower[:, 0] | self.unconfirmed_cag, 0]
         self.floor_span = max(int(seen.max()) if seen.size else 0, 40) + _FLOOR_MARGIN
         span = _BACKGROUND_SPAN
         tail_share = np.clip((span - self.value) / span, 1 / span, 1.0)
+        counted = self.exact | (self.unconfirmed_cag[:, None] & (np.arange(5) == 0))
         self.background = (
-            np.where(self.exact, -np.log(span), 0.0) + np.where(self.lower, np.log(tail_share), 0.0)
+            np.where(counted, -np.log(span), 0.0) + np.where(self.lower, np.log(tail_share), 0.0)
         ).sum(axis=1)
 
     def subset(self, mask: np.ndarray) -> _Table:
         """The same table restricted to some rows, sharing the floor span and window."""
         out = object.__new__(_Table)
         out.window, out.floor_span = self.window, self.floor_span
+        out.unconfirmed_error = self.unconfirmed_error
         out.observations = [o for o, keep in zip(self.observations, mask, strict=True) if keep]
         out.size = int(mask.sum())
         out.weight, out.fit_weight = self.weight[mask], self.fit_weight[mask]
         out.value, out.exact, out.lower = self.value[mask], self.exact[mask], self.lower[mask]
+        out.unconfirmed_cag = self.unconfirmed_cag[mask]
         out.complete, out.background = self.complete[mask], self.background[mask]
         out.total, out.fit_total = float(out.weight.sum()), float(out.fit_weight.sum())
         out.cag_exact = np.unique(out.value[out.exact[:, 0], 0], return_inverse=True)
         out.cag_lower = np.unique(out.value[out.lower[:, 0], 0], return_inverse=True)
+        out.cag_unconfirmed = np.unique(out.value[out.unconfirmed_cag, 0], return_inverse=True)
         out._terms = {}
         return out
 
@@ -430,30 +450,52 @@ def _log_survival(
 def _allele_loglik(
     table: _Table, allele: Candidate, stutter: Stutter, params: _Params
 ) -> np.ndarray:
-    """log P(observation | allele) for every row of the table."""
+    """log P(observation | allele) for every row of the table.
+
+    For an allele beyond read length, one row of those per N it could be (L .. L + 59),
+    since all its molecules share one N; see _total_loglik.
+    """
     s = allele.structure
     ccg_slippage, misread = params.ccg_slippage, params.misread
     exact, lower = table.exact, table.lower
-    out = np.zeros(table.size)
 
     (exact_values, exact_index), (lower_values, lower_index) = table.cag_exact, table.cag_lower
+    unconfirmed_values, unconfirmed_index = table.cag_unconfirmed
+    n: np.ndarray | int = s.cag
     if allele.beyond_read_length:
-        lengths = np.arange(s.cag, s.cag + _LONG_ALLELE_SPAN)[:, None]
-        mean = math.log(_LONG_ALLELE_SPAN)
-        window = table.window
-        kernel = logsumexp(_log_kernel(exact_values[None, :], lengths, stutter, window), axis=0)
-        survival = logsumexp(_log_survival(lower_values[None, :], lengths, stutter, window), axis=0)
-        kernel, survival = kernel - mean, survival - mean
-    else:
-        kernel = _log_kernel(exact_values, s.cag, stutter, table.window)
-        survival = _log_survival(lower_values, s.cag, stutter, table.window)
+        n = np.arange(s.cag, s.cag + _LONG_ALLELE_SPAN)[:, None]
+
+    def kernel_at(x: np.ndarray) -> np.ndarray:
+        return _log_kernel(x, n, stutter, table.window)
+
+    def survival_at(x: np.ndarray) -> np.ndarray:
+        return _log_survival(x, n, stutter, table.window)
+
+    # One kernel and one survival call for every value. Each call works out the
+    # kernel's normalising sum again, and this runs for every likelihood evaluation.
+    split = len(exact_values), len(lower_values)
+    kernel, kernel_unconfirmed = np.split(
+        kernel_at(np.concatenate([exact_values, unconfirmed_values])), [split[0]], axis=-1
+    )
+    survival, survival_unconfirmed = np.split(
+        survival_at(np.concatenate([lower_values, unconfirmed_values + 1])), [split[1]], axis=-1
+    )
+    # An unconfirmed CAG count. Likely to be "true", unless a seq error influenced tract end
+    # and it goes on.
+    error = table.unconfirmed_error
+    unconfirmed = np.logaddexp(
+        math.log1p(-error) + kernel_unconfirmed, math.log(error) + survival_unconfirmed
+    )
     keep, flat = math.log1p(-params.floor), math.log(params.floor)
     span = table.floor_span
     kernel = np.logaddexp(keep + kernel, flat - math.log(span))
+    unconfirmed = np.logaddexp(keep + unconfirmed, flat - math.log(span))
     above = np.clip((span - lower_values + 1) / span, 1 / span, 1.0)
     survival = np.logaddexp(keep + survival, flat + np.log(above))
-    out[exact[:, 0]] = kernel[exact_index]
-    out[lower[:, 0]] = survival[lower_index]
+    out = np.zeros((*kernel.shape[:-1], table.size))
+    out[..., exact[:, 0]] = kernel[..., exact_index]
+    out[..., lower[:, 0]] = survival[..., lower_index]
+    out[..., table.unconfirmed_cag] = unconfirmed[..., unconfirmed_index]
 
     terms = table.terms(s)
     # CCG: kept, slipped by one unit (γ each way), or misassigned anywhere (ψ).
@@ -555,11 +597,35 @@ def _row_loglik(
     return total, per_allele
 
 
+def _total_loglik(table: _Table, total: np.ndarray) -> float:
+    """The sample's log-likelihood from _row_loglik's rows.
+
+    With an allele beyond read length there is a row per N it could be. Its one N is
+    averaged over.
+    """
+    if total.ndim == 1:
+        return float(table.fit_weight @ total)
+    return float(logsumexp(total @ table.fit_weight)) - math.log(total.shape[0])
+
+
+def _n_weights(table: _Table, total: np.ndarray) -> np.ndarray | None:
+    """How well each N of an allele beyond read length fits, summing to 1 (None if none)."""
+    if total.ndim == 1:
+        return None
+    loglik = total @ table.fit_weight
+    return np.asarray(np.exp(loglik - logsumexp(loglik)))
+
+
+def _per_row(values: np.ndarray, weights: np.ndarray | None) -> np.ndarray:
+    """A per-row figure, averaged over N (by weights) if it has a row per N."""
+    return values if weights is None or values.ndim == 1 else weights @ values
+
+
 def _negative_log_posterior(
     theta: np.ndarray, table: _Table, model: _Model, mean: np.ndarray, sd: np.ndarray
 ) -> float:
     total, _ = _row_loglik(table, model, _unpack(theta, model))
-    return -(float(table.fit_weight @ total) - 0.5 * float((((theta - mean) / sd) ** 2).sum()))
+    return -(_total_loglik(table, total) - 0.5 * float((((theta - mean) / sd) ** 2).sum()))
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -655,7 +721,7 @@ def candidate_alleles(
 ) -> list[Candidate]:
     settings = settings or CallerSettings()
     found: dict[Candidate, None] = {}
-    common = [s for s, _ in counts.complete.most_common(settings.max_candidates)]
+    common = [s for s, _ in _counted_structures(counts).most_common(settings.max_candidates)]
     for structure in common:
         found[Candidate(structure)] = None
     for structure in common[: settings.neighbour_candidates]:
@@ -663,8 +729,25 @@ def candidate_alleles(
             if structure.cag + step >= 1:
                 found[Candidate(structure.with_counts(cag=structure.cag + step))] = None
     if (long_allele := _long_candidate(counts, settings)) is not None:
+        # Lengths from where reads stop up are the beyond-read-length candidate's alone.
+        # W/ an exact call there would be a single point of its range, unfairly weighted.
+        limit = long_allele.structure.cag
+        found = {c: None for c in found if c.structure.cag < limit}
         found[long_allele] = None
     return list(found)
+
+
+def _counted_structures(counts: SampleCounts) -> Counter[AlleleStructure]:
+    """Complete molecules, and those whose CAG end was seen but unconfirmed.
+
+    Near read length most molecules at an allele's own length are the second kind.
+    """
+    found = Counter(counts.complete)
+    for observation, n in counts.partial.items():
+        cag, *rest = observation.status
+        if cag is FieldStatus.UNCONFIRMED and all(x is FieldStatus.EXACT for x in rest):
+            found[AlleleStructure.from_counts(observation.counts)] += n
+    return found
 
 
 def _truncation_bound(counts: SampleCounts, settings: CallerSettings) -> int | None:
@@ -677,32 +760,6 @@ def _truncation_bound(counts: SampleCounts, settings: CallerSettings) -> int | N
     if not total or total < max(20, settings.min_truncated_fraction * counts.molecules):
         return None
     return bound.most_common(1)[0][0]
-
-
-def coarsen(counts: SampleCounts, threshold: int) -> SampleCounts:
-    """Replace every CAG count above ``threshold`` by the lower bound ``threshold + 1``."""
-    out = SampleCounts(
-        read_outcomes=counts.read_outcomes,
-        discordant=counts.discordant,
-        molecules=counts.molecules,
-        unusable=counts.unusable,
-        dropped=counts.dropped,
-    )
-    bound = threshold + 1
-    for structure, n in counts.complete.items():
-        if structure.cag <= threshold:
-            out.complete[structure] += n
-        else:
-            bounded = (FieldStatus.LOWER_BOUND,) + (FieldStatus.EXACT,) * 4
-            out.partial[Observation((bound, *structure.counts[1:]), bounded)] += n
-    for observation, n in counts.partial.items():
-        if observation.status[0] is FieldStatus.UNOBSERVED or observation.counts[0] <= threshold:
-            out.partial[observation] += n
-        else:
-            values = (bound, *observation.counts[1:])
-            status = (FieldStatus.LOWER_BOUND, *observation.status[1:])
-            out.partial[Observation(values, status)] += n
-    return out
 
 
 def _long_candidate(counts: SampleCounts, settings: CallerSettings) -> Candidate | None:
@@ -738,9 +795,12 @@ def _distribution_metrics(
     return backward, somatic, expansion, contraction
 
 
-def _allele_calls(table: _Table, fit: _Fit) -> tuple[AlleleCall, AlleleCall]:
+def _allele_calls(
+    table: _Table, fit: _Fit, settings: CallerSettings
+) -> tuple[AlleleCall, AlleleCall]:
     model, params = fit.model, fit.params
     total, per_allele = _row_loglik(table, model, params)
+    weights = _n_weights(table, total)
     shares = [params.balance, 1 - params.balance] if model.heterozygous else [1.0]
     cag = table.value[:, 0]
     exact_cag = table.exact[:, 0]
@@ -749,12 +809,14 @@ def _allele_calls(table: _Table, fit: _Fit) -> tuple[AlleleCall, AlleleCall]:
     for allele, stutter, share, own in zip(
         model.alleles, params.stutter, shares, per_allele, strict=True
     ):
-        responsibility = np.exp(math.log1p(-params.background) + math.log(share) + own - total)
+        responsibility = _per_row(
+            np.exp(math.log1p(-params.background) + math.log(share) + own - total), weights
+        )
         attributed = table.weight * responsibility
         histogram = np.bincount(cag[exact_cag], weights=attributed[exact_cag], minlength=size)
         if allele.beyond_read_length:
             backward = somatic = expansion = contraction = None
-            estimate = _estimate_long_allele(table, fit, allele)
+            estimate = _estimate_long_allele(table, fit, allele, settings)
         else:
             backward, somatic, expansion, contraction = _distribution_metrics(
                 histogram, allele.structure.cag
@@ -791,23 +853,24 @@ def _allele_calls(table: _Table, fit: _Fit) -> tuple[AlleleCall, AlleleCall]:
 
 
 def _estimate_long_allele(
-    table: _Table, fit: _Fit, allele: Candidate
+    table: _Table, fit: _Fit, allele: Candidate, settings: CallerSettings
 ) -> tuple[int, int, int] | None:
-    """Posterior over N for an allele beyond read length, other parameters held at fit.
+    """Posterior over N for an allele beyond read length (see _length_posterior).
 
     None when the posterior has not fallen away by the longest N tried: the reads then
     set no upper limit, and any interval would only reflect how far the search went.
+    Every N costs a refit, so every 5th is tried first, then each N only where those
+    leave any chance.
     """
+    index = fit.model.alleles.index(allele)
     lengths = np.arange(allele.structure.cag, allele.structure.cag + _LONG_ALLELE_SPAN)
-    loglik = []
-    for n in lengths:
-        exact = Candidate(allele.structure.with_counts(cag=int(n)))
-        alleles = tuple(exact if a == allele else a for a in fit.model.alleles)
-        total, _ = _row_loglik(table, _Model(alleles), fit.params)
-        loglik.append(float(table.fit_weight @ total))
-    posterior = np.exp(np.array(loglik) - logsumexp(loglik))
-    if posterior[-1] > _NO_UPPER_LIMIT * posterior.max():
+    coarse = np.unique(np.append(lengths[::5], lengths[-1]))
+    chance = _length_posterior(table, fit, index, coarse, settings)
+    if chance[-1] > _NO_UPPER_LIMIT * chance.max():
         return None
+    likely = coarse[chance > 1e-6 * chance.max()]
+    lengths = lengths[(lengths >= likely.min() - 5) & (lengths <= likely.max() + 5)]
+    posterior = _length_posterior(table, fit, index, lengths, settings)
     cumulative = np.cumsum(posterior)
     low = int(lengths[int(np.searchsorted(cumulative, 0.05))])
     high = int(lengths[min(int(np.searchsorted(cumulative, 0.95)), lengths.size - 1)])
@@ -816,7 +879,7 @@ def _estimate_long_allele(
 
 def _unexplained(table: _Table, fit: _Fit, settings: CallerSettings) -> tuple[tuple[str, int], ...]:
     total, _ = _row_loglik(table, fit.model, fit.params)
-    expected = table.total * np.exp(total)
+    expected = table.total * _per_row(np.exp(total), _n_weights(table, total))
     called = {a.structure for a in fit.model.alleles}
     found = []
     for i in np.flatnonzero(table.complete):
@@ -832,7 +895,7 @@ def _unexplained(table: _Table, fit: _Fit, settings: CallerSettings) -> tuple[tu
 
 
 def _local_n(
-    table: _Table, fit: _Fit, index: int, settings: CallerSettings
+    table: _Table, fit: _Fit, index: int, settings: CallerSettings, limit: int | None = None
 ) -> dict[int, float] | None:
     """Posterior over the exact N of one allele, from its own peak region.
 
@@ -843,6 +906,11 @@ def _local_n(
     shift N, which they did when the whole distribution decided it. Alleles within three
     CAG of another with the same structure are left to the joint fit, since their peaks
     overlap, as well as for alleles beyond read length.
+
+    Where reads end near the peak (more than ``unread_share`` of it not read in full),
+    that window cuts across the molecules that place N, and picking from it pulled N
+    one low. N is then compared on every molecule, as the full model does. N stays
+    below ``limit``, where reads stop, if given.
     """
     model = fit.model
     allele = model.alleles[index]
@@ -854,27 +922,55 @@ def _local_n(
             continue
         if other.structure.counts[1:] == s.counts[1:] and abs(other.structure.cag - s.cag) <= 3:
             return None
-    same_structure = table.complete & (table.value[:, 1:] == np.array(s.counts[1:])).all(axis=1)
-    near = same_structure & (np.abs(table.value[:, 0] - s.cag) <= settings.local_radius)
+    rest = table.exact[:, 1:].all(axis=1) & (table.value[:, 1:] == np.array(s.counts[1:])).all(
+        axis=1
+    )
+    counted = table.exact[:, 0] | table.unconfirmed_cag
+    near = rest & counted & (np.abs(table.value[:, 0] - s.cag) <= settings.local_radius)
     if near.sum() < 3:
         return None
-    local = table.subset(near)
+    above = table.value[:, 0] >= s.cag - settings.local_radius
+    unread = rest & (table.lower[:, 0] | table.unconfirmed_cag) & above
+    if table.weight[unread].sum() > settings.unread_share * table.weight[near].sum():
+        local = table
+    else:
+        local = table.subset(near)
 
+    top = s.cag + settings.local_shift
+    if limit is not None:
+        top = min(top, limit - 1)
+    lengths = np.arange(max(1, s.cag - settings.local_shift), top + 1)
+    posterior = _length_posterior(local, fit, index, lengths, settings)
+    return dict(zip((int(n) for n in lengths), (float(p) for p in posterior), strict=True))
+
+
+def _length_posterior(
+    table: _Table, fit: _Fit, index: int, lengths: np.ndarray, settings: CallerSettings
+) -> np.ndarray:
+    """Posterior over an allele's N among ``lengths``, as an exact allele of each.
+
+    Its stutter is refit for every N, everything else held at the fit, and each N is
+    scored by a Laplace approximation over that refit. Stutter trades off against N
+    (more contraction looks like a longer allele -- from my memory so subject to change),
+    so holding it fixed claims N far too precisely.
+    """
+    model = fit.model
+    s = model.alleles[index].structure
     k = _STUTTER_PARAMS
     sd = np.array(settings.stutter.spread)
     lower, upper = np.array(_STUTTER_BOUNDS).T
-    scores: dict[int, float] = {}
-    for n in range(max(1, s.cag - settings.local_shift), s.cag + settings.local_shift + 1):
+    scores = []
+    for n in lengths:
         alleles = list(model.alleles)
-        alleles[index] = Candidate(s.with_counts(cag=n))
+        alleles[index] = Candidate(s.with_counts(cag=int(n)))
         trial = _Model(tuple(alleles))
-        mean = settings.stutter.transformed(n)
+        mean = settings.stutter.transformed(int(n))
 
         def objective(x: np.ndarray, trial: _Model = trial, mean: np.ndarray = mean) -> float:
             theta = fit.theta.copy()
             theta[k * index : k * (index + 1)] = x
-            total, _ = _row_loglik(local, trial, _unpack(theta, trial))
-            return -(float(local.fit_weight @ total) - 0.5 * float((((x - mean) / sd) ** 2).sum()))
+            total, _ = _row_loglik(table, trial, _unpack(theta, trial))
+            return -(_total_loglik(table, total) - 0.5 * float((((x - mean) / sd) ** 2).sum()))
 
         starts = (np.clip(mean, lower, upper), fit.theta[k * index : k * (index + 1)])
         result = min(
@@ -884,12 +980,11 @@ def _local_n(
         eigenvalues = np.maximum(
             np.linalg.eigvalsh(_hessian(objective, result.x)), 1 / sd.max() ** 2
         )
-        scores[n] = (
+        scores.append(
             -float(result.fun) - float(np.log(sd).sum()) - 0.5 * float(np.log(eigenvalues).sum())
         )
-    values = np.array(list(scores.values()))
-    posterior = np.exp(values - logsumexp(values))
-    return dict(zip(scores, (float(p) for p in posterior), strict=True))
+    values = np.array(scores)
+    return np.asarray(np.exp(values - logsumexp(values)))
 
 
 def _same_configuration(a: _Model, b: _Model, shift: int) -> bool:
@@ -909,11 +1004,9 @@ def _same_configuration(a: _Model, b: _Model, shift: int) -> bool:
 def call_genotype(counts: SampleCounts, settings: CallerSettings | None = None) -> GenotypeCall:
     settings = settings or CallerSettings()
     candidates = candidate_alleles(counts, settings)
-    threshold = None
-    if (bound := _truncation_bound(counts, settings)) is not None:
-        threshold = bound - settings.truncation_margin
-        counts = coarsen(counts, threshold)
-    table = _Table(counts, settings.effective_molecules, settings.stutter_window)
+    table = _Table(
+        counts, settings.effective_molecules, settings.stutter_window, settings.unconfirmed_error
+    )
     if table.total <= 0:
         raise NoMoleculesError("no usable molecules to genotype")
 
@@ -940,7 +1033,7 @@ def call_genotype(counts: SampleCounts, settings: CallerSettings | None = None) 
     refined = list(best_fit.model.alleles)
     local_posteriors: list[dict[int, float] | None] = []
     for i, allele in enumerate(best_fit.model.alleles):
-        by_n = _local_n(table, best_fit, i, settings)
+        by_n = _local_n(table, best_fit, i, settings, _truncation_bound(counts, settings))
         local_posteriors.append(by_n)
         if by_n:
             refined[i] = Candidate(
@@ -979,7 +1072,7 @@ def call_genotype(counts: SampleCounts, settings: CallerSettings | None = None) 
     error = max(1.0 - posterior, sum(p for _, p in alternatives_found), 1e-10)
     quality = min(99.0, -10 * math.log10(error))
 
-    alleles = _allele_calls(table, best_fit)
+    alleles = _allele_calls(table, best_fit, settings)
     unexplained = _unexplained(table, best_fit, settings)
     params = best_fit.params
     flags = _flags(counts, best_fit, alleles, posterior, unexplained, settings)
@@ -994,7 +1087,6 @@ def call_genotype(counts: SampleCounts, settings: CallerSettings | None = None) 
         ccg_slippage=params.ccg_slippage,
         misread=params.misread,
         unexplained=unexplained,
-        coarsened_above=threshold,
     )
 
 

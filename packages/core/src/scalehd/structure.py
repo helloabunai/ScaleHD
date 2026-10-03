@@ -78,8 +78,11 @@ class AlleleStructure:
 
 class FieldStatus(IntEnum):
     UNOBSERVED = 0
+    # The read ended inside this tract: it is at least this long.
     LOWER_BOUND = 1
     EXACT = 2
+    # Tract ended too close to end of read = caution
+    UNCONFIRMED = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,7 +90,8 @@ class Observation:
     """Repeat counts seen in a read or read pair.
 
     A read that ends inside the repeat only gives a lower bound for the tract it
-    ends in, and nothing for the tracts beyond it (very long CAG e.g.)
+    ends in, and nothing for the tracts beyond it (very long CAG e.g.). One that ends
+    just past a tract's end gives that tract's count, unconfirmed.
     """
 
     counts: Counts
@@ -112,7 +116,8 @@ class Observation:
 
     @property
     def label(self) -> str:
-        """Like ``n_a_b_m_k``, with ``n+`` for lower bounds and ``?`` for unobserved."""
+        """Like ``n_a_b_m_k``, with ``n+`` for lower bounds, ``n~`` for unconfirmed and
+        ``?`` for unobserved."""
         parts = []
         for count, status in zip(self.counts, self.status, strict=True):
             match status:
@@ -120,6 +125,8 @@ class Observation:
                     parts.append(str(count))
                 case FieldStatus.LOWER_BOUND:
                     parts.append(f"{count}+")
+                case FieldStatus.UNCONFIRMED:
+                    parts.append(f"{count}~")
                 case FieldStatus.UNOBSERVED:
                     parts.append("?")
         return "_".join(parts)

@@ -1,7 +1,7 @@
 """Genotype caller: model maths, then calls on simulated samples."""
 
 import json
-from collections import Counter
+import math
 from functools import cache
 from pathlib import Path
 
@@ -11,15 +11,24 @@ from scalehd.calibration import HTT_MISEQ
 from scalehd.cli import main
 from scalehd.counts import SampleCounts, count_reads
 from scalehd.genotype import (
+    _LONG_ALLELE_SPAN,
+    CallerSettings,
+    Candidate,
     Flag,
     NoMoleculesError,
     _log_kernel,
     _log_survival,
+    _Model,
+    _prior,
+    _row_loglik,
+    _Table,
+    _total_loglik,
+    _unpack,
     call_genotype,
-    coarsen,
 )
 from scalehd.simulate import SimAllele, SimulationSpec, simulate
-from scalehd.structure import AlleleStructure, FieldStatus, Observation
+from scalehd.structure import AlleleStructure
+from scipy.special import logsumexp
 
 
 @cache
@@ -45,17 +54,6 @@ def test_kernel_normalises_and_survival_matches_it(n: int) -> None:
     assert np.exp(_log_survival(bounds, n, stutter)) == pytest.approx(expected, abs=1e-9)
 
 
-def test_coarsen_keeps_every_molecule() -> None:
-    counts = SampleCounts(molecules=6)
-    counts.complete[AlleleStructure(20)] = 3
-    counts.complete[AlleleStructure(80)] = 2
-    bounded = (FieldStatus.LOWER_BOUND,) + (FieldStatus.EXACT,) * 4
-    counts.partial[Observation((83, 1, 1, 7, 2), bounded)] = 1
-    out = coarsen(counts, 77)
-    assert out.complete == Counter({AlleleStructure(20): 3})
-    assert out.partial == Counter({Observation((78, 1, 1, 7, 2), bounded): 3})
-
-
 @pytest.mark.parametrize(
     ("labels", "expected"),
     [
@@ -68,6 +66,14 @@ def test_coarsen_keeps_every_molecule() -> None:
         (("19_1_1_7_2", "44_1_1_7_2"), "19_1_1_7_2/44_1_1_7_2"),
         (("19_1_0_7_2", "40_1_1_7_2"), "19_1_0_7_2/40_1_1_7_2"),
         (("17_1_1_7_2", "42_1_2_7_2"), "17_1_1_7_2/42_1_2_7_2"),
+        # Long alleles, whose contractions reach further below N than short ones'.
+        (("20_1_1_7_2", "55_1_1_7_2"), "20_1_1_7_2/55_1_1_7_2"),
+        (("20_1_1_7_2", "60_1_1_7_2"), "20_1_1_7_2/60_1_1_7_2"),
+        (("20_1_1_7_2", "66_1_1_7_2"), "20_1_1_7_2/66_1_1_7_2"),
+        (("20_1_1_7_2", "70_1_1_7_2"), "20_1_1_7_2/70_1_1_7_2"),
+        # Near read length (300 bases): many molecules' CAG ends are seen but unconfirmed.
+        (("20_1_1_7_2", "76_1_1_7_2"), "20_1_1_7_2/76_1_1_7_2"),
+        (("20_1_1_7_2", "80_1_1_7_2"), "20_1_1_7_2/80_1_1_7_2"),
     ],
 )
 def test_calls_simulated_genotypes(labels: tuple[str, ...], expected: str) -> None:
@@ -94,6 +100,48 @@ def test_allele_beyond_read_length_is_a_lower_bound() -> None:
     assert Flag.BEYOND_READ_LENGTH in call.flags
     # No read spans the tract, so the reads set no upper limit and there is no estimate.
     assert long.cag_estimate is None
+
+
+def test_beyond_read_length_allele_has_one_length_for_all_its_molecules() -> None:
+    """The average over N of the whole sample's likelihood, not of each molecule's."""
+    counts = sample("20_1_1_7_2", "95_1_1_7_2")
+    settings = CallerSettings()
+    table = _Table(
+        counts, settings.effective_molecules, settings.stutter_window, settings.unconfirmed_error
+    )
+    short = Candidate(AlleleStructure.from_label("20_1_1_7_2"))
+    long = Candidate(AlleleStructure.from_label("83_1_1_7_2"), beyond_read_length=True)
+    model = _Model.of(short, long)
+    params = _unpack(_prior(model, settings)[0], model)
+    each_n = [
+        _total_loglik(
+            table,
+            _row_loglik(
+                table, _Model.of(short, Candidate(long.structure.with_counts(cag=n))), params
+            )[0],
+        )
+        for n in range(83, 83 + _LONG_ALLELE_SPAN)
+    ]
+    expected = float(logsumexp(each_n)) - math.log(_LONG_ALLELE_SPAN)
+    assert _total_loglik(table, _row_loglik(table, model, params)[0]) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("cag", [84, 86])
+def test_allele_just_past_read_length_is_a_lower_bound(cag: int) -> None:
+    # Reads stop at about 83 CAG, so these can't be told apart from longer ones.
+    call = call_genotype(sample("20_1_1_7_2", f"{cag}_1_1_7_2"))
+    short, long = call.alleles
+    assert short.label == "20_1_1_7_2"
+    assert long.allele.beyond_read_length
+    assert long.allele.structure.cag <= cag
+
+
+def test_estimate_for_an_allele_just_past_read_length_covers_it() -> None:
+    long = call_genotype(sample("20_1_1_7_2", "90_1_1_7_2")).alleles[1]
+    assert long.allele.beyond_read_length
+    assert long.cag_estimate is not None
+    _, low, high = long.cag_estimate
+    assert low <= 90 <= high
 
 
 def test_low_depth_is_less_certain() -> None:
@@ -127,4 +175,4 @@ def test_cli_call(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     sample("17_1_1_7_2", "43_1_1_7_2").write_json(counts_path)
     assert main(["call", str(counts_path), "-o", str(call_path)]) == 0
     assert "17_1_1_7_2/43_1_1_7_2" in capsys.readouterr().out
-    assert json.loads(call_path.read_text())["schema"] == "scalehd.call/1"
+    assert json.loads(call_path.read_text())["schema"] == "scalehd.call/2"

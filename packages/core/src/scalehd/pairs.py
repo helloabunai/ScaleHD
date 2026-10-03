@@ -60,10 +60,18 @@ def join_read_base_pairings(
         seen = [(o.counts[k], o.status[k]) for o in ordered if o is not None]
         exact = [c for c, s in seen if s is FieldStatus.EXACT]
         bounds = [c for c, s in seen if s is FieldStatus.LOWER_BOUND]
+        unconfirmed = [c for c, s in seen if s is FieldStatus.UNCONFIRMED]
         if exact:
             counts.append(exact[0])
             status.append(FieldStatus.EXACT)
-            discordant.append(len(set(exact)) > 1 or any(b > exact[0] for b in bounds))
+            # A read that saw more of the tract than the exact count allows disagrees.
+            discordant.append(
+                len(set(exact)) > 1 or any(c > exact[0] for c in bounds + unconfirmed)
+            )
+        elif unconfirmed and max(unconfirmed) >= max(bounds, default=0):
+            counts.append(max(unconfirmed))
+            status.append(FieldStatus.UNCONFIRMED)
+            discordant.append(False)
         elif bounds:
             counts.append(max(bounds))
             status.append(FieldStatus.LOWER_BOUND)

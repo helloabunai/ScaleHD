@@ -112,14 +112,20 @@ def test_adjacent_anchors_are_nonconforming(parser: RepeatParser) -> None:
     ("tail", "expected"),
     [
         # A trailing CCG may be the start of a CCGCCA, and the CAG boundary is only
-        # nine bases from the end of the read, too few to confirm it.
-        ("CAG" * 20 + "CAACAG" + "CCG", "20+_?_?_?_?"),
-        # A trailing CAA is a partial CAACAG, not a miscalled CAG.
-        ("CAG" * 20 + "CAA", "20+_?_?_?_?"),
-        # Loss of interruption is still called; CCGCCA is only a bound because
+        # nine bases from the end of the read, too few to confirm it = unconfirmed.
+        ("CAG" * 20 + "CAACAG" + "CCG", "20~_?_?_?_?"),
+        # A trailing CAA is a partial CAACAG, not a miscalled CAG, so the read saw the
+        # CAG tract end (unconfirmed). A trailing CA may be a partial CAG = a lower
+        # genotype call boundary.
+        ("CAG" * 20 + "CAA", "20~_?_?_?_?"),
+        ("CAG" * 20 + "CA", "20+_?_?_?_?"),
+        # Loss of interruption is still called; CCGCCA is only unconfirmed because
         # just nine bases follow it.
-        ("CAG" * 40 + "CCGCCA" + "CCG" * 3, "40_0_1+_?_?"),
+        ("CAG" * 40 + "CCGCCA" + "CCG" * 3, "40_0_1~_?_?"),
         ("CAG" * 40 + "CCGCCA" + "CCG" * 5, "40_0_1_5+_?"),
+        # A trailing CCG may be the start of another CCGCCA, so the read hasn't seen
+        # the CCGCCA tract end = a lower genotype call boundary, not unconfirmed.
+        ("CAG" * 20 + "CAACAG" + "CCGCCA" * 2 + "CCG", "20_1_2+_?_?"),
     ],
 )
 def test_open_end_ambiguity(parser: RepeatParser, tail: str, expected: str) -> None:
@@ -143,11 +149,24 @@ def test_find_anchor_partial_left() -> None:
 
 
 def test_fake_boundary_in_read_tail_is_not_trusted(parser: RepeatParser) -> None:
-    # A G>A error in the last full CAG of a truncated read looks exactly like CAACAG.
+    # A G>A error in the last full CAG of a truncated read looks exactly like CAACAG, so a
+    # tract end this near the read's end is unconfirmed, never exact (w/ confidence)
     read = FIVE + "CAG" * 80 + "CAA" + "CAG" + "CA"
     result = parser.parse(read)
     assert result.observation is not None
-    assert result.observation.label == "80+_?_?_?_?"
+    assert result.observation.label == "80~_?_?_?_?"
+
+
+def test_tract_end_too_near_the_read_end_is_unconfirmed(parser: RepeatParser) -> None:
+    # The read sees the whole CAG tract and where it ends, but only 8 bases past it.
+    result = parser.parse(FIVE + "CAG" * 80 + "CAACAG" + "CC")
+    assert result.observation is not None
+    assert result.observation.label == "80~_?_?_?_?"
+    # Also when the read ends partway into the next unit, if that can't be a CAG.
+    result = parser.parse(FIVE + "CAG" * 80 + "CAAC")
+    assert result.outcome is ReadOutcome.TRUNCATED
+    assert result.observation is not None
+    assert result.observation.label == "80~_?_?_?_?"
 
 
 def test_tie_at_tract_boundary_is_left_to_the_read_base_pairing(parser: RepeatParser) -> None:
@@ -191,6 +210,10 @@ def _consistent(
         if s is FieldStatus.EXACT and seen != truth:
             return False
         if s is FieldStatus.LOWER_BOUND and seen > truth:
+            return False
+        # Only a sequencing error/limitation can influence an unconfirmed end
+        # so without errors it's the correct genotype.
+        if s is FieldStatus.UNCONFIRMED and seen != truth:
             return False
     return True
 

@@ -195,6 +195,8 @@ def job_out(job: Job) -> JobOut:
 
 class CagBar(BaseModel):
     cag: int
+    # Molecules at this length, including those read to the tract's end too near the
+    # read's own end to confirm it.
     molecules: int
     # Molecules whose CAG is only known to be at least this (reads ended in the tract).
     lower_bound: int
@@ -244,7 +246,7 @@ class SampleDetail(BaseModel):
     job_name: str
     demo: bool
     folder: str | None
-    # The full call (scalehd.call/1), once the sample has been called.
+    # The full call (scalehd.call/2), once the sample has been called.
     call: dict[str, Any] | None
     cag_charts: list[CagChart]
     ccg: list[CcgBar]

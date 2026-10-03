@@ -106,7 +106,7 @@ export interface Stutter {
   expansion_tail: number;
 }
 
-/** One allele of a saved call (scalehd.call/1). */
+/** One allele of a saved call (scalehd.call/2). */
 export interface CalledAllele {
   structure: string;
   beyond_read_length: boolean;
@@ -128,7 +128,7 @@ export interface CalledAllele {
   cag_estimate: [number, number, number] | null;
 }
 
-/** A sample's saved genotype call (scalehd.call/1). */
+/** A sample's saved genotype call (scalehd.call/2). */
 export interface GenotypeCall {
   genotype: string;
   posterior: number;
@@ -141,7 +141,6 @@ export interface GenotypeCall {
   ccg_slippage: number;
   misread: number;
   unexplained: { structure: string; molecules: number }[];
-  coarsened_above: number | null;
 }
 
 export interface CagBar {

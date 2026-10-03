@@ -16,7 +16,10 @@ from .parse import ReadParse, RepeatParser
 from .seqio import read_fastq, read_pairs, reverse_complement
 from .structure import FIELDS, AlleleStructure, FieldStatus, Observation
 
-SCHEMA = "scalehd.counts/1"
+# Beta schema 1 = initial implementation idea
+# Beta schema 2 adds the "unconfirmed" for extremely long repeats (at the end of sequence length)
+SCHEMA = "scalehd.counts/2"
+READABLE = ("scalehd.counts/1", SCHEMA)
 
 
 @dataclass
@@ -86,7 +89,7 @@ class SampleCounts:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SampleCounts:
-        if data.get("schema") != SCHEMA:
+        if data.get("schema") not in READABLE:
             raise ValueError(f"unsupported counts schema {data.get('schema')!r}")
         partial: Counter[Observation] = Counter()
         for row in data["partial"]:

@@ -298,6 +298,20 @@ def _error_free_run(units: list[tuple[int, int, int]], needed: int) -> bool:
     return False
 
 
+def _end_seen(d: Decomposition, j: int, *, open_end: bool) -> bool:
+    """Whether what the read shows beyond tract j rules out more of tract j's unit.
+
+    ``CCGCCA CCG`` at an open end may be a CCGCCA tract that goes on, and reading back
+    from an open start, ``CAG CAACAG`` may be the tail of another CAACAG.
+    """
+    unit = UNITS[j]
+    if open_end:
+        after = "".join(UNITS[k] for k in d.path if k > j) + d.tail
+        return not (after.startswith(unit) or unit.startswith(after))
+    before = d.head + "".join(UNITS[k] for k in d.path if k < j)
+    return not (before.endswith(unit) or unit.endswith(before))
+
+
 def field_status(
     d: Decomposition, open_start: bool, open_end: bool, confirm_bases: int = 12
 ) -> tuple[FieldStatus, ...]:
@@ -310,7 +324,9 @@ def field_status(
       tract's unit: ``...CAACAG CCG`` may be a truncated CCGCCA. In reverse at an
       open start, ``CAG CCGCCA...`` may follow the tail of a CAACAG.
     - A boundary needs ``confirm_bases`` error-free bases beyond it, otherwise the
-      tract before it may simply continue.
+      tract before it may simply continue. That tract's count is then unconfirmed..
+      the read did see it end, so it is almost always accurate, unless seq error influenced
+      tract end point. A tract the read ends inside is a lower genotype call boundary.
 
     Fields left ambiguous by a tie in the decomposition are unobserved, so the other
     read strand decides.
@@ -325,9 +341,13 @@ def field_status(
 
     exact: range
     bound: int | None
+    # Whether boundary is a tract the read saw end (unconfirmed) rather than ended inside.
+    # A read that stops partway into a unit that can't be the tract's own,
+    #  e.g. CAG CAA, has seen it end.
     if open_end:
         # Fields before `upto` are exact; `bound`, if any, is a lower bound.
         upto, bound = d.path[-1], d.path[-1]
+        seen_end = _end_seen(d, d.path[-1], open_end=True)
         for z in range(d.path[-1]):
             after = "".join(UNITS[k] for k in d.path if k > z) + d.tail
             if not d.counts[z] and (after.startswith(UNITS[z]) or UNITS[z].startswith(after)):
@@ -338,10 +358,12 @@ def field_status(
             if _error_free_run([u for u in d.units if u[0] > j], confirm_bases):
                 break
             upto, bound = j, (j if d.counts[j] else None)
+            seen_end = _end_seen(d, j, open_end=True)
         exact = range(upto)
     else:
         # Fields from `start` on are exact; `bound`, if any, is a lower bound.
         start, bound = d.path[0] + 1, d.path[0]
+        seen_end = _end_seen(d, d.path[0], open_end=False)
         for z in range(n - 1, d.path[0], -1):
             before = d.head + "".join(UNITS[k] for k in d.path if k < z)
             if not d.counts[z] and (before.endswith(UNITS[z]) or UNITS[z].endswith(before)):
@@ -352,13 +374,14 @@ def field_status(
             if _error_free_run([u for u in reversed(d.units) if u[0] < j], confirm_bases):
                 break
             start, bound = j + 1, (j if d.counts[j] else None)
+            seen_end = _end_seen(d, j, open_end=False)
         exact = range(start, n)
 
     status = [FieldStatus.UNOBSERVED] * n
     for k in exact:
         status[k] = FieldStatus.EXACT
     if bound is not None:
-        status[bound] = FieldStatus.LOWER_BOUND
+        status[bound] = FieldStatus.UNCONFIRMED if seen_end else FieldStatus.LOWER_BOUND
     for k, unsure in enumerate(d.ambiguous):
         if unsure:
             status[k] = FieldStatus.UNOBSERVED

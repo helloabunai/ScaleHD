@@ -14,7 +14,7 @@ from scalehd.pairs import join_read_base_pairings
 from scalehd.parse import RepeatParser
 from scalehd.seqio import read_pairs, reverse_complement
 from scalehd.simulate import SimAllele, SimulationSpec, simulate
-from scalehd.structure import AlleleStructure, FieldStatus
+from scalehd.structure import AlleleStructure, FieldStatus, Observation
 
 MILD = StutterCurve(
     cag_lengths=(20.0,),
@@ -129,3 +129,21 @@ def test_files_round_trip(tmp_path: Path) -> None:
     assert matrix.shape == (20, 200)
     assert matrix.sum() == sum(counts.complete.values())
     assert matrix[6, 16] == counts.complete[AlleleStructure(17)]
+
+
+def test_unconfirmed_counts_round_trip_and_version_1_files_still_read(tmp_path: Path) -> None:
+    counts = SampleCounts()
+    exact = FieldStatus.EXACT
+    counts.add(Observation((80, 1, 1, 7, 2), (FieldStatus.UNCONFIRMED, exact, exact, exact, exact)))
+    out = tmp_path / "s1.counts.json"
+    counts.write_json(out)
+    data = json.loads(out.read_text())
+    assert data["schema"] == "scalehd.counts/2"
+    assert data["partial"][0]["observation"] == "80~_1_1_7_2"
+    assert data["partial"][0]["status"][0] == "unconfirmed"
+    assert SampleCounts.read_json(out) == counts
+
+    # A file from before unconfirmed counts existed reads as it did.
+    data["schema"] = "scalehd.counts/1"
+    data["partial"] = []
+    assert SampleCounts.from_dict(data).molecules == 1
