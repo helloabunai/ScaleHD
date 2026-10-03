@@ -1,4 +1,7 @@
-# ScaleHD Rework
+# ScaleHD
+
+> [!WARNING] 
+> I'm re-writing ScaleHD as a hobby project. If you are looking for the original ScaleHD, it's either been forked by others, or check the legacy folder within the repository. Eventually the legacy genotyping method will be usable from the web interface within this version of ScaleHD.
 
 Genotyping of the Huntington disease *HTT* CAG/CCG repeat from paired-end amplicon
 sequencing. This branch is a ground-up rewrite. The previous ScaleHD implementation
@@ -323,7 +326,7 @@ On a machine with many cores, cap the number running at once (for example with
   | `low_confidence` | posterior below 0.99 |
   | `homozygous` | both alleles identical |
   | `neighbouring` | alleles one CAG apart. the hardest case to separate from stutter |
-  | `atypical` | an allele without the common `1_1_x_2` intervening and CCT structure |
+  | `atypical` | at least one allele without the common HTT sequence structure |
   | `beyond_read_length` | an allele longer than the reads. CAG is a lower bound not definitive |
   | `allele_imbalance` | one allele has under 20% of molecules |
   | `high_background` | over 5% of molecules fit neither allele |
@@ -370,3 +373,5 @@ MIT, see [LICENSE](LICENSE).
 - report exporting
 - admin features needed (changing users passwords, etc)
 - more stuff probably
+- job tags (e.g. like the "demo" tag in demo job title) for labelling specific cohorts/papers
+- sequence struct hover details improvement
