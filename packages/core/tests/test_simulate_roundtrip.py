@@ -1,0 +1,149 @@
+"""End to end: simulated FASTQ through parsing and read pair joining.
+
+These tests are about parsing, so they simulate mild stutter by default; with the
+calibrated (heavy) stutter of long alleles the top structures stop being the alleles.
+"""
+
+import json
+from pathlib import Path
+
+import pytest
+from scalehd.calibration import HTT_MISEQ, StutterCurve
+from scalehd.counts import SampleCounts, count_fastq, count_reads
+from scalehd.pairs import join_read_base_pairings
+from scalehd.parse import RepeatParser
+from scalehd.seqio import read_pairs, reverse_complement
+from scalehd.simulate import SimAllele, SimulationSpec, simulate
+from scalehd.structure import AlleleStructure, FieldStatus, Observation
+
+MILD = StutterCurve(
+    cag_lengths=(20.0,),
+    log_contraction=(-1.7,),
+    logit_contraction_step=(-1.9,),
+    logit_contraction_tail=(-1.0,),
+    log_expansion=(-4.0,),
+    logit_expansion_step=(-2.4,),
+    logit_expansion_tail=(-1.0,),
+)
+
+
+def spec(*labels: str, pairs: int = 3000, seed: int = 7, **kwargs: object) -> SimulationSpec:
+    alleles = tuple(SimAllele(AlleleStructure.from_label(label)) for label in labels)
+    kwargs.setdefault("stutter", MILD)
+    return SimulationSpec(alleles, pairs=pairs, seed=seed, **kwargs)  # type: ignore[arg-type]
+
+
+def test_simulation_is_deterministic() -> None:
+    a = simulate(spec("17_1_1_7_2", "43_1_1_7_2", pairs=200))
+    b = simulate(spec("17_1_1_7_2", "43_1_1_7_2", pairs=200))
+    assert a.r1 == b.r1
+    assert a.r2 == b.r2
+    assert a.molecules == b.molecules
+
+
+def test_reads_have_requested_shape() -> None:
+    sample = simulate(spec("20_1_1_7_2", pairs=50))
+    assert len(sample.r1) == len(sample.r2) == 50
+    assert all(len(r.sequence) == 300 == len(r.quality) for r in sample.r1 + sample.r2)
+    assert sum(sample.molecules.values()) == 50
+
+
+def test_calibrated_stutter_grows_with_length() -> None:
+    short, long = HTT_MISEQ.at(20), HTT_MISEQ.at(60)
+    assert long.contraction > short.contraction
+    assert long.expansion > short.expansion
+    shifts, probabilities = short.kernel(20)
+    assert probabilities.sum() == pytest.approx(1)
+    assert shifts.min() == -19  # no template shorter than one CAG
+    assert probabilities[shifts == 0] > probabilities[shifts == -1] > probabilities[shifts == 1]
+
+
+def test_every_kept_molecule_matches_truth() -> None:
+    """With pair agreement, sequencing errors should not produce wrong molecules."""
+    sample = simulate(spec("17_1_1_7_2", "43_1_1_7_2", "42_0_1_7_2"))
+    parser = RepeatParser()
+    kept = wrong = 0
+    for a, b in zip(sample.r1, sample.r2, strict=True):
+        x = parser.parse(a.sequence)
+        y = parser.parse(reverse_complement(b.sequence))
+        joined = join_read_base_pairings(
+            x.observation if x.usable else None, y.observation if y.usable else None
+        )
+        if joined.observation is None:
+            continue
+        kept += 1
+        wrong += joined.observation.label != a.name.rsplit(":", 1)[-1]
+    assert kept > 0.9 * len(sample.r1)
+    assert wrong <= 0.001 * kept
+
+
+@pytest.mark.parametrize(
+    "labels",
+    [
+        ("17_1_1_7_2", "43_1_1_7_2"),
+        ("21_1_1_7_2",),
+        ("42_0_1_7_2", "19_2_1_10_2"),
+        ("20_1_1_7_2", "75_1_1_7_2"),
+    ],
+)
+def test_true_alleles_are_the_top_structures(labels: tuple[str, ...]) -> None:
+    sample = simulate(spec(*labels))
+    counts = count_reads(
+        (a.sequence, b.sequence) for a, b in zip(sample.r1, sample.r2, strict=True)
+    )
+    top = {s.label for s, _ in counts.top(len(labels))}
+    assert top == set(labels)
+
+
+def test_very_long_allele_is_bounded_not_miscalled() -> None:
+    sample = simulate(spec("20_1_1_7_2", "95_1_1_7_2"))
+    counts = count_reads(
+        (a.sequence, b.sequence) for a, b in zip(sample.r1, sample.r2, strict=True)
+    )
+    assert counts.top(1)[0][0].label == "20_1_1_7_2"
+    assert not any(s.cag > 70 for s in counts.complete)
+    observation, _ = counts.partial.most_common(1)[0]
+    assert observation.status[0] is FieldStatus.LOWER_BOUND
+    assert observation.label.endswith("+_1_1_7_2")
+
+
+def test_off_target_pairs_are_unusable() -> None:
+    sample = simulate(spec("20_1_1_7_2", pairs=500, off_target=0.2))
+    counts = count_reads(
+        (a.sequence, b.sequence) for a, b in zip(sample.r1, sample.r2, strict=True)
+    )
+    assert counts.unusable == sample.off_target_pairs > 0
+
+
+def test_files_round_trip(tmp_path: Path) -> None:
+    sample = simulate(spec("17_1_1_7_2", "43_1_1_7_2", pairs=300))
+    r1, r2, truth = sample.write(tmp_path, "s1")
+    assert [x.sequence for x, _ in read_pairs(r1, r2)] == [x.sequence for x in sample.r1]
+    assert json.loads(truth.read_text())["alleles"][1]["structure"] == "43_1_1_7_2"
+
+    counts = count_fastq(r1, r2)
+    out = tmp_path / "s1.counts.json"
+    counts.write_json(out)
+    assert SampleCounts.read_json(out) == counts
+    matrix = counts.cag_ccg_matrix()
+    assert matrix.shape == (20, 200)
+    assert matrix.sum() == sum(counts.complete.values())
+    assert matrix[6, 16] == counts.complete[AlleleStructure(17)]
+
+
+def test_unconfirmed_counts_round_trip_and_version_1_files_still_read(tmp_path: Path) -> None:
+    counts = SampleCounts()
+    exact = FieldStatus.EXACT
+    counts.add(Observation((80, 1, 1, 7, 2), (FieldStatus.UNCONFIRMED, exact, exact, exact, exact)))
+    out = tmp_path / "s1.counts.json"
+    counts.write_json(out)
+    data = json.loads(out.read_text())
+    assert data["schema"] == "scalehd.counts/2"
+    assert data["partial"][0]["observation"] == "80~_1_1_7_2"
+    assert data["partial"][0]["status"][0] == "unconfirmed"
+    assert SampleCounts.read_json(out) == counts
+
+    # A file from before unconfirmed counts existed reads as it did.
+    data["schema"] = "scalehd.counts/1"
+    data["partial"] = []
+    assert SampleCounts.from_dict(data).molecules == 1

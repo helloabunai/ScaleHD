@@ -1,0 +1,15 @@
+.git
+.github
+.venv
+.env
+**/__pycache__
+**/.pytest_cache
+.mypy_cache
+.ruff_cache
+.hypothesis
+**/node_modules
+apps/web/dist
+legacy
+scratch
+data
+input
