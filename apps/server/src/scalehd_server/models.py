@@ -24,6 +24,14 @@ class JobStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class Theme(StrEnum):
+    """Light or dark pages, or whichever the user's computer is set to."""
+
+    SYSTEM = "system"
+    LIGHT = "light"
+    DARK = "dark"
+
+
 class SampleStatus(StrEnum):
     QUEUED = "queued"
     RUNNING = "running"
@@ -41,6 +49,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(default=_now)
     # Starting settings for this user's new jobs, as a schemas.JobSettings dict.
     default_settings: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    theme: Mapped[Theme] = mapped_column(default=Theme.SYSTEM)
 
     jobs: Mapped[list[Job]] = relationship(back_populates="owner")
     sessions: Mapped[list[LoginSession]] = relationship(

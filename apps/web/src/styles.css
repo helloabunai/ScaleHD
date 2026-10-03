@@ -1,6 +1,6 @@
 :root {
   font-family: system-ui, sans-serif;
-  color-scheme: light dark;
+  color-scheme: light;
   --muted: #777;
   --error: #c33;
   --success: #2a7;
@@ -11,13 +11,13 @@
   --line: #8884;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --accent: #7aa7ff;
-    --on-accent: #0b1730;
-    --warning: #f0b45a;
-    --warning-bg: #3a2a10;
-  }
+/* Dark theme */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --accent: #7aa7ff;
+  --on-accent: #0b1730;
+  --warning: #f0b45a;
+  --warning-bg: #3a2a10;
 }
 
 body {
@@ -398,6 +398,12 @@ section {
   margin: 2rem 0;
 }
 
+/* neighbour section padding */
+section + section {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
 figure {
   margin: 1rem 0 1.5rem;
 }
@@ -406,21 +412,31 @@ figcaption {
   margin-bottom: 0.5rem;
 }
 
-.scale-toggle {
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+}
+
+.scale-toggle,
+.theme-toggle {
   display: flex;
   gap: 0.5rem;
   align-items: center;
-  margin: 1.5rem 0 0;
 }
 
-.scale-toggle button {
+.scale-toggle button,
+.theme-toggle button {
   padding: 0.2rem 0.8rem;
   border-color: var(--line);
   background: none;
   color: inherit;
 }
 
-.scale-toggle button.selected {
+.scale-toggle button.selected,
+.theme-toggle button.selected {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--on-accent);
@@ -485,12 +501,32 @@ figcaption {
   margin: 0.25rem 0 0;
 }
 
+/* One row per group: its heading, then one box holding the group's swatches. The
+   boxes line up because the headings share a column. */
 .structure-legend {
+  display: grid;
+  grid-template-columns: max-content auto;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  margin: 0.5rem 0 1rem;
+  font-size: 0.8rem;
+}
+
+.structure-legend .legend-group {
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem 1rem;
-  margin: 0.5rem 0 1rem;
-  font-size: 0.8rem;
+  justify-self: start;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.3rem;
+  background: var(--line);
+}
+
+/* On a narrow screen each heading goes above its box instead of beside it. */
+@media (max-width: 36rem) {
+  .structure-legend {
+    grid-template-columns: auto;
+  }
 }
 
 .structure-legend .swatch {

@@ -54,9 +54,6 @@ export function StructureDiagrams({ alleles }: Readonly<{ alleles: CalledAllele[
             {!allele.typical && <span className="badge">atypical</span>}
           </figcaption>
           <Row allele={allele} left={left} total={total} />
-          {!allele.typical && (
-            <p className="muted structure-differences">Differs from typical: {differences(allele)}</p>
-          )}
         </figure>
       ))}
     </>
@@ -91,7 +88,7 @@ function Row({ allele, left, total }: Readonly<{ allele: CalledAllele; left: num
             style={{ left: at(start), width: at(own * length) }}
             title={`${tract.unit} repeated ${count} time${count === 1 ? "" : "s"}${
               open ? " or more (reads ended inside this tract)" : ""
-            }${whole ? `, ${extra} more than a typical allele (which has ${tract.typical})` : ""}: ${
+            }${whole ? `, ${extra} more than the typical structure (which has ${tract.typical})` : ""}: ${
               count * length
             } bases`}
           >
@@ -105,7 +102,7 @@ function Row({ allele, left, total }: Readonly<{ allele: CalledAllele; left: num
           <div
             className={`tract tract-${tract.key} tract-extra`}
             style={{ left: at(start + own * length), width: at(extra * length) }}
-            title={`${extra} more ${tract.unit} than a typical allele (which has ${tract.typical})`}
+            title={`${extra} more ${tract.unit} than the typical structure (which has ${tract.typical})`}
           >
             <span className="full">+{extra}</span>
             <span className="short">+{extra}</span>
@@ -115,7 +112,7 @@ function Row({ allele, left, total }: Readonly<{ allele: CalledAllele; left: num
           <div
             className="tract-missing"
             style={{ left: at(start + count * length), width: at(missing * length) }}
-            title={`${missing} ${tract.unit} fewer than a typical allele (which has ${tract.typical})`}
+            title={`${missing} ${tract.unit} fewer than the typical structure (which has ${tract.typical})`}
           />
         )}
       </Fragment>
@@ -132,29 +129,30 @@ function Row({ allele, left, total }: Readonly<{ allele: CalledAllele; left: num
 function Legend({ atypical }: Readonly<{ atypical: boolean }>) {
   return (
     <div className="structure-legend" aria-hidden>
-      {TRACTS.map((tract) => (
-        <span key={tract.key}>
-          <span className={`swatch tract-${tract.key}`} />
-          {tract.unit}
-        </span>
-      ))}
-      <span>
-        <span className="swatch strand" />
-        rest of the strand, outside the repeat
+      <span>HTT Repeat Units:</span>
+      <span className="legend-group">
+        {TRACTS.map((tract) => (
+          <span key={tract.key}>
+            <span className={`swatch tract-${tract.key}`} />
+            {tract.unit}
+          </span>
+        ))}
       </span>
       {atypical && (
         <>
-          <span>
-            <span className="swatch tract-missing" />
-            missing: a typical allele has it
-          </span>
-          <span>
-            <span className="swatch tract-extra" />
-            extra: more than a typical allele
+          <span>Intervening sequence structure:</span>
+          <span className="legend-group">
+            <span>
+              <span className="swatch tract-missing" />
+              atypical deletion
+            </span>
+            <span>
+              <span className="swatch tract-extra" />
+              atypical insertion
+            </span>
           </span>
         </>
       )}
-      <span className="muted">expected start of the intervening sequence,  visualisation aligned here</span>
     </div>
   );
 }

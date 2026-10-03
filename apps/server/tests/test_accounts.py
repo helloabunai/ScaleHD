@@ -141,3 +141,37 @@ def test_password_change_logs_out_other_browsers(client: TestClient) -> None:
     assert other_browser.get("/api/auth/me").status_code == 401
     assert login(other_browser).status_code == 401
     assert login(other_browser, password="battery staple").status_code == 200
+
+
+def test_new_accounts_follow_the_system_theme(client: TestClient) -> None:
+    assert register(client).json()["theme"] == "system"
+    assert client.get("/api/auth/me").json()["theme"] == "system"
+
+
+def test_chosen_theme_is_kept(client: TestClient) -> None:
+    register(client)
+    response = client.put("/api/auth/theme", json={"theme": "dark"})
+    assert response.status_code == 200
+    assert response.json()["theme"] == "dark"
+    assert client.get("/api/auth/me").json()["theme"] == "dark"
+    client.cookies.clear()
+    assert login(client).json()["theme"] == "dark"
+
+
+def test_unknown_theme_is_rejected(client: TestClient) -> None:
+    register(client)
+    assert client.put("/api/auth/theme", json={"theme": "purple"}).status_code == 422
+    assert client.get("/api/auth/me").json()["theme"] == "system"
+
+
+def test_theme_needs_a_login(client: TestClient) -> None:
+    assert client.put("/api/auth/theme", json={"theme": "dark"}).status_code == 401
+
+
+def test_each_user_has_their_own_theme(client: TestClient) -> None:
+    register(client)
+    client.put("/api/auth/theme", json={"theme": "light"})
+    client.cookies.clear()
+    assert register(client, "bob").json()["theme"] == "system"
+    client.cookies.clear()
+    assert login(client).json()["theme"] == "light"

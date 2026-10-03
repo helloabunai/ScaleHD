@@ -1,7 +1,8 @@
 import { type SubmitEvent, useState } from "react";
 import { Link } from "react-router";
-import { api } from "../api";
+import { api, type Theme } from "../api";
 import { useUser } from "../auth";
+import { useTheme } from "../theme";
 
 type Outcome = { ok: boolean; message: string };
 
@@ -45,6 +46,7 @@ export function Account() {
         <Link to="/settings">Default job settings</Link>: the genotyping method and thresholds
         your new jobs start with.
       </p>
+      <Appearance />
       <form className="form" onSubmit={submit}>
         <h2>Change password</h2>
         {/* For password managers: which account this password belongs to. */}
@@ -74,6 +76,49 @@ export function Account() {
         </button>
         {outcome && <p className={outcome.ok ? "success" : "error"}>{outcome.message}</p>}
       </form>
+    </>
+  );
+}
+
+const THEMES: { theme: Theme; label: string }[] = [
+  { theme: "system", label: "System" },
+  { theme: "light", label: "Light" },
+  { theme: "dark", label: "Dark" },
+];
+
+function Appearance() {
+  const { theme, choose } = useTheme();
+  const [error, setError] = useState<string | null>(null);
+
+  async function pick(next: Theme) {
+    setError(null);
+    try {
+      await choose(next);
+    } catch (e) {
+      setError(`Not saved: ${(e as Error).message}`);
+    }
+  }
+
+  return (
+    <>
+      <h2>Appearance</h2>
+      <div className="theme-toggle" role="group" aria-label="Appearance">
+        {THEMES.map((option) => (
+          <button
+            key={option.theme}
+            type="button"
+            className={option.theme === theme ? "selected" : ""}
+            aria-pressed={option.theme === theme}
+            onClick={() => pick(option.theme)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <p className="muted">
+        System follows your computer's light or dark setting.
+      </p>
+      {error && <p className="error">{error}</p>}
     </>
   );
 }

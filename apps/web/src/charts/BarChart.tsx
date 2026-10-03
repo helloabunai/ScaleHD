@@ -10,6 +10,7 @@ import {
   Tooltip,
 } from "chart.js";
 import { useEffect, useRef } from "react";
+import { useTheme } from "../theme";
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, LogarithmicScale, Tooltip);
 
@@ -45,6 +46,7 @@ export function BarChart({
 }>) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const tip = useRef<HTMLDivElement>(null);
+  const { shown } = useTheme();
 
   useEffect(() => {
     if (!canvas.current) return;
@@ -105,7 +107,7 @@ export function BarChart({
     };
     const chart = new Chart(canvas.current, config);
     return () => chart.destroy();
-  }, [bars, scale, xTitle, yTitle]);
+  }, [bars, scale, xTitle, yTitle, shown]);
 
   return (
     <div className="chart" role="img" aria-label={label}>

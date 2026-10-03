@@ -48,8 +48,7 @@ export function SampleResults() {
           ) : (
             <>
               <Summary detail={detail} call={detail.call} />
-              <ScaleToggle scale={scale} onChange={setScale} />
-              <CagDistributions charts={detail.cag_charts} scale={scale} />
+              <CagDistributions charts={detail.cag_charts} scale={scale} setScale={setScale} />
               <Structures alleles={detail.call.alleles} />
               <CcgDistribution bars={detail.ccg} call={detail.call} scale={scale} />
               <section>
@@ -155,10 +154,6 @@ function Summary({ detail, call }: Readonly<{ detail: SampleDetail; call: Genoty
           ))}
         </tbody>
       </table>
-      <p className="muted">
-        Polyglutamine counts the glutamine codons: every CAG, plus two for each CAACAG (CAA also codes
-        glutamine). A typical allele's polyglutamine length is its CAG + 2.
-      </p>
     </section>
   );
 }
@@ -182,10 +177,13 @@ function ScaleToggle({ scale, onChange }: Readonly<{ scale: Scale; onChange: (s:
   );
 }
 
-function CagDistributions({ charts, scale }: Readonly<{ charts: CagChart[]; scale: Scale }>) {
+function CagDistributions({ charts, scale, setScale }: Readonly<{ charts: CagChart[]; scale: Scale; setScale: (s: Scale) => void }>) {
   return (
     <section>
-      <h2>CAG distribution</h2>
+      <div className="section-head">
+        <h2>CAG distribution</h2>
+        <ScaleToggle scale={scale} onChange={setScale} />
+      </div>
       <p className="muted">
         Molecules at each CAG length within each called allele's structure. Called lengths are
         highlighted. Striped bars are reads that ended inside the CAG tract, so their CAG is at
@@ -245,8 +243,7 @@ function Structures({ alleles }: Readonly<{ alleles: CalledAllele[] }>) {
     <section>
       <h2>Repeat structure</h2>
       <p className="muted">
-        Every tract drawn to one scale in bases. Hover a block for details; atypical tracts are
-        outlined.
+        Hover a repeat tract for details.
       </p>
       <StructureDiagrams alleles={distinct(alleles)} />
     </section>

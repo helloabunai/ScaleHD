@@ -51,6 +51,8 @@ git config core.hooksPath tools/git-hooks
 
 `git push --no-verify` skips it for one push.  Maybe don't do that.
 
+`tools/dev.sh` runs the server and web interface for development purposes i.e auto-reloading when pages/files are update. Uses a separate dev db.
+
 #### From scratch: running the server with Docker
 
 Everything (server, web interface, genotyping) runs in one container, so the machine

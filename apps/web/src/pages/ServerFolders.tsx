@@ -21,7 +21,8 @@ export function ServerFolders() {
                 </>
               )}
             </p>
-            <p className="muted">Sequencing data you can pick from when starting a job. Read-only. The server admin must define this directory before starting the ScaleHD server.</p>
+            <p className="muted">Read-only directory containing your sequencing data. 
+              <br/>The server admin must define this directory before starting the ScaleHD server.</p>
             <h3>Workspace</h3>
             <p>
               <code>{folders.workspace}</code>

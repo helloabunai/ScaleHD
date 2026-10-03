@@ -14,7 +14,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstra
 from scalehd.genotype import CallerSettings
 from scalehd.pairs import DiscordancePolicy
 
-from .models import Job, JobStatus, SampleStatus
+from .models import Job, JobStatus, SampleStatus, Theme
 
 
 class Health(BaseModel):
@@ -71,6 +71,11 @@ class UserOut(BaseModel):
     username: str
     is_admin: bool
     created_at: datetime
+    theme: Theme
+
+
+class ThemeChange(BaseModel):
+    theme: Theme
 
 
 class GenotypeMethod(StrEnum):

@@ -32,9 +32,11 @@ stops startup with a message naming it: delete it (accounts are lost) and restar
   database keeps only the token's SHA-256, so logging out and expiry
   (`SCALEHD_SESSION_DAYS`, default 30) take effect on the server.
 - Changing password logs out every other browser using that account.
+- Each account keeps a light/dark choice (`users.theme`: `system`, `light` or `dark`, default `system`)
 - Routes: `GET /api/auth/registration`, `POST /api/auth/register`, `POST /api/auth/login`,
-  `POST /api/auth/logout`, `GET /api/auth/me`, `PUT /api/auth/password`. Other routes
-  take the logged-in user from the `CurrentUser` dependency in `auth.py`.
+  `POST /api/auth/logout`, `GET /api/auth/me`, `PUT /api/auth/password`,
+  `PUT /api/auth/theme`. Other routes take the logged-in user from the `CurrentUser`
+  dependency in `auth.py`.
 
 ### Genotyping method
 

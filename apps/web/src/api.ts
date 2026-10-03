@@ -3,6 +3,8 @@
 // /api/openapi.json (e.g. openapi-typescript) once the API settles.
 
 export type JobStatus = "queued" | "running" | "finished" | "failed" | "cancelled";
+/** Light or dark pages, or "system" */
+export type Theme = "system" | "light" | "dark";
 export type SampleStatus = "queued" | "running" | "finished" | "failed";
 
 export interface Health {
@@ -16,6 +18,7 @@ export interface User {
   username: string;
   is_admin: boolean;
   created_at: string;
+  theme: Theme;
 }
 
 export interface Folders {
@@ -260,6 +263,8 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ current_password, new_password }),
     }),
+  setTheme: (theme: Theme) =>
+    request<User>("/auth/theme", { method: "PUT", body: JSON.stringify({ theme }) }),
 
   listInputs: (folder = "") => request<InputPair[]>(`/inputs?folder=${encodeURIComponent(folder)}`),
 

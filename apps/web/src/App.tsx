@@ -10,31 +10,34 @@ import { Register } from "./pages/Register";
 import { SampleResults } from "./pages/SampleResults";
 import { Settings } from "./pages/Settings";
 import { Welcome } from "./pages/Welcome";
+import { ThemeProvider } from "./theme";
 import { useApi } from "./useApi";
 
 export function App() {
   return (
     <AuthProvider>
-      <div className="layout">
-        <Header />
-        <main>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route element={<RequireLogin />}>
-              <Route path="/" element={<Welcome />} />
-              <Route path="/jobs" element={<Jobs />} />
-              <Route path="/jobs/new" element={<NewJob />} />
-              <Route path="/jobs/:jobId" element={<JobDetail />} />
-              <Route path="/jobs/:jobId/samples/:sampleId" element={<SampleResults />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/account" element={<Account />} />
-            </Route>
-            <Route path="*" element={<p>Page not found.</p>} />
-          </Routes>
-        </main>
-        <ServerVersion />
-      </div>
+      <ThemeProvider>
+        <div className="layout">
+          <Header />
+          <main>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route element={<RequireLogin />}>
+                <Route path="/" element={<Welcome />} />
+                <Route path="/jobs" element={<Jobs />} />
+                <Route path="/jobs/new" element={<NewJob />} />
+                <Route path="/jobs/:jobId" element={<JobDetail />} />
+                <Route path="/jobs/:jobId/samples/:sampleId" element={<SampleResults />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/account" element={<Account />} />
+              </Route>
+              <Route path="*" element={<p>Page not found.</p>} />
+            </Routes>
+          </main>
+          <ServerVersion />
+        </div>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

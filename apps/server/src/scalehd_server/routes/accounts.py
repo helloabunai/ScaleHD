@@ -1,4 +1,4 @@
-"""Users!! Register, log in and out, and change password."""
+"""Users!! Register, log in and out, change password, browser themes etc."""
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from sqlalchemy import func, select
@@ -15,7 +15,7 @@ from ..auth import (
 from ..config import ServerConfig
 from ..db import DbSession
 from ..models import User
-from ..schemas import Login, NewAccount, PasswordChange, Registration, UserOut
+from ..schemas import Login, NewAccount, PasswordChange, Registration, ThemeChange, UserOut
 
 router = APIRouter(prefix="/auth", tags=["accounts"])
 
@@ -88,3 +88,11 @@ def change_password(
     user.password_hash = hash_password(change.new_password)
     end_other_sessions(session, user, request)
     session.commit()
+
+
+@router.put("/theme")
+def change_theme(change: ThemeChange, user: CurrentUser, session: DbSession) -> UserOut:
+    """Light, dark, or follow the computer's setting."""
+    user.theme = change.theme
+    session.commit()
+    return UserOut.model_validate(user)
