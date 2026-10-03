@@ -28,11 +28,11 @@ DEMO_SAMPLES: tuple[DemoSample, ...] = (
     DemoSample("beyond-read-length", ("20_1_1_7_2", "95_1_1_7_2"), seed=6),
     DemoSample("ccg-7-and-10", ("17_1_1_7_2", "17_1_1_10_2"), seed=7),
     DemoSample("normal-ccg-10", ("19_1_1_10_2", "44_1_1_7_2"), seed=8),
-    # CCG 6 and 12 have not been through the caller before; a wrong call here is a
-    # finding, not a demo bug.
     DemoSample("rare-ccg", ("16_1_1_6_2", "24_1_1_12_2"), seed=9),
-    # Two CAACAG and CCG 10 on the normal allele
     DemoSample("caacag-duplication", ("19_2_1_10_2", "40_1_1_7_2"), seed=10),
+    DemoSample("ccgcca-deletion", ("19_1_0_7_2", "40_1_1_7_2"), seed=11),
+    DemoSample("ccgcca-duplication", ("17_1_1_7_2", "42_1_2_7_2"), seed=12),
+    DemoSample("ccgcca-deletion-and-insertion", ("19_1_0_7_2", "42_1_2_7_2"), seed=13),
 )
 
 

@@ -34,6 +34,19 @@ function rightOfJunction(allele: CalledAllele): number {
   );
 }
 
+/** Whether any allele is drawn with extra/missing units. */
+function markings(alleles: CalledAllele[]): { inserted: boolean; deleted: boolean } {
+  const differs = (by: (count: number, typical: number) => boolean) =>
+    TRACTS.some((tract) => {
+      const typical = tract.typical;
+      return typical !== null && alleles.some((allele) => by(allele[tract.key], typical));
+    });
+  return {
+    inserted: differs((count, typical) => count > typical),
+    deleted: differs((count, typical) => count < typical),
+  };
+}
+
 /**
  * Every allele's repeat structure to one scale, lined up where the intervening
  * sequence starts: the CAG tract grows left from there, CCG and CCT grow right.
@@ -43,7 +56,7 @@ export function StructureDiagrams({ alleles }: Readonly<{ alleles: CalledAllele[
   const total = left + Math.max(...alleles.map(rightOfJunction));
   return (
     <>
-      <Legend atypical={alleles.some((allele) => !allele.typical)} />
+      <Legend {...markings(alleles)} />
       {alleles.map((allele) => (
         <figure key={allele.structure} className="structure">
           <figcaption>
@@ -126,7 +139,10 @@ function Row({ allele, left, total }: Readonly<{ allele: CalledAllele; left: num
   );
 }
 
-function Legend({ atypical }: Readonly<{ atypical: boolean }>) {
+/**
+ * HTT structure key. atypical keys only drawn if present in allele(s)
+ */
+function Legend({ inserted, deleted }: Readonly<{ inserted: boolean; deleted: boolean }>) {
   return (
     <div className="structure-legend" aria-hidden>
       <span>HTT Repeat Units:</span>
@@ -138,18 +154,22 @@ function Legend({ atypical }: Readonly<{ atypical: boolean }>) {
           </span>
         ))}
       </span>
-      {atypical && (
+      {(deleted || inserted) && (
         <>
           <span>Intervening sequence structure:</span>
           <span className="legend-group">
-            <span>
-              <span className="swatch tract-missing" />
-              atypical deletion
-            </span>
-            <span>
-              <span className="swatch tract-extra" />
-              atypical insertion
-            </span>
+            {deleted && (
+              <span>
+                <span className="swatch tract-missing" />
+                atypical deletion
+              </span>
+            )}
+            {inserted && (
+              <span>
+                <span className="swatch tract-extra" />
+                atypical insertion
+              </span>
+            )}
           </span>
         </>
       )}
@@ -162,10 +182,4 @@ function describe(allele: CalledAllele): string {
     const open = tract.key === "cag" && allele.beyond_read_length;
     return `${tract.unit} ${open ? "at least " : "×"}${allele[tract.key]}`;
   }).join(", ");
-}
-
-function differences(allele: CalledAllele): string {
-  return TRACTS.filter((tract) => tract.typical !== null && allele[tract.key] !== tract.typical)
-    .map((tract) => `${tract.unit} ×${allele[tract.key]} (typical ${tract.typical})`)
-    .join(", ");
 }
