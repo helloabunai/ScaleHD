@@ -36,7 +36,17 @@ stops startup with a message naming it: delete it (accounts are lost) and restar
 - Routes: `GET /api/auth/registration`, `POST /api/auth/register`, `POST /api/auth/login`,
   `POST /api/auth/logout`, `GET /api/auth/me`, `PUT /api/auth/password`,
   `PUT /api/auth/theme`. Other routes take the logged-in user from the `CurrentUser`
-  dependency in `auth.py`.
+  dependency in `auth.py`, or an admin from `AdminUser` (403 for anyone else).
+- Admins: `GET /api/admin/users` and `PUT /api/admin/users/{id}/admin` for giving
+  existing users admin rights.
+
+### Jobs from the data folder
+
+- `GET /api/inputs?folder=` lists directories within `SCALEHD_DATA_ROOT` and samples within
+  those directories.
+- `POST /api/jobs` queues selected samples as a job for genotyping.
+- Also included UI tags for easy assignment of jobs to e.g. projects / data cohorts.
+  Tags can be made on the job page by any user by needs an admin to edit/delete them
 
 ### Genotyping method
 
@@ -63,10 +73,11 @@ Gets some simulated data from the simulator and runs the new genotyping (only on
 |---|---|---|
 | `app.py` | app factory: database, runner, `/api` routes, frontend at `/` | works |
 | `config.py` | settings from the environment | works |
-| `db.py`, `models.py` | SQLAlchemy engine, sessions; users, login sessions, jobs, samples tables | works, tables created at startup (no migrations yet) |
+| `db.py`, `models.py` | SQLAlchemy engine, sessions; users, login sessions, jobs, samples, tags tables | works, tables created at startup (no migrations yet) |
 | `schemas.py` | API request and response bodies, job settings → `CallerSettings` | works |
 | `runner.py`, `worker.py` | the job runner (queue, worker pool, recording) and one sample's work | works |
 | `workspace.py` | job folders and `job.json` in the workspace | works |
 | `demo.py` | the demo job's simulated samples | works |
+| `inputs.py` | browsing the data folder, pairing FASTQ files, truth files of simulated runs | works |
 | `auth.py` | password hashing, session cookie, current user | works |
-| `routes/` | `health`, `accounts`, `folders`, `inputs`, `jobs`, `settings` | all but `inputs` and the real-input/cancel/report `jobs` routes work |
+| `routes/` | `health`, `accounts`, `admin`, `folders`, `inputs`, `jobs`, `settings`, `tags` | all but the cancel/report `jobs` routes work |

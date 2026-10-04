@@ -25,6 +25,11 @@ uv run scalehd call scratch/s1.counts.json -o scratch/s1.call.json
 
 `scalehd genotype R1 R2` counts and calls in one step.
 
+`scalehd simulate-run FOLDER` writes a whole run folder of placeholder data, laid out as
+a MiSeq writes one (`<sample>_S<n>_L001_R1_001.fastq.gz`). This is only for development
+to test the job submission page. For example
+`uv run scalehd simulate-run /srv/scalehd/data/generated-placeholder-data/run-01`.
+
 `simulate` writes paired FASTQ plus a `.truth.json`. Its model covers PCR stutter,
 somatic expansion, length bias, sequencing errors that rise along the read, spacers
 and adapter read-through, so the pipeline can be tested before real data is
@@ -141,8 +146,8 @@ them alone.
 
 Most settings are work in progress:
 
-- The data folder is mounted but can't be browsed from the web interface yet, so
-  only the demo job (simulated samples) runs.
+- Jobs run on FASTQ files picked from the data folder on the New job page.
+  No real datam atm so try with data made via `scalehd simulate-run`.
 - Of the genotyping methods (Settings page, and per job), Legacy (ScaleHD 1.x) is not
   available yet and New (model-based) is a beta. The demo always uses New.
 - The flag thresholds and the other job settings are not fully implemented yet so ignore those.
@@ -375,3 +380,4 @@ MIT, see [LICENSE](LICENSE).
 - more stuff probably
 - job tags (e.g. like the "demo" tag in demo job title) for labelling specific cohorts/papers
 - sequence struct hover details improvement
+- server status API/jobs running/cpu load etc (admin view)

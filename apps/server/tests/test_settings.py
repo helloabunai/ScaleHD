@@ -39,13 +39,13 @@ def test_jobs_use_the_users_default_method(logged_in: TestClient) -> None:
     assert response.json()["detail"].startswith("legacy genotyping is not available yet")
 
     logged_in.put("/api/settings", json={"method": "model"})
-    # Past the method check; the rest of job creation isn't built yet.
-    assert logged_in.post("/api/jobs", json=JOB).status_code == 501
+    # Past the method check, but test this server has no data folder.
+    assert logged_in.post("/api/jobs", json=JOB).status_code == 409
 
 
 def test_a_job_can_choose_its_own_method(logged_in: TestClient) -> None:
     assert (
-        logged_in.post("/api/jobs", json=JOB | {"settings": {"method": "model"}}).status_code == 501
+        logged_in.post("/api/jobs", json=JOB | {"settings": {"method": "model"}}).status_code == 409
     )
     logged_in.put("/api/settings", json={"method": "model"})
     response = logged_in.post("/api/jobs", json=JOB | {"settings": {"method": "legacy"}})

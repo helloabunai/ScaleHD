@@ -9,6 +9,8 @@
   --warning: #8a5300;
   --warning-bg: #fdf0d5;
   --line: #8884;
+  /* The tick in a checked checkbox, the colour of --on-accent. */
+  --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3E%3Cpath d='M1 5.2l3.4 3.3L11 1.5' fill='none' stroke='white' stroke-width='2.2'/%3E%3C/svg%3E");
 }
 
 /* Dark theme */
@@ -18,6 +20,7 @@
   --on-accent: #0b1730;
   --warning: #f0b45a;
   --warning-bg: #3a2a10;
+  --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3E%3Cpath d='M1 5.2l3.4 3.3L11 1.5' fill='none' stroke='%230b1730' stroke-width='2.2'/%3E%3C/svg%3E");
 }
 
 body {
@@ -50,10 +53,16 @@ nav a.active {
   font-weight: 600;
 }
 
+/* server info footer on a few lines. */
 footer {
-  padding: 1rem 0;
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 2rem;
+  padding: 1rem 0 1.5rem;
+  border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.65rem;
+  line-height: 1.4;
 }
 
 table {
@@ -112,6 +121,35 @@ input {
   padding: 0.35rem 0.5rem;
 }
 
+input[type="checkbox"] {
+  appearance: none;
+  flex: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0;
+  padding: 0;
+  border: 2px solid var(--muted);
+  border-radius: 0.2rem;
+  background: none;
+  vertical-align: -0.2rem;
+  cursor: pointer;
+}
+
+input[type="checkbox"]:checked {
+  border-color: var(--accent);
+  background: var(--accent) var(--tick) center / 0.75rem no-repeat;
+}
+
+input[type="checkbox"]:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .form {
   display: grid;
   gap: 0.75rem;
@@ -129,6 +167,227 @@ input {
 
 .form.wide {
   max-width: 40rem;
+}
+
+/* The New Job page: the data folder as a tree, beside the open folder's samples. */
+.new-job-layout {
+  display: grid;
+  grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+  margin-top: 1rem;
+}
+
+/* Kept in view beside a long sample list. */
+.folder-tree {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  padding: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+
+.folder-tree ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Each level in from the one above, with a line down its side. */
+.folder-tree ul ul {
+  margin-left: 0.7rem;
+  padding-left: 0.4rem;
+  border-left: 1px solid var(--line);
+}
+
+.folder-row {
+  display: flex;
+  gap: 0.25rem;
+  align-items: baseline;
+  padding: 0.2rem 0.3rem;
+  border-radius: 0.3rem;
+}
+
+.folder-row.open {
+  background: var(--line);
+}
+
+.folder-row.open .folder-name {
+  font-weight: 600;
+  color: inherit;
+}
+
+.folder-toggle {
+  flex: none;
+  width: 1rem;
+  text-align: center;
+}
+
+button.folder-toggle {
+  color: var(--muted);
+}
+
+.folder-name {
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.folder-count {
+  margin-left: auto;
+  padding-left: 0.5rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* On a narrow screen the tree goes above the samples. */
+@media (max-width: 50rem) {
+  .new-job-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .folder-tree {
+    position: static;
+    max-height: none;
+  }
+}
+
+.new-job h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.new-job h2 + p {
+  margin-top: 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+/* The open folder's files in three groups, each folding away: the samples to tick,
+   the ones that can't be run, and the files that aren't FASTQ. */
+.file-group {
+  margin-top: 1rem;
+  padding: 0 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+
+.file-group > summary {
+  margin: 0 -1rem;
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  /* Its own arrow instead of the browser's, so the arrow can turn. */
+  list-style: none;
+}
+
+.file-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A small triangle, turning about its middle. */
+.file-group > summary::before {
+  content: "";
+  display: inline-block;
+  margin-right: 0.55rem;
+  border-block: 0.3rem solid transparent;
+  border-left: 0.45rem solid currentColor;
+  vertical-align: 0.05rem;
+  transition: transform 0.15s ease;
+}
+
+.file-group[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+/* Opening a group, what's in it slides down into place. */
+.file-group[open] > :not(summary) {
+  animation: unfold 0.2s ease-out;
+}
+
+@keyframes unfold {
+  from {
+    opacity: 0;
+    transform: translateY(-0.4rem);
+  }
+}
+
+.file-group[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.file-group > summary .muted {
+  margin-left: 0.25rem;
+  font-weight: normal;
+}
+
+.file-group.problems > summary {
+  color: var(--warning);
+}
+
+.file-group > :last-child:not(summary) {
+  margin-bottom: 0.75rem;
+}
+
+.file-group tr:last-child td {
+  border-bottom: none;
+}
+
+.sample-tools {
+  display: flex;
+  gap: 1rem;
+  margin: 0.6rem 0 0.25rem;
+}
+
+.other-files {
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+  columns: 16rem;
+  column-gap: 2rem;
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.sample-choice td {
+  vertical-align: top;
+}
+
+.sample-choice th:first-child,
+.sample-choice td:first-child {
+  width: 2rem;
+}
+
+.sample-choice td:first-child input {
+  margin-top: 0.1rem;
+}
+
+label.sample-name {
+  cursor: pointer;
+}
+
+/* Under each sample, the files it was paired from. */
+.sample-files {
+  margin: 0.15rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+/* Why a sample's files can't be run. */
+.sample-skipped {
+  margin: 0.15rem 0 0;
+  color: var(--warning);
+  font-size: 0.85rem;
+}
+
+.new-job .form {
+  margin-top: 1.5rem;
 }
 
 .methods {
@@ -240,6 +499,85 @@ input {
   vertical-align: middle;
 }
 
+.tag + .tag {
+  margin-left: 0.35rem;
+}
+
+/* job tag picker (if available) */
+.tag-picker {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.75rem 1rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+
+.tag-picker legend {
+  padding: 0 0.25rem;
+  font-weight: 600;
+}
+
+.chosen-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chosen-tags .tag + .tag {
+  margin-left: 0;
+}
+
+/* A new tag, made when the job is saved. */
+.tag.new {
+  outline: 1px dashed var(--muted);
+  outline-offset: -1px;
+  background: none;
+}
+
+.chosen-tags button {
+  margin-left: 0.35rem;
+  color: inherit;
+}
+
+.tag-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.tag-add input {
+  flex: 1 1 14rem;
+}
+
+.edit-tags {
+  margin-left: 0.75rem;
+}
+
+.tag-editor {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 40rem;
+  margin-top: 0.5rem;
+}
+
+button.link.danger {
+  color: var(--error);
+}
+
+.row-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.row-actions button + button {
+  margin-left: 1rem;
+}
+
 .card button {
   margin-top: 0.75rem;
 }
@@ -344,8 +682,13 @@ button.danger {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .segment.running {
+  .segment.running,
+  .file-group[open] > :not(summary) {
     animation: none;
+  }
+
+  .file-group > summary::before {
+    transition: none;
   }
 }
 

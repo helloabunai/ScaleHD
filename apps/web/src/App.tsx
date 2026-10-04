@@ -2,6 +2,7 @@ import { Link, NavLink, Route, Routes } from "react-router";
 import { api } from "./api";
 import { AuthProvider, RequireLogin, useAuth } from "./auth";
 import { Account } from "./pages/Account";
+import { Admin } from "./pages/Admin";
 import { JobDetail } from "./pages/JobDetail";
 import { Jobs } from "./pages/Jobs";
 import { Login } from "./pages/Login";
@@ -31,6 +32,7 @@ export function App() {
                 <Route path="/jobs/:jobId/samples/:sampleId" element={<SampleResults />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/account" element={<Account />} />
+                <Route path="/admin" element={<Admin />} />
               </Route>
               <Route path="*" element={<p>Page not found.</p>} />
             </Routes>
@@ -57,6 +59,7 @@ function Header() {
             </NavLink>
             <NavLink to="/jobs/new">New job</NavLink>
             <NavLink to="/settings">Settings</NavLink>
+            {user.is_admin && <NavLink to="/admin">Admin</NavLink>}
           </nav>
           <div className="account">
             <NavLink to="/account">{user.username}</NavLink>
@@ -72,13 +75,26 @@ function Header() {
 
 function ServerVersion() {
   const health = useApi(api.health);
-  return (
+  if (health.state !== "done") {
+    return <footer>{health.state === "error" ? "server unreachable" : "connecting…"}</footer>;
+  }
+  const { version, core_version, python, platform, sqlite, libraries } = health.data;
+  const fundamentals = [
+    `ScaleHD server ${version}`,
+    `ScaleHD core ${core_version}`
+  ]
+  const libraryinfo = [
+    `Docker ${platform}`,
+    `Python ${python}`,
+    `SQLite ${sqlite}`,
+    ...Object.entries(libraries).map(([name, v]) => `${name} ${v}`)
+  ]
+  const techFooter = (
     <footer>
-      {health.state === "done"
-        ? `server ${health.data.version} · core ${health.data.core_version}`
-        : health.state === "error"
-          ? "server unreachable"
-          : "connecting…"}
+      <span>{fundamentals.join(" · ")}</span>
+      <span>{libraryinfo.join(" · ")}</span>
     </footer>
   );
+
+  return techFooter;
 }
