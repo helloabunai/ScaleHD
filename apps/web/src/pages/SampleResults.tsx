@@ -14,7 +14,7 @@ import { type Bar, BarChart, type Scale } from "../charts/BarChart";
 import { Heatmap } from "../charts/Heatmap";
 import { FLAGS } from "../flags";
 import { useApi } from "../useApi";
-import { DemoTag } from "./jobDisplay";
+import { DemoTag, JobTags } from "./jobDisplay";
 import { Status } from "./Status";
 import { StructureDiagrams } from "./StructureDiagram";
 
@@ -42,6 +42,7 @@ export function SampleResults() {
           <SampleNav detail={detail} />
           <h1>
             {detail.sample.name} {detail.demo && <DemoTag />}
+            <JobTags tags={detail.tags} />
           </h1>
           {detail.call === null ? (
             <NotCalled detail={detail} />

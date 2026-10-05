@@ -10,7 +10,7 @@ from scalehd.counts import SampleCounts
 from scalehd.structure import FieldStatus
 
 from .models import Job, Sample
-from .schemas import CagBar, CagChart, CcgBar, Cell, Reads, SampleDetail, SampleOut
+from .schemas import CagBar, CagChart, CcgBar, Cell, JobTag, Reads, SampleDetail, SampleOut
 from .workspace import sample_folders
 
 FileKind = Literal["call", "counts", "r1", "r2"]
@@ -129,6 +129,7 @@ def sample_detail(job: Job, sample: Sample) -> SampleDetail:
         job_id=job.id,
         job_name=job.name,
         demo=job.demo,
+        tags=[JobTag.model_validate(tag) for tag in job.tags],
         folder=str(folder) if folder else None,
         call=sample.call,
         cag_charts=cag_charts(counts, sample.call) if counts else [],

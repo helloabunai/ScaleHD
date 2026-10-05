@@ -109,3 +109,13 @@ def _digest(token: str) -> str:
 
 
 CurrentUser = Annotated[User, Depends(current_user)]
+
+
+def admin_user(user: CurrentUser) -> User:
+    """The logged-in user, if an admin. 403 otherwise."""
+    if not user.is_admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "only an admin can do that")
+    return user
+
+
+AdminUser = Annotated[User, Depends(admin_user)]

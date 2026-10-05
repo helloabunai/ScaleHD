@@ -1,4 +1,5 @@
-"""Command-line interface: ``scalehd simulate``, ``count``, ``call`` and ``genotype``."""
+"""Command-line interface: ``scalehd simulate``, ``simulate-run``, ``count``, ``call`` and
+``genotype``."""
 
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ from .counts import SampleCounts, count_fastq
 from .genotype import GenotypeCall, NoMoleculesError, call_genotype
 from .pairs import DiscordancePolicy
 from .simulate import SequencingModel, SimAllele, SimulationSpec, simulate
+from .simulate_run import placeholder_samples, write_run
 from .structure import AlleleStructure
 
 
@@ -46,6 +48,17 @@ def _cmd_simulate(args: argparse.Namespace) -> int:
     paths = simulate(spec).write(args.output, args.name)
     for path in paths:
         print(path)
+    return 0
+
+
+def _cmd_simulate_run(args: argparse.Namespace) -> int:
+    samples = placeholder_samples(random_count=args.random, seed=args.seed)
+    try:
+        write_run(args.output, samples, pairs=args.pairs, seed=args.seed, workers=args.workers)
+    except FileExistsError as exc:
+        print(f"scalehd: {exc}", file=sys.stderr)
+        return 1
+    print(f"{len(samples)} simulated samples written to {args.output}")
     return 0
 
 
@@ -161,6 +174,18 @@ def build_parser() -> argparse.ArgumentParser:
     sim.add_argument("-o", "--output", type=Path, required=True, help="output directory")
     sim.add_argument("--name", default="sample", help="sample name used in file names")
     sim.set_defaults(func=_cmd_simulate)
+
+    run = sub.add_parser(
+        "simulate-run", help="write a whole simulated MiSeq run folder of placeholder data"
+    )
+    run.add_argument("output", type=Path, help="run folder to create (new or empty)")
+    run.add_argument("-n", "--pairs", type=int, default=20_000, help="read pairs per sample")
+    run.add_argument(
+        "--random", type=int, default=20, help="random genotypes on top of the fixed samples"
+    )
+    run.add_argument("--seed", type=int, default=1)
+    run.add_argument("--workers", type=int, help="samples simulated at once (default: every core)")
+    run.set_defaults(func=_cmd_simulate_run)
 
     count = sub.add_parser("count", help="tally molecule repeat structures from FASTQ")
     count.add_argument("r1", type=Path)

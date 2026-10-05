@@ -1,4 +1,4 @@
-"""Database tables: accounts, login sessions, jobs, and the samples in each job."""
+"""Database tables: accounts, login sessions, jobs, the samples in each job, and tags."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import JSON, ForeignKey, String
+from sqlalchemy import JSON, Column, ForeignKey, String, Table, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -71,6 +71,32 @@ class LoginSession(Base):
     user: Mapped[User] = relationship(back_populates="sessions")
 
 
+# Which tags each job has.
+job_tags = Table(
+    "job_tags",
+    Base.metadata,
+    Column("job_id", ForeignKey("jobs.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+class Tag(Base):
+    """A label shared by every user for grouping jobs, e.g. the paper they're for.
+    Anyone can make one but only an admin can rename or delete one to avoid users
+    messing with others' tags.
+    """
+
+    __tablename__ = "tags"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Unique ignoring case (checked when tags are made or renamed).
+    name: Mapped[str] = mapped_column(String(15), unique=True)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+
+    jobs: Mapped[list[Job]] = relationship(secondary=job_tags, back_populates="tags")
+
+
 class Job(Base):
     """A named batch of samples run with one set of settings."""
 
@@ -90,6 +116,10 @@ class Job(Base):
     output_dir: Mapped[str | None]
 
     owner: Mapped[User] = relationship(back_populates="jobs")
+    # Alphabetical, ignoring case.
+    tags: Mapped[list[Tag]] = relationship(
+        secondary=job_tags, back_populates="jobs", order_by=lambda: func.lower(Tag.name)
+    )
     samples: Mapped[list[Sample]] = relationship(
         back_populates="job", cascade="all, delete-orphan", order_by="Sample.id"
     )

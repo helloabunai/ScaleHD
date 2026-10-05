@@ -1,25 +1,26 @@
-"""FASTQ files on the server that jobs can use. Not built yet.
+"""Browse the server's data folder for FASTQ files to run.
 
-Files are read from the input directory (``SCALEHD_DATA_ROOT``) rather than uploaded,
-because a MiSeq run is gigabytes and the server is usually the machine the run was
-copied to. Uploads for small one-off samples could come later.
+Files are under ``SCALEHD_DATA_ROOT``, mounted read-only from host to docker.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 
 from ..auth import CurrentUser
 from ..config import ServerConfig
-from ..errors import not_implemented
-from ..schemas import InputPair
+from ..inputs import InputError, list_folder
+from ..schemas import InputFolder
 
 router = APIRouter(prefix="/inputs", tags=["inputs"])
 
 
 @router.get("")
-def list_inputs(user: CurrentUser, config: ServerConfig, folder: str = "") -> list[InputPair]:
-    """FASTQ files in one folder of the input directory, paired into samples.
-
-    TODO: pair ``<sample>_R1*.fastq[.gz]`` with ``<sample>_R2*``, list unpaired files
-    as single-end, and refuse paths that leave the input directory.
-    """
-    raise not_implemented("inputs")
+def list_inputs(user: CurrentUser, config: ServerConfig, folder: str = "") -> InputFolder:
+    """Subdir of the server's data root."""
+    if config.data_root is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "this server has no data folder set (SCALEHD_DATA_ROOT)"
+        )
+    try:
+        return list_folder(config.data_root, folder)
+    except InputError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from None

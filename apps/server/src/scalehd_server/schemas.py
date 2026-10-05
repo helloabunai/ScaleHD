@@ -21,6 +21,10 @@ class Health(BaseModel):
     status: Literal["ok"]
     version: str
     core_version: str
+    python: str
+    platform: str
+    sqlite: str
+    libraries: dict[str, str]
 
 
 # Usernames are case-insensitive, so they are stored and compared in lower case.
@@ -111,18 +115,86 @@ class JobSettings(BaseModel):
 
 
 class InputPair(BaseModel):
-    """A sample's FASTQ files, as paths relative to the server's input directory."""
+    """A sample's FASTQ files, as paths relative to the server's data rpot."""
 
     name: str
     r1: str
     r2: str | None = None
 
 
+class InputSample(BaseModel):
+    """A sample found in the data folder: its FASTQ files, paired by name."""
+
+    name: str
+    files: list[str]
+    r1: str | None  # None when it can't be run for any reason
+    r2: str | None  # None when it can't be run for any reason
+    size: int
+    undetermined: bool  # couldn't regex the sample name from filename.
+    skipped: str | None  # reason for skip e.g. R2 without R1
+
+
+class InputSubfolder(BaseModel):
+    """A folder inside the open one, with what it holds, for the folder tree."""
+
+    name: str
+    folders: int
+    samples: int  # runnable samples (name regex OK)
+
+
+class InputFolder(BaseModel):
+    """a run/data dir in the server's data root."""
+
+    folder: str  # Relative to the data folder; "" is the data folder itself.
+    path: str  # complete dir path
+    folders: list[InputSubfolder]
+    samples: list[InputSample]
+    other_files: list[str]  # non FASTQ files if any
+
+
+MAX_TAGS = 5
+MAX_TAG_LENGTH = 15
+TagName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_TAG_LENGTH)
+]
+
+
+class JobTag(BaseModel):
+    """self explanatory"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+
+
+class TagOut(JobTag):
+    """A tag, with how many jobs use it (from any user)."""
+
+    jobs: int
+
+
+class TagChange(BaseModel):
+    """Making or renaming a tag."""
+
+    name: TagName
+
+
+class JobTags(BaseModel):
+    """Tags sorted by id."""
+
+    tags: list[int] = Field(max_length=MAX_TAGS)
+
+
 class JobCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     samples: list[InputPair] = Field(min_length=1)
-    # Unset means the user's default settings.
-    settings: JobSettings | None = None
+    settings: JobSettings | None = None  # None = unset = default
+    tags: list[int] = Field(default_factory=list, max_length=MAX_TAGS)
+
+
+class AdminChange(BaseModel):
+    is_admin: bool
 
 
 class SampleOut(BaseModel):
@@ -153,6 +225,7 @@ class JobSummary(BaseModel):
     output_dir: str | None
     sample_count: int
     samples_done: int
+    tags: list[JobTag]
 
 
 class JobOut(JobSummary):
@@ -175,6 +248,7 @@ def _summary(job: Job) -> dict[str, Any]:
         "output_dir": job.output_dir,
         "sample_count": len(job.samples),
         "samples_done": sum(sample.status in done for sample in job.samples),
+        "tags": [JobTag.model_validate(tag) for tag in job.tags],
     }
 
 
@@ -245,6 +319,7 @@ class SampleDetail(BaseModel):
     job_id: int
     job_name: str
     demo: bool
+    tags: list[JobTag]
     folder: str | None
     # The full call (scalehd.call/2), once the sample has been called.
     call: dict[str, Any] | None

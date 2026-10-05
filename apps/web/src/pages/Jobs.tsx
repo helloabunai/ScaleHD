@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { api } from "../api";
 import { useApi } from "../useApi";
-import { DemoTag, formatTime, isActive } from "./jobDisplay";
+import { DemoTag, formatTime, isActive, JobTags } from "./jobDisplay";
 import { METHODS } from "./MethodPicker";
 import { ServerFolders } from "./ServerFolders";
 import { Status } from "./Status";
@@ -38,6 +38,7 @@ export function Jobs() {
                   <tr key={job.id}>
                     <td>
                       <Link to={`/jobs/${job.id}`}>{job.name}</Link> {job.demo && <DemoTag />}
+                      <JobTags tags={job.tags} />
                     </td>
                     <td>{METHODS[job.method].label}</td>
                     <td>{job.status}</td>
