@@ -281,3 +281,90 @@ style ratios:
 A peak of molecules read in full, holding at least 2% of the sample and well beyond
 what the fit expects there, is reported as unexplained. The flags, and their thresholds,
 are listed in [USING-FASTQ.md](USING-FASTQ.md#reading-the-result).
+
+## How well it performs (estimates)
+
+Most testing of this model is partly circular due to lack of data (at the moment). The simulator stutters
+with the same curve the model's priors come from, and `legacy_matrix.py` scores the caller on the matrix
+those priors were measured on. Three benchmarks in `packages/core/benchmarks/` test what
+flaws are maybe hidden by lack of data. The results below are from 2026-10-05, on simulated 300-base reads.
+
+### When stutter isn't what the caller expects
+
+`stutter_robustness.py` simulates the 19 scenarios of `genotype_simulated.py`, 3 seeds
+each, with stutter different to the model priors, and calls them with the priors unchanged.
+
+| simulated stutter | right | wrong at Q 20 or more | wrong calls the posteriors expected |
+|---|---|---|---|
+| as calibrated | 57/57 | 0 | 1.4 |
+| half the stutter | 57/57 | 0 | 0.2 |
+| double the stutter (N-1/N capped at 0.95) | 56/57 | 0 | 2.7 |
+| longer tails | 48/57 | 1 | 4.2 |
+| shorter tails | 57/57 | 0 | 0.0 |
+| as if 10 CAG longer | 56/57 | 0 | 1.4 |
+| as if 10 CAG shorter | 56/57 | 0 | 1.9 |
+| drawn per sample, within the prior spread | 53/57 | 0 | 3.0 |
+| drawn per sample, within twice the prior spread | 45/57 | 4 | 1.5 |
+
+- Inside the priors' range, wrong calls are rare, and each came flagged `low_confidence` (good).
+- With longer tails, or stutter at twice the prior spread, long alleles (CAG 55 to 80)
+  are called one CAG off. Most are flagged `low_confidence`. Four weren't: 80 called 79
+  (Q 20), 55 called 56 (Q 30), and 70 called 71 twice (Q 31 and 38) (not great not terrible).
+- A homozygous 21 was called 20/21 at Q 32, but flagged `neighbouring` (which is fine i guess).
+
+### Whether the confidence is "honest"
+
+`posterior_calibration.py` simulates 200 random samples three times. Genotypes via
+`scalehd simulate-run` draws them, plus neighbouring and near alleles, at 150 to 5,000
+read pairs. If the posteriors are "honest", a call at 0.99 is wrong about 1 time in 100.
+
+| simulated stutter | wrong | wrong calls the posteriors expected | right, among calls at 0.999 or more |
+|---|---|---|---|
+| as calibrated | 3 | 4.8 | 166/166 |
+| drawn per sample, within the prior spread | 13 | 6.8 | 151/155 |
+| drawn per sample, within twice the prior spread | 29 | 10.3 | 150/153 |
+
+- With stutter as calibrated, the posteriors are "honest", if slightly cautious (arguably good).
+- When each sample's stutter varies as much as the priors themselves allow, the
+  posteriors are about twice as confident as they should be, and some calls at 0.999 or
+  more are wrong.
+- The wrong ones were almost all two alleles a few CAG apart, both 37 or more:
+  - 44/45 called 44/46, and 43/45 called 44/46,
+  - at twice the spread, also 40/41 called 41/49, and 37/38 called 38/41,
+  - plus one long allele, 57 called 58.
+- None of these were flagged (bad). 37/38 called 38/41 would move an allele from the
+  reduced-penetrance range into full penetrance (clinical significance).
+
+### Priors measured on the matrix they're scored on
+
+`prior_crossval.py` rebuilds the stutter curve from a random half of the training matrix.
+It then genotypes every sample twice, with the curve from the half it isn't in, and with
+the curve from its own half.
+
+- Exact calls: 407/594 (68.5%) with the curve that never saw the sample, 408/594 (68.7%)
+  with the one that did. One sample changed.
+- So the legacy matrix score isn't flattered by the priors coming from the same matrix.
+
+### What this means
+
+- When its stutter assumptions hold, the model calls well and its confidence can be
+  trusted.
+- How far real PCR strays from those assumptions is unknown until there's real data. If
+  real samples vary as much as the priors allow, the quality is optimistic, mostly for:
+  - the exact CAG of long alleles (one off),
+  - two alleles a few CAG apart that are both expanded or close to it.
+- Ideas, none tried yet:
+  - a flag for two alleles within about 3 CAG of each other when both are above about 35
+    (`neighbouring` only covers 1 apart),
+  - wider, or heavier-tailed, stutter priors for long alleles,
+  - letting the exact-`N` step carry more of the trade-off between stutter and `N`,
+  - real samples with known genotypes, to set the prior spread from data rather than
+    from ScaleHD 1.x alignments.
+
+To rerun them:
+
+```sh
+uv run python packages/core/benchmarks/stutter_robustness.py      # about 9 minutes on AMD 5950x cpu
+uv run python packages/core/benchmarks/posterior_calibration.py   # about 6 minutes on AMD 5950x cpu
+uv run python packages/core/benchmarks/prior_crossval.py          # about 16 minutes on AMD 5950x cpu
+```

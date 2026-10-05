@@ -14,6 +14,9 @@ uv run mypy                          # types
 uv run python packages/core/benchmarks/parse_accuracy.py
 uv run python packages/core/benchmarks/genotype_simulated.py
 uv run python packages/core/benchmarks/legacy_matrix.py
+uv run python packages/core/benchmarks/stutter_robustness.py    # stutter unlike the priors
+uv run python packages/core/benchmarks/posterior_calibration.py # is a 0.99 call right 99%?
+uv run python packages/core/benchmarks/prior_crossval.py        # priors from the other half
 ```
 
 `tools/check.sh` runs every check above in order (lint, format, types, frontend build, tests) and stops at the first failure. A git pre-push hook runs it before each push and
@@ -36,7 +39,8 @@ packages/core/        scalehd: pure-Python library and CLI (no web or DB depende
                       simulate, seqio, cli
     genotype/         model/ (the model-based caller), legacy/ (ScaleHD 1.x, not yet implemented)
   tests/              unit, property-based and end-to-end tests
-  benchmarks/         accuracy on simulated data and the legacy labelled matrix
+  benchmarks/         accuracy on simulated data and the legacy labelled matrix, and how
+                      the model holds up when its assumptions are off (see MODEL.md)
 apps/server/          scalehd-server: FastAPI, job runner, SQLite database
 apps/web/             web interface: React, TypeScript, Vite
 tools/                check.sh, dev.sh, refresh.sh and the pre-push git hook
