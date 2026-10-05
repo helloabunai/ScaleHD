@@ -12,11 +12,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from .. import demo
-from ..auth import CurrentUser
+from ..auth import AdminUser, CurrentUser
 from ..config import ServerConfig
 from ..db import DbSession
 from ..errors import not_implemented
-from ..models import Job, JobStatus, Sample, User
+from ..inputs import InputError, read_truth, resolve_file
+from ..models import Job, JobStatus, Sample, Tag, User
 from ..results import FileKind, sample_detail, sample_file
 from ..runner import Runner
 from ..schemas import (
@@ -24,6 +25,7 @@ from ..schemas import (
     JobOut,
     JobSettings,
     JobSummary,
+    JobTags,
     SampleDetail,
     job_out,
     job_summary,
@@ -57,7 +59,43 @@ def create_job(
             status.HTTP_400_BAD_REQUEST,
             f"{settings.method} genotyping is not available yet. Placeholder flag.",
         )
-    raise not_implemented("jobs")
+    if config.data_root is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "this server has no data folder set (SCALEHD_DATA_ROOT)"
+        )
+    samples = []
+    for sample in job.samples:
+        try:
+            r1 = resolve_file(config.data_root, sample.r1)
+            r2 = resolve_file(config.data_root, sample.r2) if sample.r2 else None
+        except InputError as exc:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, f"sample {sample.name}: {exc}"
+            ) from None
+        # Paths as on the server, which Docker mounts at the same place as on the host.
+        samples.append(
+            Sample(
+                name=sample.name,
+                r1=str(r1),
+                r2=str(r2) if r2 else None,
+                truth=read_truth(r1, sample.name),
+            )
+        )
+    # get available tags before anything
+    tags = _tags(session, job.tags)
+    record = Job(owner=user, name=job.name, settings=settings.model_dump(mode="json"))
+    record.samples = samples
+    record.tags = tags
+    session.add(record)
+    session.flush()
+    try:
+        record.output_dir = str(write_job_folder(config.workspace, record))
+    except WorkspaceError as exc:
+        session.rollback()
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(exc)) from None
+    session.commit()
+    runner.submit(record.id)
+    return job_out(record)
 
 
 @router.post("/demo", status_code=status.HTTP_201_CREATED)
@@ -78,6 +116,17 @@ def create_demo_job(
     return job_out(job)
 
 
+def _tags(session: DbSession, ids: list[int]) -> list[Tag]:
+    """Tags by id."""
+    tags = []
+    for tag_id in dict.fromkeys(ids):
+        tag = session.get(Tag, tag_id)
+        if tag is None:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"no such tag: {tag_id}")
+        tags.append(tag)
+    return tags
+
+
 def _own_job(session: DbSession, user: User, job_id: int) -> Job:
     job = session.get(Job, job_id)
     # Someone else's job looks the same as a missing one, so ids can't be probed.
@@ -89,6 +138,15 @@ def _own_job(session: DbSession, user: User, job_id: int) -> Job:
 @router.get("/{job_id}")
 def get_job(job_id: int, user: CurrentUser, session: DbSession) -> JobOut:
     return job_out(_own_job(session, user, job_id))
+
+
+@router.put("/{job_id}/tags")
+def set_job_tags(job_id: int, change: JobTags, admin: AdminUser, session: DbSession) -> JobOut:
+    """Only an admin can change job tags once the job has been made."""
+    job = _own_job(session, admin, job_id)
+    job.tags = _tags(session, change.tags)
+    session.commit()
+    return job_out(job)
 
 
 @router.post("/{job_id}/cancel")

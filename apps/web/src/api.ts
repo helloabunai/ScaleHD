@@ -11,6 +11,10 @@ export interface Health {
   status: "ok";
   version: string;
   core_version: string;
+  python: string;
+  platform: string;
+  sqlite: string;
+  libraries: Record<string, string>;
 }
 
 export interface User {
@@ -47,10 +51,38 @@ export interface JobSettings {
   max_dropped: number | null;
 }
 
+/** A sample's FASTQ files, as paths relative to the server's data folder. */
 export interface InputPair {
   name: string;
   r1: string;
   r2: string | null;
+}
+
+/** A sample found in the data folder & its FASTQ files, paired by name. */
+export interface InputSample {
+  name: string;
+  files: string[];
+  r1: string | null;/** Null if not runnable for whatever reason */
+  r2: string | null; /** Null if not runnable for whatever reason */
+  size: number;
+  undetermined: boolean;
+  skipped: string | null;
+}
+
+/** A folder inside the open one, with what it contains (for tree) */
+export interface InputSubfolder {
+  name: string;
+  folders: number;
+  samples: number;
+}
+
+/** Subdir of the server data root, and the samples its FASTQ files make. */
+export interface InputFolder {
+  folder: string;
+  path: string;
+  folders: InputSubfolder[];
+  samples: InputSample[];
+  other_files: string[];
 }
 
 export interface JobCreate {
@@ -58,6 +90,19 @@ export interface JobCreate {
   samples: InputPair[];
   /** Left out, the job uses the user's default settings. */
   settings?: JobSettings;
+  tags?: number[];
+}
+
+export const MAX_TAGS = 5;
+export const MAX_TAG_LENGTH = 15;
+
+export interface JobTag {
+  id: number;
+  name: string;
+}
+
+export interface Tag extends JobTag {
+  jobs: number;
 }
 
 export interface Sample {
@@ -89,6 +134,7 @@ export interface JobSummary {
   output_dir: string | null;
   sample_count: number;
   samples_done: number;
+  tags: JobTag[];
 }
 
 export interface Job extends JobSummary {
@@ -189,6 +235,7 @@ export interface SampleDetail {
   job_id: number;
   job_name: string;
   demo: boolean;
+  tags: JobTag[];
   folder: string | null;
   call: GenotypeCall | null;
   cag_charts: CagChart[];
@@ -265,7 +312,8 @@ export const api = {
   setTheme: (theme: Theme) =>
     request<User>("/auth/theme", { method: "PUT", body: JSON.stringify({ theme }) }),
 
-  listInputs: (folder = "") => request<InputPair[]>(`/inputs?folder=${encodeURIComponent(folder)}`),
+  listInputs: (folder = "") =>
+    request<InputFolder>(`/inputs?folder=${encodeURIComponent(folder)}`),
 
   listJobs: () => request<JobSummary[]>("/jobs"),
   getJob: (id: number) => request<Job>(`/jobs/${id}`),
@@ -278,6 +326,21 @@ export const api = {
   createDemoJob: () => request<Job>("/jobs/demo", post()),
   cancelJob: (id: number) => request<Job>(`/jobs/${id}/cancel`, post()),
   reportUrl: (id: number) => `/api/jobs/${id}/report`,
+
+  listTags: () => request<Tag[]>("/tags"),
+  createTag: (name: string) => request<Tag>("/tags", post({ name })),
+  renameTag: (id: number, name: string) =>
+    request<Tag>(`/tags/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+  deleteTag: (id: number) => request<void>(`/tags/${id}`, { method: "DELETE" }),
+  setJobTags: (jobId: number, tags: number[]) =>
+    request<Job>(`/jobs/${jobId}/tags`, { method: "PUT", body: JSON.stringify({ tags }) }),
+
+  listUsers: () => request<User[]>("/admin/users"),
+  setAdmin: (userId: number, isAdmin: boolean) =>
+    request<User>(`/admin/users/${userId}/admin`, {
+      method: "PUT",
+      body: JSON.stringify({ is_admin: isAdmin }),
+    }),
 
   getSettings: () => request<JobSettings>("/settings"),
   saveSettings: (settings: JobSettings) =>

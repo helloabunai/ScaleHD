@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from concurrent.futures import Executor, Future
 from pathlib import Path
 from typing import Any
@@ -91,3 +91,45 @@ def quiet_client(tmp_path: Path, pools: StandInPools) -> Iterator[TestClient]:
         )
         assert response.status_code == 201
         yield client
+
+
+@pytest.fixture
+def data_root(tmp_path: Path) -> Path:
+    """A faked data folder with one run of samples.
+    Sample a = paired, sample b with R1 only (empty files)."""
+    root = tmp_path / "data root"
+    run = root / "run-01"
+    run.mkdir(parents=True)
+    for name in ("a_R1.fastq.gz", "a_R2.fastq.gz", "b_R1.fastq.gz"):
+        (run / name).write_bytes(b"")
+    return root
+
+
+@pytest.fixture
+def queued(tmp_path: Path, data_root: Path, pools: StandInPools) -> Iterator[TestClient]:
+    """Logged in as autotest-user (the admin), with ``data_root`` as the data folder.
+    Doesn't actually run just mocked.
+    """
+    settings = ServerSettings(
+        database_dir=tmp_path / "db",
+        workspace=tmp_path / "workspace",
+        data_root=data_root,
+        workers=1,
+    )
+    with TestClient(create_app(settings, executor_factory=pools)) as client:
+        body = {"username": "autotest-user", "password": "correct horse"}
+        assert client.post("/api/auth/register", json=body).status_code == 201
+        yield client
+
+
+@pytest.fixture
+def login_as() -> Callable[[TestClient, str], None]:
+    """Switch a client to another user, registering them the first time."""
+
+    def switch(client: TestClient, username: str) -> None:
+        client.cookies.clear()
+        body = {"username": username, "password": "correct horse"}
+        if client.post("/api/auth/login", json=body).status_code != 200:
+            assert client.post("/api/auth/register", json=body).status_code == 201
+
+    return switch

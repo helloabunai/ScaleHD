@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api, type Job, type Sample, type SampleStatus as Stage } from "../api";
+import { useUser } from "../auth";
 import { useApi } from "../useApi";
-import { DemoTag, formatTime, isActive } from "./jobDisplay";
+import { DemoTag, formatTime, isActive, JobTags } from "./jobDisplay";
 import { METHODS } from "./MethodPicker";
 import { ServerFolders } from "./ServerFolders";
 import { Status } from "./Status";
+import { type PickedTag, TagPicker, tagIds } from "./TagPicker";
 
 // TODO: a cancel button, and a page per sample with its full call (alleles, stutter,
 // alternatives) and molecule-count plot, reachable as soon as that sample finishes.
@@ -13,7 +15,10 @@ import { Status } from "./Status";
 // is finished processing/genotyping.
 export function JobDetail() {
   const id = Number(useParams().jobId);
-  const job = useApi(() => api.getJob(id), [id], {
+  const user = useUser();
+  // Bumped to load the job again, e.g. after its tags change.
+  const [version, setVersion] = useState(0);
+  const job = useApi(() => api.getJob(id), [id, version], {
     every: 1000,
     while: (loaded) => isActive(loaded.status),
   });
@@ -23,12 +28,20 @@ export function JobDetail() {
         <>
           <h1>
             {job.name} {job.demo && <DemoTag />}
+            <JobTags tags={job.tags} />
           </h1>
           <dl className="job-facts">
             <dt>Status</dt>
             <dd>{job.status}</dd>
             <dt>Method</dt>
             <dd>{METHODS[job.method].label}</dd>
+            <dt>Tags</dt>
+            <dd>
+              {job.tags.length > 0 ? <JobTags tags={job.tags} /> : "none"}
+              {user.is_admin && (
+                <EditJobTags job={job} onSaved={() => setVersion((v) => v + 1)} />
+              )}
+            </dd>
             <dt>Samples</dt>
             <dd>{samplesDone(job.samples)}</dd>
             <dt>Started</dt>
@@ -61,8 +74,8 @@ export function JobDetail() {
                 <th>Genotype</th>
                 <th>Confidence</th>
                 <th>Flags</th>
-                {job.demo && <th>Truth</th>}
-                {job.demo && <th>Match</th>}
+                {hasTruth(job) && <th>Truth</th>}
+                {hasTruth(job) && <th>Match</th>}
               </tr>
             </thead>
             <tbody>
@@ -84,8 +97,8 @@ export function JobDetail() {
                   <td>{sample.genotype ?? "–"}</td>
                   <td>{sample.confidence?.toFixed(1) ?? "–"}</td>
                   <td>{sample.flags.join(", ")}</td>
-                  {job.demo && <td>{sample.truth ?? "–"}</td>}
-                  {job.demo && (
+                  {hasTruth(job) && <td>{sample.truth ?? "–"}</td>}
+                  {hasTruth(job) && (
                     <td>
                       <Match matches={sample.matches_truth} />
                     </td>
@@ -98,6 +111,61 @@ export function JobDetail() {
         </>
       )}
     </Status>
+  );
+}
+
+/** Simulated samples (the demo, or a generated run) know the genotype they were made from. 
+ *  Real data jobs obviously won't have this element.
+*/
+function hasTruth(job: Job): boolean {
+  return job.samples.some((sample) => sample.truth !== null);
+}
+
+/** Only an admin can change a job's tags once it's been made. */
+function EditJobTags({ job, onSaved }: Readonly<{ job: Job; onSaved: () => void }>) {
+  const [editing, setEditing] = useState(false);
+  const [tags, setTags] = useState<PickedTag[]>(job.tags);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        className="link edit-tags"
+        onClick={() => {
+          setTags(job.tags);
+          setError(null);
+          setEditing(true);
+        }}
+      >
+        Edit tags
+      </button>
+    );
+  }
+
+  async function save() {
+    try {
+      await api.setJobTags(job.id, await tagIds(tags));
+      setEditing(false);
+      onSaved();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  return (
+    <div className="tag-editor">
+      <TagPicker value={tags} onChange={setTags} />
+      <div className="job-actions">
+        <button type="button" onClick={() => void save()}>
+          Save tags
+        </button>
+        <button type="button" className="link" onClick={() => setEditing(false)}>
+          Cancel
+        </button>
+        {error && <span className="error">{error}</span>}
+      </div>
+    </div>
   );
 }
 
