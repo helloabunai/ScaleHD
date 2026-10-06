@@ -151,7 +151,13 @@ def set_job_tags(job_id: int, change: JobTags, admin: AdminUser, session: DbSess
 
 @router.post("/{job_id}/cancel")
 def cancel_job(job_id: int, user: CurrentUser, session: DbSession, runner: Runner) -> JobOut:
-    raise not_implemented("jobs")
+    """Cancel one of your own jobs."""
+    job = _own_job(session, user, job_id)
+    if job.status not in (JobStatus.QUEUED, JobStatus.RUNNING, JobStatus.CANCELLING):
+        raise HTTPException(status.HTTP_409_CONFLICT, "the job has already stopped")
+    runner.cancel(job.id)
+    session.expire_all()  # the runner changed it in its own session
+    return job_out(_own_job(session, user, job_id))
 
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -162,6 +168,10 @@ def delete_job(job_id: int, user: CurrentUser, session: DbSession, config: Serve
     job = _own_job(session, user, job_id)
     if job.status in (JobStatus.QUEUED, JobStatus.RUNNING):
         raise HTTPException(status.HTTP_409_CONFLICT, "the job is still running")
+    if job.status == JobStatus.CANCELLING:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "the job is waiting for already-processing samples to finish"
+        )
     if job.output_dir is not None:
         try:
             remove_job_folder(config.workspace, user.username, Path(job.output_dir))

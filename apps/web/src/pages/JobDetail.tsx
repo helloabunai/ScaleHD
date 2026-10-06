@@ -9,10 +9,6 @@ import { ServerFolders } from "./ServerFolders";
 import { Status } from "./Status";
 import { type PickedTag, TagPicker, tagIds } from "./TagPicker";
 
-// TODO: a cancel button, and a page per sample with its full call (alleles, stutter,
-// alternatives) and molecule-count plot, reachable as soon as that sample finishes.
-// TODO: consider large samples may take time to generate results even if the job
-// is finished processing/genotyping.
 export function JobDetail() {
   const id = Number(useParams().jobId);
   const user = useUser();
@@ -63,6 +59,12 @@ export function JobDetail() {
               Export job results
             </button>
             <span className="muted">coming soon</span>
+            {(job.status === "queued" || job.status === "running") && (
+              <CancelJob job={job} onCancelled={() => setVersion((v) => v + 1)} />
+            )}
+            {job.status === "cancelling" && (
+              <span className="muted">Cancelling.. waiting for samples already processing to finish.</span>
+            )}
             {!isActive(job.status) && <DeleteJob job={job} />}
           </div>
           <table>
@@ -180,6 +182,37 @@ function Match({ matches }: { matches: boolean | null }) {
   return matches ? <span className="success">✓</span> : <span className="error">✗</span>;
 }
 
+function CancelJob({ job, onCancelled }: Readonly<{ job: Job; onCancelled: () => void }>) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function cancel() {
+    const running = count(job.samples, "running");
+    const note =
+      running > 0
+        ? `\n\nSamples not started yet won't run. The ${running} running will finish gracefully.`
+        : "\n\nNone of its samples have started, so none will run.";
+    if (!window.confirm(`Cancel "${job.name}"?${note}`)) return;
+    setBusy(true);
+    try {
+      await api.cancelJob(job.id);
+      onCancelled();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setBusy(false);
+  }
+
+  return (
+    <>
+      <button type="button" className="danger" onClick={() => void cancel()} disabled={busy}>
+        Cancel job
+      </button>
+      {error && <span className="error">{error}</span>}
+    </>
+  );
+}
+
 function DeleteJob({ job }: { job: Job }) {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
@@ -212,22 +245,24 @@ function count(samples: Sample[], stage: Stage): number {
   return samples.filter((sample) => sample.status === stage).length;
 }
 
-/** e.g. "4 of 9 done, 1 failed, 2 running". Failures are technically 'done'. */
+/** e.g. "4 of 9 done, 1 failed, 2 running, 2 cancelled". Failures are technically 'done'. */
 function samplesDone(samples: Sample[]): string {
   const failed = count(samples, "failed");
   const running = count(samples, "running");
+  const cancelled = count(samples, "cancelled");
   const done = count(samples, "finished") + failed;
   return [
     `${done} of ${samples.length} done`,
     ...(failed ? [`${failed} failed`] : []),
     ...(running ? [`${running} running`] : []),
+    ...(cancelled ? [`${cancelled} cancelled`] : []),
   ].join(", ");
 }
 
 /** overall progress bar for job */
 function JobProgress({ samples }: Readonly<{ samples: Sample[] }>) {
   const total = Math.max(samples.length, 1);
-  const parts: Stage[] = ["finished", "failed", "running"];
+  const parts: Stage[] = ["finished", "failed", "running", "cancelled"];
   return (
     <div
       className="progress"

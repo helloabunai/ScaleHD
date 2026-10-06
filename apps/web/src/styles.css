@@ -656,6 +656,11 @@ button.danger {
   background: var(--error);
 }
 
+.segment.cancelled {
+  background: var(--muted);
+  opacity: 0.5;
+}
+
 .segment.running {
   background-color: var(--accent);
   background-image: linear-gradient(

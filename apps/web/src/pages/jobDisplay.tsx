@@ -2,7 +2,7 @@ import type { JobStatus, JobTag } from "../api";
 
 /** Whether a job is not entirely done, so its page should keep polling for updates. */
 export function isActive(status: JobStatus): boolean {
-  return status === "queued" || status === "running";
+  return status === "queued" || status === "running" || status === "cancelling";
 }
 
 export function DemoTag() {

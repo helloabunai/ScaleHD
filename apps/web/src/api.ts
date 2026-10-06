@@ -2,10 +2,16 @@
 // apps/server/src/scalehd_server/schemas.py by hand. TODO: generate them from
 // /api/openapi.json (e.g. openapi-typescript) once the API settles.
 
-export type JobStatus = "queued" | "running" | "finished" | "failed" | "cancelled";
+export type JobStatus =
+  | "queued"
+  | "running"
+  | "cancelling"
+  | "finished"
+  | "failed"
+  | "cancelled";
 /** Light or dark pages, or "system" */
 export type Theme = "system" | "light" | "dark";
-export type SampleStatus = "queued" | "running" | "finished" | "failed";
+export type SampleStatus = "queued" | "running" | "finished" | "failed" | "cancelled";
 
 export interface Health {
   status: "ok";
