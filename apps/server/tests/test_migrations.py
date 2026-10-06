@@ -15,7 +15,7 @@ from scalehd_server.db import OutdatedDatabaseError, make_engine
 from scalehd_server.migrate import head, migrate, migration_connection
 from scalehd_server.models import Base
 
-#before migrating
+# before migrating
 FROZEN = Path(__file__).parent / "data" / "before-migrations.sql"
 
 

@@ -38,8 +38,7 @@ def head() -> str:
 
 @contextmanager
 def migration_connection(url: str) -> Iterator[Connection]:
-    """A connection to migrate the database at ``url`` with.
-    """
+    """A connection to migrate the database at ``url`` with."""
     engine = create_engine(url, connect_args={"isolation_level": None})
 
     @event.listens_for(engine, "connect")
@@ -61,8 +60,7 @@ def migration_connection(url: str) -> Iterator[Connection]:
 
 
 def migrate(url: str) -> None:
-    """Bring the database at ``url`` up to date, create if server is new.
-    """
+    """Bring the database at ``url`` up to date, create if server is new."""
     if make_url(url).get_backend_name() != "sqlite":
         raise ValueError(f"only SQLite databases are supported for now, not {url!r}")
     latest = head()
@@ -76,8 +74,7 @@ def migrate(url: str) -> None:
 
 
 def _copy(url: str, suffix: str) -> None:
-    """Copy for backups just in case
-    """
+    """Copy for backups just in case"""
     database = make_url(url).database
     if not database or database == ":memory:":
         return

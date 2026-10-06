@@ -1,4 +1,4 @@
-"""Run alembic for migrations. ``migrate.py`` or command line 
+"""Run alembic for migrations. ``migrate.py`` or command line
 (``tools/new-migration.sh``) with ``-x url=db_url_here``."""
 
 from __future__ import annotations
@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from alembic import context
 from alembic.autogenerate.api import AutogenContext
-from scalehd_server import models
+from scalehd_server import models  # noqa: F401
 from scalehd_server.db import Base, UTCDateTime
 from scalehd_server.migrate import migration_connection
 from sqlalchemy import Connection

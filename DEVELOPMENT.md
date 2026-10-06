@@ -31,19 +31,12 @@ git config core.hooksPath tools/git-hooks
 
 The server's database is changed by migrations
 (`apps/server/src/scalehd_server/migrations/versions/`), which the server runs itself when
-it starts (`migrate.py`). They only go forwards; the server copies the database before
-changing it. After changing the models in `models.py`:
+it starts (`migrate.py`). They only go forwards. The server copies the database before
+changing it so you can revert if something breaks. After changing the models in `models.py`:
 
 ```sh
 tools/new-migration.sh "add a notes column to jobs"
 ```
-
-writes the next numbered migration from what changed. Read it before committing:
-
-- a rename comes out as a drop plus an add, which loses the data: change it to a rename,
-- statuses are stored by member name (e.g. `CANCELLING`), so renaming one also needs its
-  rows rewritten,
-- a column added to an existing table needs a default, or to allow NULL, for old rows.
 
 `test_migrations.py` then fails if the migrations don't build exactly the models' schema,
 and upgrades a frozen copy of a database from before migrations
