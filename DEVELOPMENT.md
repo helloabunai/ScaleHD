@@ -27,6 +27,30 @@ git config core.hooksPath tools/git-hooks
 
 `tools/dev.sh` runs the server and web interface for development purposes i.e auto-reloading when pages/files are updated. Uses a separate dev db.
 
+### Database changes
+
+The server's database is changed by migrations
+(`apps/server/src/scalehd_server/migrations/versions/`), which the server runs itself when
+it starts (`migrate.py`). They only go forwards; the server copies the database before
+changing it. After changing the models in `models.py`:
+
+```sh
+tools/new-migration.sh "add a notes column to jobs"
+```
+
+writes the next numbered migration from what changed. Read it before committing:
+
+- a rename comes out as a drop plus an add, which loses the data: change it to a rename,
+- statuses are stored by member name (e.g. `CANCELLING`), so renaming one also needs its
+  rows rewritten,
+- a column added to an existing table needs a default, or to allow NULL, for old rows.
+
+`test_migrations.py` then fails if the migrations don't build exactly the models' schema,
+and upgrades a frozen copy of a database from before migrations
+(`apps/server/tests/data/before-migrations.sql`) to check its rows survive. Two branches
+that each add a migration both follow the same one: after merging, join them with
+`uv run alembic -c apps/server/alembic.ini merge -m "merge" heads`.
+
 
 ## Layout
 
@@ -39,7 +63,7 @@ packages/core/        scalehd: pure-Python library and CLI (no web or DB depende
   benchmarks/         accuracy on simulated data and the legacy labelled matrix
 apps/server/          scalehd-server: FastAPI, job runner, SQLite database
 apps/web/             web interface: React, TypeScript, Vite
-tools/                check.sh, dev.sh, refresh.sh and the pre-push git hook
+tools/                check.sh, dev.sh, refresh.sh, new-migration.sh and the pre-push git hook
 Dockerfile            one image with the server, the core and the built frontend
 compose.yaml          runs the docker image with a database volume, the data (input) folder read-only and
                       the workspace (job results) read-write
