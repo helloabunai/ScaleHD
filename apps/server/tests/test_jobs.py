@@ -218,7 +218,9 @@ def test_a_cancelled_job_can_be_deleted_once_its_running_samples_finish(
     # The running sample still writes into the job folder even under cancel context
     refused = quiet_client.delete(f"/api/jobs/{job['id']}")
     assert refused.status_code == 409
-    assert refused.json() == {"detail": "the job is waiting for already-processing samples to finish"}
+    assert refused.json() == {
+        "detail": "the job is waiting for already-processing samples to finish"
+    }
 
     _, future = pools.submitted[0]
     future.set_exception(ValueError("no molecules"))
