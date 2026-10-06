@@ -25,6 +25,19 @@ _RATIO = (logit(1e-3), logit(0.97))
 # log(N+1/N), logit(N+2/N+1), logit(tail up).
 _LOG_COLUMNS = (0, 3)
 HALF = math.log(0.5)
+# Measured spreads of a variety of CAG lengths from scalehd 1.x training data
+# need more data hurrhurr
+MEASURED_SPREAD = np.array(
+    [
+        (0.19, 0.23, 0.55, 0.33, 1.14, 1.66),  # CAG 9
+        (0.19, 0.23, 0.55, 0.33, 1.14, 1.66),  # CAG 16.7
+        (0.23, 0.28, 0.40, 0.31, 1.08, 1.71),  # CAG 22.7
+        (0.08, 0.21, 0.27, 0.38, 0.60, 0.39),  # CAG 36.9
+        (0.10, 0.19, 0.29, 0.46, 0.55, 0.55),  # CAG 44.5
+        (0.10, 0.37, 0.30, 0.14, 0.41, 0.17),  # CAG 51.7
+        (0.25, 0.34, 0.10, 0.25, 0.54, 0.42),  # CAG 64.7
+    ]
+)
 
 
 def shifted(
@@ -33,7 +46,8 @@ def shifted(
     curve: StutterCurve = HTT_MISEQ,
 ) -> StutterCurve:
     """``curve`` with ``offsets`` added to its six columns (on their log or logit scales),
-    and stutter at CAG n behaving as the curve's does at n + ``cag_shift``."""
+    and stutter at CAG n behaving as the curve's does at n + ``cag_shift``. An offset can
+    be one number per column, or one per point of the curve."""
     columns = (
         curve.log_contraction,
         curve.logit_contraction_step,
@@ -64,15 +78,21 @@ class Variant:
     # Above 0, every sample draws its own offsets from a normal distribution with this
     # many times the caller's prior SD: 1 is what the priors themselves expect.
     spread: float = 0.0
+    # Every sample draws one direction per scale, as far at each length as
+    # MEASURED_SPREAD says samples vary there.
+    measured: bool = False
 
     def curve(self, draw: int) -> StutterCurve:
         """The simulator's curve; ``draw`` picks a sample's own offsets for a random one."""
-        if not any(self.offsets) and not self.cag_shift and not self.spread:
+        if not any(self.offsets) and not (self.cag_shift or self.spread or self.measured):
             return HTT_MISEQ
-        offsets = np.asarray(self.offsets)
+        rng = np.random.default_rng([draw, 1234])
+        offsets = np.asarray(self.offsets, dtype=float)
         if self.spread:
-            rng = np.random.default_rng([draw, 1234])
             offsets = offsets + rng.normal(0.0, self.spread * np.asarray(HTT_MISEQ.spread))
+        if self.measured:
+            # One column per scale, one row per point of the curve.
+            offsets = offsets[:, None] + rng.standard_normal(6)[:, None] * MEASURED_SPREAD.T
         return shifted(offsets, self.cag_shift)
 
 
@@ -84,6 +104,7 @@ VARIANTS = (
     Variant("shorter tails", offsets=(0, 0, -1, 0, 0, -1)),
     Variant("as if 10 CAG longer", cag_shift=10),
     Variant("as if 10 CAG shorter", cag_shift=-10),
+    Variant("random, measured spread", measured=True),
     Variant("random, prior spread", spread=1.0),
     Variant("random, twice prior spread", spread=2.0),
 )

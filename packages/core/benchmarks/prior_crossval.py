@@ -59,15 +59,11 @@ def _tail(h: np.ndarray, start: int, step: int) -> float:
 
 
 def _median(values: np.ndarray, log: bool) -> float:
-    values = values[np.isfinite(values)]
-    if log:
-        return float(np.median(np.log(values)))
-    values = np.clip(values, 1e-3, 0.97)
-    return float(np.median(np.log(values) - np.log1p(-values)))
+    return float(np.median(_scaled(values, log)))
 
 
-def curve_from(samples: Sequence[MatrixSample]) -> StutterCurve:
-    """The stutter curve, from the labelled alleles of ``samples``."""
+def _allele_ratios(samples: Sequence[MatrixSample]) -> np.ndarray:
+    """One row per labelled allele the recipe keeps: its CAG, then its six ratios."""
     rows = []
     for _, matrix, (a, b) in samples:
         for (cag, ccg), partner in ((a, b), (b, a)):
@@ -87,7 +83,37 @@ def curve_from(samples: Sequence[MatrixSample]) -> StutterCurve:
                     _tail(h, n + 2, 1),
                 )
             )
-    data = np.array(rows)
+    return np.array(rows)
+
+
+def _scaled(values: np.ndarray, log: bool) -> np.ndarray:
+    """Ratios on the curve's own scale. Log, or logit within 0.001 to 0.97."""
+    values = values[np.isfinite(values)]
+    if log:
+        return np.log(values)
+    values = np.clip(values, 1e-3, 0.97)
+    return np.log(values) - np.log1p(-values)
+
+
+def spread_from(samples: Sequence[MatrixSample]) -> list[tuple[float, tuple[float, ...]]]:
+    """How much each ratio varies between samples, per length bin."""
+    data = _allele_ratios(samples)
+    found = []
+    for low, high in _BINS:
+        bin_rows = data[(data[:, 0] >= low) & (data[:, 0] < high)]
+        if len(bin_rows) < _MIN_ALLELES:
+            continue
+        sds = []
+        for k in range(6):
+            t = _scaled(bin_rows[:, k + 1], log=k in (0, 3))
+            sds.append(1.4826 * float(np.median(np.abs(t - np.median(t)))))
+        found.append((float(bin_rows[:, 0].mean()), tuple(sds)))
+    return found
+
+
+def curve_from(samples: Sequence[MatrixSample]) -> StutterCurve:
+    """The stutter curve, from the labelled alleles of ``samples``."""
+    data = _allele_ratios(samples)
     points = [
         (
             HTT_MISEQ.cag_lengths[0],
@@ -141,12 +167,21 @@ def main() -> None:
     parser.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
     parser.add_argument("--splits", type=int, default=1)
     parser.add_argument("--workers", type=int)
+    parser.add_argument(
+        "--spread-only", action="store_true", help="show the curves and spread, call nothing"
+    )
     options = parser.parse_args()
     samples = load(options.matrix)
 
     print("stutter curves: log N-1/N, logit N-2/N-1, logit tail down, log N+1/N, ...")
     _show("HTT_MISEQ (as shipped)", HTT_MISEQ)
     _show("rebuilt from every sample", curve_from(samples))
+    print("  between-sample spread (robust SD, same scales)")
+    for n, sds in spread_from(samples):
+        print(f"    CAG {n:5.1f}  " + "".join(f"{v:7.2f}" for v in sds))
+    print("    priors     " + "".join(f"{v:7.2f}" for v in HTT_MISEQ.spread))
+    if options.spread_only:
+        return
 
     tasks: list[tuple[MatrixSample, StutterCurve]] = []
     labels: list[tuple[int, str]] = []  # (split, "unseen" or "own half") per task

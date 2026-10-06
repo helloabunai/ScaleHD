@@ -8,11 +8,16 @@ The samples are:
   CAG apart (25%) or two apart (15%), the hard cases,
 - at depths from 150 to 5,000 read pairs, so that some calls are unsure.
 
-They are simulated three times over. One with the stutter the caller's priors come from,
-with each sample's stutter drawn within the caller's prior spread (what the priors
-themselves expect, so if the posteriors are calibrated anywhere it's here). Another with
-twice that spread (priors too narrow for the PCR). Wrong calls at posterior 0.99 or more
-are listed with their flags.
+They are simulated once per pcr stutter preset (``SETTINGS``):
+
+- ``calibrated``: the stutter the caller's priors come from,
+- ``measured``: each sample's stutter drawn as far as samples in the ScaleHD 1.x training
+  matrix vary (limited atm),
+- ``prior``: drawn within the caller's prior spread, wider than that (what the priors
+  themselves fit, so if the posteriors are calibrated anywhere it's here),
+- ``twice``: double the prior spread (priors too narrow for the PCR).
+
+Wrong calls at posterior 0.99 or more are listed with their flags.
 
 Run with ``uv run python packages/core/benchmarks/posterior_calibration.py``.
 """
@@ -25,11 +30,18 @@ from dataclasses import dataclass
 
 import numpy as np
 from scalehd.counts import count_reads
-from scalehd.genotype import call_genotype
+from scalehd.genotype import CallerSettings, call_genotype
 from scalehd.simulate import SimAllele, SimulationSpec, call_matches, simulate, true_genotype
 from scalehd.simulate_run import placeholder_samples
 from scalehd.structure import AlleleStructure
 from stutter_variants import Variant
+
+SETTINGS = {
+    "calibrated": Variant("as calibrated"),
+    "measured": Variant("drawn within the measured spread", measured=True),
+    "prior": Variant("drawn within the prior spread", spread=1.0),
+    "twice": Variant("drawn within double the prior spread", spread=2.0),
+}
 
 # Posterior bands: [low, high).
 BANDS = ((0.0, 0.5), (0.5, 0.9), (0.9, 0.99), (0.99, 0.999), (0.999, 1.0 + 1e-9))
@@ -61,7 +73,7 @@ def draw_samples(n: int, seed: int) -> list[Sample]:
 
 @dataclass(frozen=True)
 class Outcome:
-    spread: float
+    setting: str
     sample: Sample
     right: bool
     posterior: float
@@ -69,10 +81,10 @@ class Outcome:
     flags: tuple[str, ...]
 
 
-def run(task: tuple[Sample, float]) -> Outcome:
-    sample, spread = task
+def run(task: tuple[Sample, str, CallerSettings]) -> Outcome:
+    sample, setting, settings = task
     structures = [AlleleStructure.from_label(label) for label in sample.alleles]
-    stutter = Variant("drawn", spread=spread).curve(sample.index)
+    stutter = SETTINGS[setting].curve(sample.index)
     spec = SimulationSpec(
         tuple(SimAllele(s) for s in structures),
         pairs=sample.pairs,
@@ -83,16 +95,15 @@ def run(task: tuple[Sample, float]) -> Outcome:
     counts = count_reads(
         (a.sequence, b.sequence) for a, b in zip(simulated.r1, simulated.r2, strict=True)
     )
-    call = call_genotype(counts)
+    call = call_genotype(counts, settings)
     right = call_matches([a.allele for a in call.alleles], true_genotype(structures))
     flags = tuple(str(f) for f in call.flags)
-    return Outcome(spread, sample, right, call.posterior, call.label, flags)
+    return Outcome(setting, sample, right, call.posterior, call.label, flags)
 
 
-def report(spread: float, outcomes: list[Outcome]) -> None:
+def report(setting: str, outcomes: list[Outcome]) -> None:
     rows = [(o.right, o.posterior) for o in outcomes]
-    title = "as calibrated" if spread == 0 else f"drawn within {spread:g}x the prior spread"
-    print(f"\nsimulated stutter {title}: {len(rows)} samples")
+    print(f"\nsimulated stutter {SETTINGS[setting].name}: {len(rows)} samples")
     print(f"  {'posterior':<14}{'samples':>9}{'mean posterior':>16}{'right':>9}")
     for low, high in BANDS:
         band = [(right, p) for right, p in rows if low <= p < high]
@@ -117,17 +128,23 @@ def report(spread: float, outcomes: list[Outcome]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--samples", type=int, default=200, help="per stutter setting")
-    parser.add_argument("--spreads", default="0,1,2", help="prior spreads to draw within")
+    parser.add_argument(
+        "--settings", default=",".join(SETTINGS), help="stutter settings, comma-separated"
+    )
+    parser.add_argument("--local-radius", type=int, help="the caller's local_radius")
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--workers", type=int)
     options = parser.parse_args()
-    spreads = [float(s) for s in options.spreads.split(",")]
+    settings = CallerSettings()
+    if options.local_radius is not None:
+        settings = CallerSettings(local_radius=options.local_radius)
+    chosen = options.settings.split(",")
     samples = draw_samples(options.samples, options.seed)
-    tasks = [(sample, spread) for spread in spreads for sample in samples]
+    tasks = [(sample, setting, settings) for setting in chosen for sample in samples]
     with ProcessPoolExecutor(options.workers) as pool:
         results = list(pool.map(run, tasks))
-    for spread in spreads:
-        report(spread, [o for o in results if o.spread == spread])
+    for setting in chosen:
+        report(setting, [o for o in results if o.setting == setting])
 
 
 if __name__ == "__main__":

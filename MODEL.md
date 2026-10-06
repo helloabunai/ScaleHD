@@ -279,8 +279,23 @@ style ratios:
 - the expansion and contraction indices: the mean shift above and below `N`.
 
 A peak of molecules read in full, holding at least 2% of the sample and well beyond
-what the fit expects there, is reported as unexplained. The flags, and their thresholds,
-are listed in [USING-FASTQ.md](USING-FASTQ.md#reading-the-result).
+what the fit expects there, is reported as unexplained.
+
+Two alleles with the same structure apart from CAG, more than one apart, are flagged
+`close_alleles` when one's fitted stutter makes up 10% or more of the molecules at the
+other's peak i.e.
+
+```
+share at B's peak = w_A · K(N_B | A) / (w_A · K(N_B | A) + w_B · K(N_B | B))
+```
+
+This is a situation that would maybe warrant manual inspection if such alleles exist in
+larger repeat sizes, but how often it is seen depends on real data (again).
+Long alleles are more likely to have PCR slippage/stutter, so we try to take this into account.
+At two CAG apart, 17/19 comes to 0.03 and 44/46 to 0.18. Three CAGs apart, 40/43 comes to 0.09 and 60/63 to 0.28.
+
+The flags, and their thresholds, are listed in
+[USING-FASTQ.md](USING-FASTQ.md#reading-the-result).
 
 ## How well it performs (estimates)
 
@@ -345,26 +360,60 @@ the curve from its own half.
   with the one that did. One sample changed.
 - So the legacy matrix score isn't flattered by the priors coming from the same matrix.
 
+### Some random experiments
+
+The benchmark results point to some improvement which is of zero surprise given the limited
+amount of data used when generating the model. But I am repeating myself very often with this
+so bla bla bla.
+
+Confidence for alleles that were very close in CAG count was too high given the ease in
+which such situations the algorithm(s) could get confused. Now we re-test "close alleles"
+against each other potential candidate (e.g. a call of 35 and 37 will ask for a re-test of
+33-34/36-37 and 35-36/38-39). Another flag `close_alleles` was added for this situation.
+Probably should've been there already.
+
+I'm conscious of PCR stutter being very length dependant and deriving a model from limited
+data is 'oof' as the kids say. Tweaking with the model calibration:
+
+| simulated stutter | wrong | wrong calls the posteriors expected | wrong at 0.99 or more |
+|---|---|---|---|
+| as calibrated | 3, now 4 | 4.8, now 5.3 | 0, now 0 |
+| taken per sample, within the measured spread | 5 | 7.9 | 0 |
+| taken per sample, within the prior spread | 13, now 12 | 6.8, now 8.2 | 4, now 0 |
+| taken per sample, within twice the prior spread | 29, now 25 | 10.3, now 10.7 | 5, now 3 |
+
+This again is all subject to data etc etc etc bla bla bla
+
+The model is a bit less confident on long alleles which i think is maybe wise?
+COmparison data:
+
+| scenario | mean quality before | after |
+|---|---|---|
+| 20/55 | 22.2 | 30.5 |
+| 20/60 | 27.6 | 20.1 |
+| 20/66 | 23.8 | 11.3 |
+| 20/70 | 30.6 | 13.8 |
+| 20/75, 20/80 | 13.2, 10.3 | 13.2, 10.3 |
+
 ### What this means
 
 - When its stutter assumptions hold, the model calls well and its confidence can be
-  trusted.
-- How far real PCR strays from those assumptions is unknown until there's real data. If
-  real samples vary as much as the priors allow, the quality is optimistic, mostly for:
-  - the exact CAG of long alleles (one off),
-  - two alleles a few CAG apart that are both expanded or close to it.
-- Ideas, none tried yet:
-  - a flag for two alleles within about 3 CAG of each other when both are above about 35
-    (`neighbouring` only covers 1 apart),
-  - wider, or heavier-tailed, stutter priors for long alleles,
-  - letting the exact-`N` step carry more of the trade-off between stutter and `N`,
+  trusted. We need more variation in data which is hopefully on the way etc etc etc
+- Still a "thing":
+  - long alleles are called with low confidence even when correct. If they're correct then
+    there should be a way to find balance between arrogance and insecurity
+  - stutter values way beyond the model assumptions can still put a long allele one CAG off
+    at Q 30 or more without any analysis flags raised (not good)
+  - wider or heavier-tailed peaks are maybe underrepresented in all regards. probably won't
+    perform well (need data haha)
   - real samples with known genotypes, to set the prior spread from data rather than
     from ScaleHD 1.x alignments.
 
 To rerun them:
 
 ```sh
-uv run python packages/core/benchmarks/stutter_robustness.py      # about 9 minutes on AMD 5950x cpu
-uv run python packages/core/benchmarks/posterior_calibration.py   # about 6 minutes on AMD 5950x cpu
-uv run python packages/core/benchmarks/prior_crossval.py          # about 16 minutes on AMD 5950x cpu
+uv run python packages/core/benchmarks/stutter_robustness.py      # about 11 minutes on AMD 5950x cpu
+uv run python packages/core/benchmarks/posterior_calibration.py   # about 13 minutes on AMD 5950x cpu
+uv run python packages/core/benchmarks/prior_crossval.py          # about 16 minutes on AMD 5950x cpu (before the fixes)
+uv run python packages/core/benchmarks/prior_crossval.py --spread-only   # the measured spread, in seconds
 ```

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from itertools import combinations_with_replacement
+from itertools import combinations_with_replacement, permutations, product
 
 import numpy as np
 from scipy.special import logsumexp
@@ -11,11 +11,15 @@ from scipy.special import logsumexp
 from ...counts import SampleCounts
 from .candidates import _truncation_bound, candidate_alleles
 from .fit import _Fit, _refine, _screen
+from .kernel import _log_kernel
 from .lengths import _estimate_long_allele, _local_n
 from .likelihood import _Model, _n_weights, _per_row, _row_loglik
 from .results import AlleleCall, Candidate, Flag, GenotypeCall, NoMoleculesError
 from .settings import CallerSettings
 from .table import _Table
+
+# Rounds of fitting the best genotype's length variants, to find 'best'.
+_VARIANT_ROUNDS = 3
 
 
 def _distribution_metrics(
@@ -107,11 +111,12 @@ def _unexplained(table: _Table, fit: _Fit, settings: CallerSettings) -> tuple[tu
     return tuple(sorted(found, key=lambda item: -item[1])[:3])
 
 
-def _same_configuration(a: _Model, b: _Model, shift: int) -> bool:
-    """Same alleles apart from CAG differences of at most ``shift``."""
+def _same_configuration(a: _Model, b: _Model, shifts: tuple[int, ...]) -> bool:
+    """Same alleles as ``b`` apart from CAG differences of at most ``shifts``, one per
+    allele of ``b``."""
     if len(a.alleles) != len(b.alleles):
         return False
-    for x, y in zip(a.alleles, b.alleles, strict=True):
+    for x, y, shift in zip(a.alleles, b.alleles, shifts, strict=True):
         if x.beyond_read_length != y.beyond_read_length:
             return False
         if x.structure.counts[1:] != y.structure.counts[1:]:
@@ -119,6 +124,31 @@ def _same_configuration(a: _Model, b: _Model, shift: int) -> bool:
         if abs(x.structure.cag - y.structure.cag) > shift:
             return False
     return True
+
+
+def _settle(
+    table: _Table, fit: _Fit, settings: CallerSettings, bound: int | None
+) -> list[dict[int, float] | None]:
+    """Each allele's posterior over its exact N from its own peak, or None where it doesn't fit."""
+    return [_local_n(table, fit, i, settings, bound) for i in range(len(fit.model.alleles))]
+
+
+def _length_variants(
+    model: _Model, local_posteriors: list[dict[int, float] | None], shift: int
+) -> set[_Model]:
+    """``model`` with each allele whose exact N its own peak didn't settle moved by up to
+    ``shift`` CAG, every combination. Alleles beyond read length stay as they are."""
+    choices = []
+    for allele, by_n in zip(model.alleles, local_posteriors, strict=True):
+        if by_n is not None or allele.beyond_read_length:
+            choices.append([allele])
+            continue
+        cag = allele.structure.cag
+        lengths = range(max(1, cag - shift), cag + shift + 1)
+        choices.append([Candidate(allele.structure.with_counts(cag=n)) for n in lengths])
+    if len(choices) == 1:
+        return {_Model((a,)) for (a,) in product(*choices)}
+    return {_Model.of(a, b) for a, b in product(*choices)}
 
 
 def call_genotype(counts: SampleCounts, settings: CallerSettings | None = None) -> GenotypeCall:
@@ -144,17 +174,32 @@ def call_genotype(counts: SampleCounts, settings: CallerSettings | None = None) 
     fits = [_refine(table, model, settings) for model in keep]
     leader = max(fits, key=lambda f: f.score)
     fits = [f if f is leader else _refine(table, f.model, settings, warm=leader) for f in fits]
+
+    # Decide each allele's exact N from its own peak. Where that can't be done (alleles
+    # close together), the genotypes with that allele a little shorter or longer are
+    # fitted too, so they compete with the best on the whole sample.
+    # Hopefully resolves automated confidence for longer alleles where spread is an issue
+    bound = _truncation_bound(counts, settings)
+    best_fit = max(fits, key=lambda f: f.score)
+    local_posteriors = _settle(table, best_fit, settings, bound)
+    for _ in range(_VARIANT_ROUNDS):
+        fitted = {f.model for f in fits}
+        variants = _length_variants(best_fit.model, local_posteriors, settings.local_shift)
+        new = sorted(variants - fitted, key=lambda m: m.label)
+        if not new:
+            break
+        fits += [_refine(table, model, settings, warm=best_fit) for model in new]
+        leader = max(fits, key=lambda f: f.score)
+        if leader is not best_fit:
+            best_fit = leader
+            local_posteriors = _settle(table, best_fit, settings, bound)
     scores = np.array([f.score for f in fits])
     log_posterior = scores - logsumexp(scores)
     order = np.argsort(-log_posterior)
-    best_fit = fits[int(order[0])]
 
-    # Settle each allele's exact N locally, then refit the refined genotype.
+    # refit the genotype with each settled allele at its most likely N
     refined = list(best_fit.model.alleles)
-    local_posteriors: list[dict[int, float] | None] = []
-    for i, allele in enumerate(best_fit.model.alleles):
-        by_n = _local_n(table, best_fit, i, settings, _truncation_bound(counts, settings))
-        local_posteriors.append(by_n)
+    for i, (allele, by_n) in enumerate(zip(best_fit.model.alleles, local_posteriors, strict=True)):
         if by_n:
             refined[i] = Candidate(
                 allele.structure.with_counts(cag=max(by_n, key=by_n.__getitem__))
@@ -163,10 +208,12 @@ def call_genotype(counts: SampleCounts, settings: CallerSettings | None = None) 
     if tuple(refined) != best_fit.model.alleles:
         best_fit = _refine(table, _Model(tuple(refined)), settings, warm=best_fit)
 
-    # P(call) = P(this configuration of alleles) x P(each allele's exact N | configuration).
-    same = np.array(
-        [_same_configuration(f.model, configuration, settings.local_shift) for f in fits]
-    )
+    # P(call) = P(this configuration of alleles) x P(each called allele peak N). Only a
+    # called allele's N may differ between the fits counted as this configuration. The
+    # others' N is then decided by fit fitting (english hurr), so a fit with another N for one of them
+    # is an alternative genotype suggestion to be considered
+    shifts = tuple(settings.local_shift if by_n else 0 for by_n in local_posteriors)
+    same = np.array([_same_configuration(f.model, configuration, shifts) for f in fits])
     log_configuration = float(logsumexp(log_posterior[same]))
     log_n = [
         math.log(max(p[n.structure.cag], 1e-300))
@@ -210,6 +257,31 @@ def call_genotype(counts: SampleCounts, settings: CallerSettings | None = None) 
     )
 
 
+def _stutter_overlap(fit: _Fit, settings: CallerSettings) -> float:
+    """The largest share of one allele's peak that is the other allele's stutter. 
+    should be 0 unless the alleles have the same structure (not counting CAG), since only then do
+    their molecules mix in the actual sequencing machines."""
+    model, params = fit.model, fit.params
+    if not model.heterozygous:
+        return 0.0
+    first, second = model.alleles
+    if first.beyond_read_length or second.beyond_read_length:
+        return 0.0
+    if first.structure.counts[1:] != second.structure.counts[1:]:
+        return 0.0
+    shares = (params.balance, 1 - params.balance)
+    alleles = list(zip(model.alleles, params.stutter, shares, strict=True))
+    largest = 0.0
+    for (peak, stutter, share), (other, other_stutter, other_share) in permutations(alleles):
+        at = np.array([peak.structure.cag])
+        own = share * np.exp(_log_kernel(at, peak.structure.cag, stutter, settings.stutter_window))
+        spill = other_share * np.exp(
+            _log_kernel(at, other.structure.cag, other_stutter, settings.stutter_window)
+        )
+        largest = max(largest, float(spill[0] / (own[0] + spill[0])))
+    return largest
+
+
 def _flags(
     counts: SampleCounts,
     fit: _Fit,
@@ -233,6 +305,8 @@ def _flags(
         and first.structure.counts[1:] == second.structure.counts[1:]
     ):
         flags.append(Flag.NEIGHBOURING)
+    elif _stutter_overlap(fit, settings) >= settings.close_alleles_share:
+        flags.append(Flag.CLOSE_ALLELES)
     if any(not a.allele.structure.is_typical for a in alleles):
         flags.append(Flag.ATYPICAL)
     if any(a.allele.beyond_read_length for a in alleles):
