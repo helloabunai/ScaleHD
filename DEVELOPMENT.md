@@ -16,8 +16,9 @@ uv run python packages/core/benchmarks/genotype_simulated.py
 uv run python packages/core/benchmarks/legacy_matrix.py
 ```
 
-`tools/check.sh` runs every check above in order (lint, format, types, frontend build, tests) and stops at the first failure. A git pre-push hook runs it before each push and
-blocks the push if anything fails. Turn the hook on in your local clone:
+`tools/check.sh` runs every check above in order (lint, format, types, frontend build, tests) and stops at the first failure. Run it before opening a PR: the tests take several minutes.
+A git pre-push hook runs the quick ones before each push (`tools/check.sh --quick`: everything but the tests, about 30 seconds)
+and blocks the push if any fails. Turn the hook on in your local clone (once per clone):
 
 ```sh
 git config core.hooksPath tools/git-hooks
@@ -27,6 +28,16 @@ git config core.hooksPath tools/git-hooks
 
 `tools/dev.sh` runs the server and web interface for development purposes i.e auto-reloading when pages/files are updated. Uses a separate dev db.
 
+### Database changes
+
+The server's database is changed by migrations
+(`apps/server/src/scalehd_server/migrations/versions/`), which the server runs itself when
+it starts (`migrate.py`). They only go forwards. The server copies the database before
+changing it so you can revert if something breaks. After changing the models in `models.py`:
+
+```sh
+tools/new-migration.sh "add a notes column to jobs"
+```
 
 ## Layout
 
@@ -39,7 +50,7 @@ packages/core/        scalehd: pure-Python library and CLI (no web or DB depende
   benchmarks/         accuracy on simulated data and the legacy labelled matrix
 apps/server/          scalehd-server: FastAPI, job runner, SQLite database
 apps/web/             web interface: React, TypeScript, Vite
-tools/                check.sh, dev.sh, refresh.sh and the pre-push git hook
+tools/                check.sh, dev.sh, refresh.sh, new-migration.sh and the pre-push git hook
 Dockerfile            one image with the server, the core and the built frontend
 compose.yaml          runs the docker image with a database volume, the data (input) folder read-only and
                       the workspace (job results) read-write

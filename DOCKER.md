@@ -126,9 +126,8 @@ git pull
 docker compose up -d --build
 ```
 
-There are no database migrations yet. You may need to wipe the database after upgrades if there are
-any significant schema changes (this would be declared in release notes).
-If the server refuses to start because the database is from an older version
-(`docker compose logs` says so), `tools/refresh.sh` deletes the database volume and rebuilds. 
-All accounts and job history are lost, files in the workspace are kept.
-Development work in progress baby !!!
+Databases are managed with alembic migrations. If one doesn't exist (first boot) then it's created.
+If it exists, updates are attempted if required. Failures can be reverted with backup copies of db
+(auto created at time of migration attempt). To go back to an older ScaleHD DB, stop the server, 
+put the named copy back as main `scalehd.db`, and run the older version of the server.
+Still subject to change. Development work in progress baby !!!

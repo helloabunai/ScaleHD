@@ -19,8 +19,9 @@ Settings are `SCALEHD_*` environment variables (`config.py`): `DATABASE_DIR`,
 - `SCALEHD_DATABASE_DIR`: the SQLite database, kept apart from the workspace.
 
 In Docker the first two are mounted at the same path as on the host, so paths in the
-web interface and in result files are host paths. A database made by an older version
-stops startup with a message naming it: delete it (accounts are lost) and restart.
+web interface and in result files are host paths. The server updates databases with migrations
+at boot via alembic. Copies are made incase of failure so reversion is easy. SQLite only
+for now. For adding a migration, see `DEVELOPMENT.md`.
 
 ### Accounts
 
@@ -80,7 +81,8 @@ Gets some simulated data from the simulator and runs the new genotyping (only on
 |---|---|---|
 | `app.py` | app factory: database, runner, `/api` routes, frontend at `/` | works |
 | `config.py` | settings from the environment | works |
-| `db.py`, `models.py` | SQLAlchemy engine, sessions; users, login sessions, jobs, samples, tags tables | works, tables created at startup (no migrations yet) |
+| `db.py`, `models.py` | SQLAlchemy engine, sessions; users, login sessions, jobs, samples, tags tables | works |
+| `migrate.py`, `migrations/` | alembic migrations to create/update DB | works |
 | `schemas.py` | API request and response bodies, job settings → `CallerSettings` | works |
 | `runner.py`, `worker.py` | the job runner (queue, worker pool, recording) and one sample's work | works |
 | `workspace.py` | job folders and `job.json` in the workspace | works |
