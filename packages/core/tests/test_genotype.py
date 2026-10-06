@@ -131,7 +131,7 @@ def test_lengths_settled_by_their_own_peak_may_differ_others_must_match() -> Non
 
 def test_close_alleles_are_only_as_sure_as_their_own_lengths() -> None:
     """Two expanded alleles two CAG apart, PCR stutter not as expected in model.
-    assert appropriate caution in genotyping and what the calls are """
+    assert appropriate caution in genotyping and what the calls are"""
     call = call_genotype(sample("43_1_1_7_2", "45_1_1_7_2", pairs=1519, seed=36, drift=DRIFT_36))
     assert call.posterior < 0.99
     genotypes = [call.label] + [label for label, _ in call.alternatives]

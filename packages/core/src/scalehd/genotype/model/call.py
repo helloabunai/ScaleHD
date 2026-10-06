@@ -210,8 +210,8 @@ def call_genotype(counts: SampleCounts, settings: CallerSettings | None = None) 
 
     # P(call) = P(this configuration of alleles) x P(each called allele peak N). Only a
     # called allele's N may differ between the fits counted as this configuration. The
-    # others' N is then decided by fit fitting (english hurr), so a fit with another N for one of them
-    # is an alternative genotype suggestion to be considered
+    # others' N is then decided by fit fitting (english hurr), so a fit with another N for
+    # one of them is an alternative genotype suggestion to be considered
     shifts = tuple(settings.local_shift if by_n else 0 for by_n in local_posteriors)
     same = np.array([_same_configuration(f.model, configuration, shifts) for f in fits])
     log_configuration = float(logsumexp(log_posterior[same]))
@@ -258,7 +258,7 @@ def call_genotype(counts: SampleCounts, settings: CallerSettings | None = None) 
 
 
 def _stutter_overlap(fit: _Fit, settings: CallerSettings) -> float:
-    """The largest share of one allele's peak that is the other allele's stutter. 
+    """The largest share of one allele's peak that is the other allele's stutter.
     should be 0 unless the alleles have the same structure (not counting CAG), since only then do
     their molecules mix in the actual sequencing machines."""
     model, params = fit.model, fit.params

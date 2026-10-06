@@ -12,6 +12,7 @@ _WINDOW = (20, 30)
 
 ## todo: make user exposed on web ui
 
+
 @dataclass(frozen=True, slots=True)
 class CallerSettings:
     stutter: StutterCurve = HTT_MISEQ
