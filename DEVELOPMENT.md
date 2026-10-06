@@ -16,8 +16,9 @@ uv run python packages/core/benchmarks/genotype_simulated.py
 uv run python packages/core/benchmarks/legacy_matrix.py
 ```
 
-`tools/check.sh` runs every check above in order (lint, format, types, frontend build, tests) and stops at the first failure. A git pre-push hook runs it before each push and
-blocks the push if anything fails. Turn the hook on in your local clone:
+`tools/check.sh` runs every check above in order (lint, format, types, frontend build, tests) and stops at the first failure. Run it before opening a PR: the tests take several minutes.
+A git pre-push hook runs the quick ones before each push (`tools/check.sh --quick`: everything but the tests, about 30 seconds)
+and blocks the push if any fails. Turn the hook on in your local clone (once per clone):
 
 ```sh
 git config core.hooksPath tools/git-hooks
@@ -37,13 +38,6 @@ changing it so you can revert if something breaks. After changing the models in 
 ```sh
 tools/new-migration.sh "add a notes column to jobs"
 ```
-
-`test_migrations.py` then fails if the migrations don't build exactly the models' schema,
-and upgrades a frozen copy of a database from before migrations
-(`apps/server/tests/data/before-migrations.sql`) to check its rows survive. Two branches
-that each add a migration both follow the same one: after merging, join them with
-`uv run alembic -c apps/server/alembic.ini merge -m "merge" heads`.
-
 
 ## Layout
 
