@@ -45,6 +45,12 @@ stops startup with a message naming it: delete it (accounts are lost) and restar
 - `GET /api/inputs?folder=` lists directories within `SCALEHD_DATA_ROOT` and samples within
   those directories.
 - `POST /api/jobs` queues selected samples as a job for genotyping.
+- `POST /api/jobs/{id}/cancel` cancels one of your jobs. Samples in that job not yet started
+  are marked cancelled and don't start. Any already running finish and keep their results, so
+  as to not break any worker pools. The job is `cancelling` until they have finished, then
+  the status changes to `cancelled`. `DELETE /api/jobs/{id}` then
+  removes it (refused while anything still running). Jobs are private for each user, someone 
+  else's job answers 404, like a missing one.
 - Also included UI tags for easy assignment of jobs to e.g. projects / data cohorts.
   Tags can be made on the job page by any user by needs an admin to edit/delete them
 
@@ -54,10 +60,11 @@ We plan to allow users to pick between the legacy genotyping method used in Scal
 
 Each job runs one of two methods (`JobSettings.method`):
 
-- `legacy`: ScaleHD 1.x, aligning reads to a user provided reference library, then use the 1.x genotyper. The default for new users, but not runnable yet: it still has to be
+- `legacy`: ScaleHD 1.x, aligning reads to a user provided reference library, then use the 1.x genotyper. Not runnable yet: it still has to be
   extracted from `legacy/`, alignment included. Until then, jobs using it are refused when submitted ("legacy genotyping is not available yet").
 - `model`: reads the repeat structure straight from each read, then the model-based
-  caller. Shown in the web interface as "New (model-based)", marked Beta.
+  caller. Shown in the web interface as "New (model-based)", marked Beta. The default
+  for users until legacy can run (no idea when this will be done).
 
 `GET`/`PUT /api/settings` hold each user's default (stored in `users.default_settings`).
 A new job uses its own `settings` if given, otherwise the user's default.
@@ -80,4 +87,4 @@ Gets some simulated data from the simulator and runs the new genotyping (only on
 | `demo.py` | the demo job's simulated samples | works |
 | `inputs.py` | browsing the data folder, pairing FASTQ files, truth files of simulated runs | works |
 | `auth.py` | password hashing, session cookie, current user | works |
-| `routes/` | `health`, `accounts`, `admin`, `folders`, `inputs`, `jobs`, `settings`, `tags` | all but the cancel/report `jobs` routes work |
+| `routes/` | `health`, `accounts`, `admin`, `folders`, `inputs`, `jobs`, `settings`, `tags` | all but the `jobs` report route work |

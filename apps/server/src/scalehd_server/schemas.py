@@ -96,7 +96,8 @@ class GenotypeMethod(StrEnum):
 class JobSettings(BaseModel):
     """What a job runs, and with which settings. Unset thresholds keep the core defaults."""
 
-    method: GenotypeMethod = GenotypeMethod.LEGACY
+    # Model-based default until the legacy method exists as an actual optino
+    method: GenotypeMethod = GenotypeMethod.MODEL
     # Call genotypes, or only count each sample's repeat structures.
     call: bool = True
     discordant: DiscordancePolicy = DiscordancePolicy.DROP

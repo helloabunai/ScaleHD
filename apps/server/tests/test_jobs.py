@@ -50,6 +50,7 @@ def test_demo_job_writes_its_folder(quiet_client: TestClient, tmp_path: Path) ->
 def test_demo_uses_the_model_method_even_when_the_default_is_legacy(
     quiet_client: TestClient,
 ) -> None:
+    quiet_client.put("/api/settings", json={"method": "legacy"})
     assert quiet_client.get("/api/settings").json()["method"] == "legacy"
     assert quiet_client.post("/api/jobs/demo").json()["method"] == "model"
 
@@ -77,6 +78,7 @@ def test_jobs_are_private(quiet_client: TestClient) -> None:
 def test_jobs_need_a_login(client: TestClient) -> None:
     assert client.post("/api/jobs/demo").status_code == 401
     assert client.get("/api/jobs/1").status_code == 401
+    assert client.post("/api/jobs/1/cancel").status_code == 401
     assert client.delete("/api/jobs/1").status_code == 401
 
 
@@ -191,3 +193,55 @@ def test_a_folder_outside_your_workspace_is_never_deleted(
     assert response.json()["detail"].startswith(f"won't delete {precious}")
     assert precious.exists()
     assert [j["id"] for j in quiet_client.get("/api/jobs").json()] == [job["id"]]
+
+
+def _wait_for(client: TestClient, job_id: int, status: str) -> dict[str, Any]:
+    """helper for job status changes"""
+    deadline = time.monotonic() + 5
+    while (job := client.get(f"/api/jobs/{job_id}").json())["status"] != status:
+        assert time.monotonic() < deadline, f"job still {job['status']}"
+        time.sleep(0.01)
+    return job
+
+
+def test_a_cancelled_job_can_be_deleted_once_its_running_samples_finish(
+    quiet_client: TestClient, pools: Any
+) -> None:
+    job = quiet_client.post("/api/jobs/demo").json()
+    response = quiet_client.post(f"/api/jobs/{job['id']}/cancel")
+    assert response.status_code == 200
+    cancelling = response.json()
+    # One worker/one sample was running, wait for it to finish. The other 12 never start.
+    assert cancelling["status"] == "cancelling"
+    assert [s["status"] for s in cancelling["samples"]] == ["running"] + ["cancelled"] * 12
+    assert quiet_client.post(f"/api/jobs/{job['id']}/cancel").json()["status"] == "cancelling"
+    # The running sample still writes into the job folder even under cancel context
+    refused = quiet_client.delete(f"/api/jobs/{job['id']}")
+    assert refused.status_code == 409
+    assert refused.json() == {
+        "detail": "the job is waiting for already-processing samples to finish"
+    }
+
+    _, future = pools.submitted[0]
+    future.set_exception(ValueError("no molecules"))
+    cancelled = _wait_for(quiet_client, job["id"], "cancelled")
+    assert cancelled["finished_at"] is not None
+    assert len(pools.submitted) == 1
+    assert quiet_client.delete(f"/api/jobs/{job['id']}").status_code == 204
+    assert not Path(job["output_dir"]).exists()
+
+
+def test_a_job_that_has_stopped_cannot_be_cancelled(quiet_client: TestClient) -> None:
+    job = quiet_client.post("/api/jobs/demo").json()
+    _set_job(quiet_client, job["id"], status=JobStatus.FINISHED)
+    response = quiet_client.post(f"/api/jobs/{job['id']}/cancel")
+    assert response.status_code == 409
+    assert response.json() == {"detail": "the job has already stopped"}
+
+
+def test_someone_elses_job_cannot_be_cancelled(quiet_client: TestClient) -> None:
+    job = quiet_client.post("/api/jobs/demo").json()
+    bob = TestClient(quiet_client.app)
+    bob.post("/api/auth/register", json={"username": "bob", "password": "correct horse"})
+    assert bob.post(f"/api/jobs/{job['id']}/cancel").status_code == 404
+    assert quiet_client.get(f"/api/jobs/{job['id']}").json()["status"] == "running"

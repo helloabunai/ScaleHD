@@ -18,7 +18,9 @@ What has been implemented so far:
 - "Run demo" on the home page genotypes thirteen simulated samples with known
   genotypes, end to end, with the model-based caller.
 - Jobs: launch genotyping jobs. Browse running jobs (and progress), and previous jobs
-  with their genotyping results / analysis flags.
+  with their genotyping results / analysis flags. Cancel a job which you started. Samples not
+  yet started don't continue after cancellation, those running finish. Jobs cancelled can also be deleted.
+  Users only see their own jobs.
 - A results page per sample with each allele's repeat structure rendered,
   the CAG and CCG distributions, instability figures, alternative genotypes,
   unexplained peaks and how its reads fared, with its counts and call JSON and its FASTQ
@@ -26,7 +28,7 @@ What has been implemented so far:
 - Settings: the default genotyping method and thresholds new jobs start with. Only basic settings
   present for now.
 
-Not yet: Cancelling a job isn't working, and exporting reports. API docs are at `/api/docs`. See
+Not yet: exporting reports. API docs are at `/api/docs`. See
 [`apps/server/README.md`](apps/server/README.md) for what is real and what's a stub.
 
 Things will move around a lot as development proceeds.
