@@ -88,6 +88,11 @@ def end_other_sessions(session: Session, user: User, request: Request) -> None:
     )
 
 
+def end_all_sessions(session: Session, user: User) -> None:
+    """e.g. after password reset"""
+    session.execute(delete(LoginSession).where(LoginSession.user_id == user.id))
+
+
 def current_user(request: Request, session: DbSession) -> User:
     """The logged-in user, from the session cookie; 401 when there is none."""
     if token := request.cookies.get(COOKIE):

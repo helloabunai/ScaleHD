@@ -14,7 +14,8 @@ An admin user can see jobs from every user account. Individual regular users can
 What has been implemented so far:
 
 - Accounts: register and log in (the first account is made admin), change password,
-  and a light/dark setting per account. Any admin can promote regular users to have admin rights.
+  and a light/dark setting per account. Any admin can promote regular users to have admin rights,
+  and set a new password for a user who has forgotten theirs (which logs them out everywhere).
 - "Run demo" on the home page genotypes thirteen simulated samples with known
   genotypes, end to end, with the model-based caller.
 - Jobs: launch genotyping jobs. Browse running jobs (and progress), and previous jobs

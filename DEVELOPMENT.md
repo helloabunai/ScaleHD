@@ -33,7 +33,7 @@ git config core.hooksPath tools/git-hooks
 The server's database is changed by migrations
 (`apps/server/src/scalehd_server/migrations/versions/`), which the server runs itself when
 it starts (`migrate.py`). They only go forwards. The server copies the database before
-changing it so you can revert if something breaks. After changing the models in `models.py`:
+changing it so you can revert if something breaks. After changing the models in `models.py` e.g.
 
 ```sh
 tools/new-migration.sh "add a notes column to jobs"

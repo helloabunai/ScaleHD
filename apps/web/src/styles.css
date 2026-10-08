@@ -578,6 +578,22 @@ button.link.danger {
   margin-left: 1rem;
 }
 
+.set-password {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-left: 1rem;
+}
+
+.set-password input {
+  width: 14rem;
+}
+
+.set-password button + button {
+  margin-left: 0;
+}
+
 .card button {
   margin-top: 0.75rem;
 }

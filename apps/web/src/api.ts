@@ -347,6 +347,11 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ is_admin: isAdmin }),
     }),
+  setPassword: (userId: number, password: string) =>
+    request<void>(`/admin/users/${userId}/password`, {
+      method: "PUT",
+      body: JSON.stringify({ password }),
+    }),
 
   getSettings: () => request<JobSettings>("/settings"),
   saveSettings: (settings: JobSettings) =>

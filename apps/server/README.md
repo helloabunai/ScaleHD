@@ -39,7 +39,7 @@ for now. For adding a migration, see `DEVELOPMENT.md`.
   `PUT /api/auth/theme`. Other routes take the logged-in user from the `CurrentUser`
   dependency in `auth.py`, or an admin from `AdminUser` (403 for anyone else).
 - Admins: `GET /api/admin/users` and `PUT /api/admin/users/{id}/admin` for giving
-  existing users admin rights.
+  existing users admin rights. `PUT /api/admin/users/{id}/password` is for resetting passwords.
 
 ### Jobs from the data folder
 

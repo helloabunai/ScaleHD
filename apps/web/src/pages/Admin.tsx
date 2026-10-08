@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useState } from "react";
+import { type KeyboardEvent, type SubmitEvent, useState } from "react";
 import { api, MAX_TAG_LENGTH, type Tag, type User } from "../api";
 import { useAuth, useUser } from "../auth";
 import { useApi } from "../useApi";
@@ -141,6 +141,7 @@ function Users() {
   const [version, setVersion] = useState(0);
   const users = useApi(api.listUsers, [version]);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function toggle(user: User) {
     const self = user.id === me.id;
@@ -163,6 +164,7 @@ function Users() {
         so the server never depends on a single account.
       </p>
       {error && <p className="error">{error}</p>}
+      {notice && <p className="success">{notice}</p>}
       <Status of={users}>
         {(list) => (
           <table className="admin-table">
@@ -187,6 +189,17 @@ function Users() {
                     <button type="button" className="link" onClick={() => void toggle(user)}>
                       {user.is_admin ? "Remove admin" : "Make admin"}
                     </button>
+                    {user.id !== me.id && (
+                      <SetPassword
+                        user={user}
+                        onSet={() => {
+                          setError(null);
+                          setNotice(
+                            `Password reset for ${user.username}.`,
+                          );
+                        }}
+                      />
+                    )}
                   </td>
                 </tr>
               ))}
@@ -195,5 +208,63 @@ function Users() {
         )}
       </Status>
     </section>
+  );
+}
+
+function SetPassword({ user, onSet }: Readonly<{ user: User; onSet: () => void }>) {
+  const [password, setPassword] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (password === null) return;
+    setBusy(true);
+    try {
+      await api.setPassword(user.id, password);
+      setPassword(null);
+      onSet();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setBusy(false);
+  }
+
+  if (password === null) {
+    return (
+      <button
+        type="button"
+        className="link"
+        onClick={() => {
+          setPassword("");
+          setError(null);
+        }}
+      >
+        Set password
+      </button>
+    );
+  }
+  return (
+    <form className="set-password" onSubmit={(e) => void submit(e)}>
+      <input
+        type="password"
+        aria-label={`New password for ${user.username}`}
+        placeholder="New password (8 or more)"
+        autoComplete="new-password"
+        minLength={8}
+        maxLength={256}
+        required
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        onKeyDown={(e) => e.key === "Escape" && setPassword(null)}
+      />
+      <button type="submit" disabled={busy || password.length < 8}>
+        Set
+      </button>
+      <button type="button" className="link" onClick={() => setPassword(null)}>
+        Cancel
+      </button>
+      {error && <span className="error">{error}</span>}
+    </form>
   );
 }

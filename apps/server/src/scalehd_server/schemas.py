@@ -198,6 +198,12 @@ class AdminChange(BaseModel):
     is_admin: bool
 
 
+class PasswordSet(BaseModel):
+    """admin reset pwrd"""
+
+    password: _NewPassword
+
+
 class SampleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
