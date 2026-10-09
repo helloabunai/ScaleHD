@@ -10,6 +10,9 @@ from ...calibration import HTT_MISEQ, StutterCurve, logit
 _WINDOW = (20, 30)
 
 
+## todo: make user exposed on web ui
+
+
 @dataclass(frozen=True, slots=True)
 class CallerSettings:
     stutter: StutterCurve = HTT_MISEQ
@@ -59,6 +62,9 @@ class CallerSettings:
     max_dropped: float = 0.15
     balance_range: tuple[float, float] = (0.2, 0.8)
     unexplained_fraction: float = 0.02
+    # Close alleles = one allele's stutter makes up at least this share of the molecules at
+    # the other's peak, by the fit.
+    close_alleles_share: float = 0.1
     # Chance that a CAG end read too near the read's own end to confirm was influenced by
     # sequencing error/quality etc, so the tract goes on.
     # About 1 in 50 in simulated reads whose error rate rises to 2% at the end.

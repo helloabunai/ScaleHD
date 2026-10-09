@@ -13,7 +13,7 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 
 from scalehd.counts import count_reads
-from scalehd.genotype import GenotypeCall, call_genotype
+from scalehd.genotype import CallerSettings, GenotypeCall, call_genotype
 from scalehd.simulate import SimAllele, SimulationSpec, call_matches, simulate, true_genotype
 from scalehd.structure import AlleleStructure
 
@@ -51,8 +51,8 @@ SCENARIOS = (
 )
 
 
-def run(task: tuple[Scenario, int]) -> tuple[str, bool, GenotypeCall]:
-    scenario, seed = task
+def run(task: tuple[Scenario, int, CallerSettings]) -> tuple[str, bool, GenotypeCall]:
+    scenario, seed, settings = task
     structures = [AlleleStructure.from_label(label) for label in scenario.alleles]
     alleles = [
         SimAllele(s, somatic_fraction=scenario.somatic if s.cag >= 36 else 0.0) for s in structures
@@ -62,7 +62,7 @@ def run(task: tuple[Scenario, int]) -> tuple[str, bool, GenotypeCall]:
     counts = count_reads(
         (a.sequence, b.sequence) for a, b in zip(sample.r1, sample.r2, strict=True)
     )
-    call = call_genotype(counts)
+    call = call_genotype(counts, settings)
     truth = true_genotype(structures)
     return scenario.name, call_matches([a.allele for a in call.alleles], truth), call
 
@@ -71,8 +71,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seeds", type=int, default=5)
     parser.add_argument("--workers", type=int)
+    parser.add_argument("--local-radius", type=int, help="the caller's local_radius")
     options = parser.parse_args()
-    tasks = [(s, seed) for s in SCENARIOS for seed in range(options.seeds)]
+    settings = CallerSettings()
+    if options.local_radius is not None:
+        settings = CallerSettings(local_radius=options.local_radius)
+    tasks = [(s, seed, settings) for s in SCENARIOS for seed in range(options.seeds)]
     with ProcessPoolExecutor(options.workers) as pool:
         results = list(pool.map(run, tasks))
 

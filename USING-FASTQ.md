@@ -81,6 +81,7 @@ On a machine with many cores, cap the number running at once (for example with
   | `low_confidence` | posterior below 0.99 |
   | `homozygous` | both alleles identical |
   | `neighbouring` | alleles one CAG apart. the hardest case to separate from stutter |
+  | `close_alleles` | alleles further apart, but one's stutter is 10% or more of the other's peak, so their exact CAG are hard to tell apart. most often two long alleles |
   | `atypical` | at least one allele without the common HTT sequence structure |
   | `beyond_read_length` | an allele longer than the reads. CAG is a lower boundary call, not definitive |
   | `allele_imbalance` | one allele has under 20% of molecules |

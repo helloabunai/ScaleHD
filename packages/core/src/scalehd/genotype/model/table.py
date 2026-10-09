@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 
 import numpy as np
@@ -79,6 +80,14 @@ class _Table:
         self.background = (
             np.where(counted, -np.log(span), 0.0) + np.where(self.lower, np.log(tail_share), 0.0)
         ).sum(axis=1)
+
+    def grid(self, structure: AlleleStructure, cags: range) -> _Table:
+        """One read in full at each CAG of ``cags``, with htt ``structure``'s other
+        counts (for stutter compensation idea)."""
+        counts = SampleCounts(complete=Counter({structure.with_counts(cag=n): 1 for n in cags}))
+        out = _Table(counts, None, self.window, self.unconfirmed_error)
+        out.floor_span = self.floor_span
+        return out
 
     def subset(self, mask: np.ndarray) -> _Table:
         """The same table restricted to some rows, sharing the floor span and window."""
