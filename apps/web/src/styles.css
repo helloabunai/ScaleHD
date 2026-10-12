@@ -594,6 +594,32 @@ button.link.danger {
   margin-left: 0;
 }
 
+.row-actions .own-password {
+  margin-left: 1rem;
+}
+
+.forgot-password {
+  font-size: 0.9rem;
+}
+
+.forgot-password > summary {
+  list-style: none;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.forgot-password > summary::-webkit-details-marker {
+  display: none;
+}
+
+.forgot-password > p {
+  margin: 0.4rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  animation: unfold 0.2s ease-out;
+}
+
 .card button {
   margin-top: 0.75rem;
 }
@@ -704,7 +730,8 @@ button.danger {
 
 @media (prefers-reduced-motion: reduce) {
   .segment.running,
-  .file-group[open] > :not(summary) {
+  .file-group[open] > :not(summary),
+  .forgot-password > p {
     animation: none;
   }
 

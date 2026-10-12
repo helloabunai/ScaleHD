@@ -1,4 +1,5 @@
 import { type KeyboardEvent, type SubmitEvent, useState } from "react";
+import { Link } from "react-router";
 import { api, MAX_TAG_LENGTH, type Tag, type User } from "../api";
 import { useAuth, useUser } from "../auth";
 import { useApi } from "../useApi";
@@ -189,7 +190,11 @@ function Users() {
                     <button type="button" className="link" onClick={() => void toggle(user)}>
                       {user.is_admin ? "Remove admin" : "Make admin"}
                     </button>
-                    {user.id !== me.id && (
+                    {user.id === me.id ? (
+                      <Link to="/account" className="own-password">
+                        Change password
+                      </Link>
+                    ) : (
                       <SetPassword
                         user={user}
                         onSet={() => {
