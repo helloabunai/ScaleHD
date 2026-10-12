@@ -1,5 +1,4 @@
-"""Sample progress monitor. Dumps to json, deleted upon completion.
-"""
+"""Sample progress monitor. Dumps to json, deleted upon completion."""
 
 from __future__ import annotations
 
@@ -15,8 +14,7 @@ FILE = "progress.json"
 
 
 class SampleStage(StrEnum):
-
-    SIMULATING = "simulating" # not for real jobs
+    SIMULATING = "simulating"  # not for real jobs
     COUNTING = "counting"
     CALLING = "calling"
 
