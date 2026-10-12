@@ -13,7 +13,7 @@ import numpy as np
 
 from .pairs import DEFAULT_PREFER_R1, DiscordancePolicy, join_read_base_pairings
 from .parse import ReadParse, RepeatParser
-from .seqio import read_fastq, read_pairs, reverse_complement
+from .seqio import Progress, read_fastq, read_pairs, reverse_complement
 from .structure import FIELDS, AlleleStructure, FieldStatus, Observation
 
 # Beta schema 1 = initial implementation idea
@@ -153,9 +153,11 @@ def count_fastq(
     parser: RepeatParser | None = None,
     policy: DiscordancePolicy = DiscordancePolicy.DROP,
     prefer_r1: tuple[bool, ...] = DEFAULT_PREFER_R1,
+    progress: Progress | None = None,
 ) -> SampleCounts:
     if r2 is None:
-        pairs: Iterable[tuple[str, str | None]] = ((rec.sequence, None) for rec in read_fastq(r1))
+        records = read_fastq(r1, progress)
+        pairs: Iterable[tuple[str, str | None]] = ((rec.sequence, None) for rec in records)
     else:
-        pairs = ((a.sequence, b.sequence) for a, b in read_pairs(r1, r2))
+        pairs = ((a.sequence, b.sequence) for a, b in read_pairs(r1, r2, progress))
     return count_reads(pairs, parser, policy, prefer_r1)

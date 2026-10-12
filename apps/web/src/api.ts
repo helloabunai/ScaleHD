@@ -125,6 +125,14 @@ export interface Sample {
   truth: string | null;
   matches_truth: boolean | null;
   error: string | null;
+  progress: SampleProgress | null;
+}
+
+export type SampleStage = "simulating" | "counting" | "calling";
+
+export interface SampleProgress {
+  stage: SampleStage;
+  share: number | null;
 }
 
 export interface JobSummary {

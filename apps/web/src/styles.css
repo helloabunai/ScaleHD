@@ -690,6 +690,19 @@ button.danger {
   transition: width 0.3s ease;
 }
 
+.sample-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sample-progress > span {
+  min-width: 4ch;
+  text-align: right;
+}
+
 .segment.finished {
   background: var(--success);
 }

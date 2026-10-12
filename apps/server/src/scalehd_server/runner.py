@@ -22,6 +22,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from .models import Job, JobStatus, Sample, SampleStatus
+from .progress import clear_progress
 from .schemas import JobSettings
 from .worker import SampleResult, SampleTask, run_task
 from .workspace import sample_folders
@@ -171,10 +172,13 @@ class JobRunner:
             sample.status = SampleStatus.RUNNING
             if job.status == JobStatus.QUEUED:
                 job.status, job.started_at = JobStatus.RUNNING, datetime.now(UTC)
+            folder = sample_folders(job)[sample.id]
+            # Left by an earlier attempt/cancelled job/easier to clean + go fresh
+            clear_progress(folder)
             task = SampleTask(
                 sample_id=sample.id,
                 name=sample.name,
-                folder=sample_folders(job)[sample.id],
+                folder=folder,
                 settings=JobSettings.model_validate(job.settings),
                 r1=Path(sample.r1) if sample.r1 else None,
                 r2=Path(sample.r2) if sample.r2 else None,
@@ -189,6 +193,7 @@ class JobRunner:
             sample = session.get(Sample, sample_id)
             if sample is None:
                 return
+            clear_progress(sample_folders(sample.job)[sample.id])
             if result is None:
                 sample.status, sample.error = SampleStatus.FAILED, error
             else:

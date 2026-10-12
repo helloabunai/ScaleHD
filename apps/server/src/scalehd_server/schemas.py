@@ -15,6 +15,8 @@ from scalehd.genotype import CallerSettings
 from scalehd.pairs import DiscordancePolicy
 
 from .models import Job, JobStatus, SampleStatus, Theme
+from .progress import SampleProgress, read_progress
+from .workspace import sample_folders
 
 
 class Health(BaseModel):
@@ -218,6 +220,8 @@ class SampleOut(BaseModel):
     truth: str | None
     matches_truth: bool | None
     error: str | None
+    # How far a running sample has got, once its worker has said.
+    progress: SampleProgress | None = None
 
 
 class JobSummary(BaseModel):
@@ -265,11 +269,18 @@ def job_summary(job: Job) -> JobSummary:
 
 
 def job_out(job: Job) -> JobOut:
-    """A job with its samples. Call inside an open session."""
+    """A job with its samples, and the progress of those. Call inside an
+    open session."""
+    samples = [SampleOut.model_validate(sample) for sample in job.samples]
+    running = [sample for sample in samples if sample.status is SampleStatus.RUNNING]
+    if running:
+        folders = sample_folders(job)
+        for sample in running:
+            sample.progress = read_progress(folders[sample.id])
     return JobOut(
         **_summary(job),
         settings=JobSettings.model_validate(job.settings),
-        samples=[SampleOut.model_validate(sample) for sample in job.samples],
+        samples=samples,
         error=job.error,
     )
 

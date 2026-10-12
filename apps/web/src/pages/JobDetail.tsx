@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { api, type Job, type Sample, type SampleStatus as Stage } from "../api";
+import {
+  api,
+  type Job,
+  type Sample,
+  type SampleStage,
+  type SampleStatus as Stage,
+} from "../api";
 import { useUser } from "../auth";
 import { useApi } from "../useApi";
 import { DemoTag, formatTime, isActive, JobTags } from "./jobDisplay";
@@ -94,7 +100,7 @@ export function JobDetail() {
                     <SampleStatus sample={sample} />
                   </td>
                   <td>
-                    <SampleProgress stage={sample.status} />
+                    <SampleProgress sample={sample} />
                   </td>
                   <td>{sample.genotype ?? "–"}</td>
                   <td>{sample.confidence?.toFixed(1) ?? "–"}</td>
@@ -171,9 +177,17 @@ function EditJobTags({ job, onSaved }: Readonly<{ job: Job; onSaved: () => void 
   );
 }
 
+const STAGE_NAMES: Record<SampleStage, string> = {
+  simulating: "simulating reads",
+  counting: "counting reads",
+  calling: "calling genotype",
+};
+
 function SampleStatus({ sample }: { sample: Sample }) {
   if (sample.status === "failed") return <span className="error">{sample.error ?? "failed"}</span>;
-  if (sample.status === "running") return <>running…</>;
+  if (sample.status === "running") {
+    return <>{sample.progress ? STAGE_NAMES[sample.progress.stage] : "starting"}…</>;
+  }
   return <>{sample.status}</>;
 }
 
@@ -282,12 +296,31 @@ function JobProgress({ samples }: Readonly<{ samples: Sample[] }>) {
   );
 }
 
-// TODO: real progress for running samples (stage and share of reads counted) once
-// jobs read real FASTQ files; until then a running sample shows a moving bar.
-function SampleProgress({ stage }: Readonly<{ stage: Stage }>) {
+/** Real per-stage progress bars */
+function SampleProgress({ sample }: Readonly<{ sample: Sample }>) {
+  const stage = sample.status;
+  const share = stage === "running" ? (sample.progress?.share ?? null) : null;
+  if (share === null) {
+    return (
+      <div className="progress small" aria-label={stage}>
+        {stage !== "queued" && <span className={`segment ${stage}`} style={{ width: "100%" }} />}
+      </div>
+    );
+  }
+  const percent = Math.floor(share * 100);
   return (
-    <div className="progress small" aria-label={stage}>
-      {stage !== "queued" && <span className={`segment ${stage}`} style={{ width: "100%" }} />}
+    <div className="sample-progress">
+      <div
+        className="progress small"
+        role="progressbar"
+        aria-label="reads counted"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+      >
+        <span className="segment running" style={{ width: `${percent}%` }} />
+      </div>
+      <span className="muted">{percent}%</span>
     </div>
   );
 }
