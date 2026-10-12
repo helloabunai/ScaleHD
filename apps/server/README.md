@@ -52,6 +52,9 @@ for now. For adding a migration, see `DEVELOPMENT.md`.
   the status changes to `cancelled`. `DELETE /api/jobs/{id}` then
   removes it (refused while anything still running). Jobs are private for each user, someone 
   else's job answers 404, like a missing one.
+- While a sample runs, its worker writes `progress.json` in the sample's folder containing the stage
+  (`simulating`, `counting`, `calling`). `GET /api/jobs/{id}` returns each sample's
+  `progress`. Progress files are automatically deleted upon completion.
 - Also included UI tags for easy assignment of jobs to e.g. projects / data cohorts.
   Tags can be made on the job page by any user by needs an admin to edit/delete them
 
@@ -85,6 +88,7 @@ Gets some simulated data from the simulator and runs the new genotyping (only on
 | `migrate.py`, `migrations/` | alembic migrations to create/update DB | works |
 | `schemas.py` | API request and response bodies, job settings → `CallerSettings` | works |
 | `runner.py`, `worker.py` | the job runner (queue, worker pool, recording) and one sample's work | works |
+| `progress.py` | sample progress monitoring | works |
 | `workspace.py` | job folders and `job.json` in the workspace | works |
 | `demo.py` | the demo job's simulated samples | works |
 | `inputs.py` | browsing the data folder, pairing FASTQ files, truth files of simulated runs | works |

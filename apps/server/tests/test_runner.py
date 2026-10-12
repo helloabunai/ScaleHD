@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from scalehd_server.models import Job, JobStatus, Sample, SampleStatus, User
+from scalehd_server.progress import ProgressReporter, SampleStage, read_progress
 from scalehd_server.runner import JobRunner
 from scalehd_server.schemas import GenotypeMethod, JobSettings
 from scalehd_server.worker import SampleResult
@@ -160,6 +161,22 @@ def test_samples_left_running_are_run_again_on_start(
     JobRunner(sessions, workers=2, executor_factory=pools).start()
     assert [task.name for task, _ in pools.submitted] == ["s0", "s1"]
     assert statuses(sessions, job_id) == (JobStatus.RUNNING, [R, R])
+
+
+def test_a_progress_file_is_removed_when_its_sample_starts_and_when_it_is_recorded(
+    sessions: sessionmaker[Session], tmp_path: Path, pools: Any
+) -> None:
+    job_id = make_job(sessions, tmp_path, 1, status=R)
+    folder = tmp_path / "ws" / "autotest-user" / "1-demo" / "s0"
+    # from old job/cancelled job/oopsy
+    ProgressReporter(folder).stage(SampleStage.CALLING)
+    JobRunner(sessions, workers=1, executor_factory=pools).start()
+    assert read_progress(folder) is None
+    task, future = pools.submitted[0]
+    ProgressReporter(folder).counted(0.5)
+    future.set_result(result_for(task))
+    eventually(lambda: statuses(sessions, job_id)[0] == JobStatus.FINISHED)
+    assert not (folder / "progress.json").exists()
 
 
 def test_shutdown_drops_queued_samples_and_records_nothing_more(

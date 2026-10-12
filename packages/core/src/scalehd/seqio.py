@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import gzip
-from collections.abc import Iterable, Iterator
+import io
+import os
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import IO
 
 _COMPLEMENT = str.maketrans("ACGTNacgtn", "TGCANtgcan")
+Progress = Callable[[float], None]
+PROGRESS_EVERY = 1000
 
 
 def reverse_complement(seq: str) -> str:
@@ -40,8 +44,13 @@ def open_text(path: str | Path, mode: str = "rt") -> IO[str]:
     return open(path, mode, encoding="ascii")
 
 
-def read_fastq(path: str | Path) -> Iterator[FastqRecord]:
-    with open_text(path) as handle:
+def read_fastq(path: str | Path, progress: Progress | None = None) -> Iterator[FastqRecord]:
+    size = os.path.getsize(path)
+    with (
+        open(path, "rb") as raw,
+        io.TextIOWrapper(_unzipped(path, raw), encoding="ascii") as handle,
+    ):
+        records = 0
         while header := handle.readline():
             sequence = handle.readline().rstrip("\n")
             separator = handle.readline()
@@ -51,11 +60,24 @@ def read_fastq(path: str | Path) -> Iterator[FastqRecord]:
             if len(sequence) != len(quality):
                 raise FastqFormatError(f"{path}: sequence/quality length differ in {header!r}")
             yield FastqRecord(header[1:].rstrip("\n"), sequence.upper(), quality)
+            records += 1
+            if progress is not None and records % PROGRESS_EVERY == 0:
+                progress(raw.tell() / size)
+    if progress is not None:
+        progress(1.0)
 
 
-def read_pairs(r1: str | Path, r2: str | Path) -> Iterator[tuple[FastqRecord, FastqRecord]]:
+def _unzipped(path: str | Path, raw: io.BufferedReader) -> io.BufferedReader | gzip.GzipFile:
+    if str(path).endswith(".gz"):
+        return gzip.GzipFile(fileobj=raw)
+    return raw
+
+
+def read_pairs(
+    r1: str | Path, r2: str | Path, progress: Progress | None = None
+) -> Iterator[tuple[FastqRecord, FastqRecord]]:
     """Yield read base pairings, failing if the two files fall out of step."""
-    first, second = read_fastq(r1), read_fastq(r2)
+    first, second = read_fastq(r1, progress), read_fastq(r2)
     for a in first:
         b = next(second, None)
         if b is None:

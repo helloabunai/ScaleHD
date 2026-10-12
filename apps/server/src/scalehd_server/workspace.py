@@ -5,6 +5,7 @@
     <sample>/counts.json
     <sample>/call.json
     <sample>/input/       simulated samples only: the generated FASTQ files
+    <sample>/progress.json  progress while running
     other output data will appear here as work progresses
 """
 
