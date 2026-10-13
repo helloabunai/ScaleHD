@@ -87,21 +87,29 @@ def _local_n(
         return None
     above = table.value[:, 0] >= s.cag - settings.local_radius
     unread = rest & (table.lower[:, 0] | table.unconfirmed_cag) & above
+    window: range | None = None
     if table.weight[unread].sum() > settings.unread_share * table.weight[near].sum():
         local = table
     else:
         local = table.subset(near)
+        radius = settings.local_radius
+        window = range(max(1, s.cag - radius), s.cag + radius + 1)
 
     top = s.cag + settings.local_shift
     if limit is not None:
         top = min(top, limit - 1)
     lengths = np.arange(max(1, s.cag - settings.local_shift), top + 1)
-    posterior = _length_posterior(local, fit, index, lengths, settings)
+    posterior = _length_posterior(local, fit, index, lengths, settings, window)
     return dict(zip((int(n) for n in lengths), (float(p) for p in posterior), strict=True))
 
 
 def _length_posterior(
-    table: _Table, fit: _Fit, index: int, lengths: np.ndarray, settings: CallerSettings
+    table: _Table,
+    fit: _Fit,
+    index: int,
+    lengths: np.ndarray,
+    settings: CallerSettings,
+    window: range | None = None,
 ) -> np.ndarray:
     """Posterior over an allele's N among ``lengths``, as an exact allele of each.
 
@@ -115,6 +123,7 @@ def _length_posterior(
     k = _STUTTER_PARAMS
     sd = np.array(settings.stutter.spread)
     lower, upper = np.array(_STUTTER_BOUNDS).T
+    grid = table.grid(s, window) if window is not None else None
     scores = []
     for n in lengths:
         alleles = list(model.alleles)
@@ -125,8 +134,15 @@ def _length_posterior(
         def objective(x: np.ndarray, trial: _Model = trial, mean: np.ndarray = mean) -> float:
             theta = fit.theta.copy()
             theta[k * index : k * (index + 1)] = x
-            total, _ = _row_loglik(table, trial, _unpack(theta, trial))
-            return -(_total_loglik(table, total) - 0.5 * float((((x - mean) / sd) ** 2).sum()))
+            params = _unpack(theta, trial)
+            total, _ = _row_loglik(table, trial, params)
+            loglik = _total_loglik(table, total)
+            if grid is not None:
+                inside, _ = _row_loglik(grid, trial, params)
+                if inside.ndim == 2:  # an allele beyond read length.. average its N
+                    inside = logsumexp(inside, axis=0) - np.log(inside.shape[0])
+                loglik -= table.fit_total * float(logsumexp(inside))
+            return -(loglik - 0.5 * float((((x - mean) / sd) ** 2).sum()))
 
         starts = (np.clip(mean, lower, upper), fit.theta[k * index : k * (index + 1)])
         result = min(

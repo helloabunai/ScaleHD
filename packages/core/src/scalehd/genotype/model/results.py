@@ -18,6 +18,10 @@ class Flag(StrEnum):
     HOMOZYGOUS = "homozygous"
     # Alleles one CAG apart and otherwise identical: the hardest case to separate from stutter.
     NEIGHBOURING = "neighbouring"
+    # Alleles further apart, but close enough that one's stutter is a fair share of the
+    # other's peak, so their exact CAG are hard to tell apart. Most often two long alleles.
+    # e.g. something like 35 / 37
+    CLOSE_ALLELES = "close_alleles"
     ATYPICAL = "atypical"
     # No read spanned an allele's CAG tract, so only a lower bound is known.
     BEYOND_READ_LENGTH = "beyond_read_length"
