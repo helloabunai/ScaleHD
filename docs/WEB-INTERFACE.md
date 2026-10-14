@@ -28,7 +28,8 @@ What has been implemented so far:
   files to download.
 - Export a job's results as CSV from its page once it has finished or been cancelled. One row
   per sample, with both alleles side by side, for opening in a spreadsheet (like ScaleHD 1.x's
-  InstanceReport.csv).
+  InstanceReport.csv). Or the [validation export](VALIDATION-EXPORT.md), no sample names or
+  file paths, plus what checking and re-tuning/development the model needs.
 - Settings: the default genotyping method and thresholds new jobs start with. Only basic settings
   present for now.
 

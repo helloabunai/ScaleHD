@@ -12,3 +12,4 @@
 - user specified primers/flanking sequences for genotyping jobs
 - user specified PCR stutter/slippage models?
 - expose algorithm settings to allow user to tweak parameters for jobs
+- compare jobs between 1.x and the new model genotyper e.g. spawn subjob that runs opposite algorithm + subresults page to compare

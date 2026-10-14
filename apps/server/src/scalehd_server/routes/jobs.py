@@ -16,7 +16,7 @@ from ..auth import AdminUser, CurrentUser
 from ..config import ServerConfig
 from ..db import DbSession
 from ..errors import not_implemented
-from ..export import results_csv, results_filename
+from ..export import results_csv, results_filename, validation_csv, validation_filename
 from ..inputs import InputError, read_truth, resolve_file
 from ..models import Job, JobStatus, Sample, Tag, User
 from ..results import FileKind, sample_detail, sample_file
@@ -154,6 +154,14 @@ def _csv(content: str, filename: str) -> Response:
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/{job_id}/validation.csv", response_class=Response)
+def get_job_validation(job_id: int, user: CurrentUser, session: DbSession) -> Response:
+    """The job's results for developing/checking the model, without names or paths
+    (see export.py)."""
+    job = _own_job(session, user, job_id)
+    return _csv(validation_csv(job), validation_filename(job))
 
 
 @router.put("/{job_id}/tags")

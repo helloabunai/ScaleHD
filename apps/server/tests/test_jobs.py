@@ -83,18 +83,28 @@ def test_a_jobs_results_download_as_csv(quiet_client: TestClient) -> None:
     disposition = response.headers["content-disposition"]
     assert disposition == f'attachment; filename="{job["id"]}-demo-results.csv"'
     lines = response.text.splitlines()
-    assert lines[0].startswith("Sample,Status,Genotype,Quality")
+    assert lines[0].startswith("Sample,Validation ID,Status,Genotype,Quality")
     assert len(lines) == 1 + len(DEMO_SAMPLES)
+
+    validation = quiet_client.get(f"/api/jobs/{job['id']}/validation.csv")
+    assert validation.status_code == 200
+    assert validation.headers["content-disposition"] == (
+        f'attachment; filename="scalehd-validation-job-{job["id"]}.csv"'
+    )
+    assert validation.text.startswith("Validation ID,Batch,Lab genotype")
+    assert len(validation.text.splitlines()) == 1 + len(DEMO_SAMPLES)
 
     bob = TestClient(quiet_client.app)
     bob.post("/api/auth/register", json={"username": "bob", "password": "correct horse"})
     assert bob.get(f"/api/jobs/{job['id']}/results.csv").status_code == 404
+    assert bob.get(f"/api/jobs/{job['id']}/validation.csv").status_code == 404
 
 
 def test_jobs_need_a_login(client: TestClient) -> None:
     assert client.post("/api/jobs/demo").status_code == 401
     assert client.get("/api/jobs/1").status_code == 401
     assert client.get("/api/jobs/1/results.csv").status_code == 401
+    assert client.get("/api/jobs/1/validation.csv").status_code == 401
     assert client.post("/api/jobs/1/cancel").status_code == 401
     assert client.delete("/api/jobs/1").status_code == 401
 

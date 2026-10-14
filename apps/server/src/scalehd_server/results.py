@@ -34,7 +34,7 @@ def cag_charts(counts: SampleCounts, call: dict[str, Any] | None) -> list[CagCha
     return [_cag_chart(counts, rest, alleles) for rest, alleles in by_rest.items()]
 
 
-def _cag_chart(counts: SampleCounts, rest: _Rest, alleles: list[dict[str, Any]]) -> CagChart:
+def cag_tallies(counts: SampleCounts, rest: _Rest) -> tuple[Counter[int], Counter[int]]:
     exact: Counter[int] = Counter()
     for structure, n in counts.complete.items():
         if structure.counts[1:] == rest:
@@ -52,6 +52,11 @@ def _cag_chart(counts: SampleCounts, rest: _Rest, alleles: list[dict[str, Any]])
         elif cag_status is FieldStatus.UNCONFIRMED:
             # Read to the tract's end, just not confirmed: almost always that length.
             exact[observation.counts[0]] += n
+    return exact, lower_bounds
+
+
+def _cag_chart(counts: SampleCounts, rest: _Rest, alleles: list[dict[str, Any]]) -> CagChart:
+    exact, lower_bounds = cag_tallies(counts, rest)
     called = sorted({allele["cag"] for allele in alleles})
     cags = set(exact) | set(lower_bounds) | set(called)
     return CagChart(

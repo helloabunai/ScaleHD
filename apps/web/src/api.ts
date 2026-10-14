@@ -337,6 +337,7 @@ export const api = {
   sampleFileUrl: (jobId: number, sampleId: number, file: SampleFile) =>
     `/api/jobs/${jobId}/samples/${sampleId}/files/${file}`,
   jobResultsUrl: (jobId: number) => `/api/jobs/${jobId}/results.csv`,
+  jobValidationUrl: (jobId: number) => `/api/jobs/${jobId}/validation.csv`,
   createJob: (job: JobCreate) => request<Job>("/jobs", post(job)),
   createDemoJob: () => request<Job>("/jobs/demo", post()),
   cancelJob: (id: number) => request<Job>(`/jobs/${id}/cancel`, post()),

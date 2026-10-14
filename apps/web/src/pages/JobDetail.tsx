@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   api,
@@ -61,20 +61,20 @@ export function JobDetail() {
           </dl>
           <JobProgress samples={job.samples} />
           <div className="job-actions">
-            {isActive(job.status) ? (
-              <button type="button" disabled title="Available once the job has finished or been cancelled">
-                Export results (CSV)
-              </button>
-            ) : (
-              <a
-                className="button"
-                href={api.jobResultsUrl(job.id)}
-                download
-                title="A row per sample, for a spreadsheet"
-              >
-                Export results (CSV)
-              </a>
-            )}
+            <ExportLink
+              job={job}
+              href={api.jobResultsUrl(job.id)}
+              title="A row per sample, for a spreadsheet"
+            >
+              Export results (CSV)
+            </ExportLink>
+            <ExportLink
+              job={job}
+              href={api.jobValidationUrl(job.id)}
+              title="No sample names or file paths, plus the model's inner workings for development purposes."
+            >
+              Validation export (CSV)
+            </ExportLink>
             {(job.status === "queued" || job.status === "running") && (
               <CancelJob job={job} onCancelled={() => setVersion((v) => v + 1)} />
             )}
@@ -234,6 +234,26 @@ function CancelJob({ job, onCancelled }: Readonly<{ job: Job; onCancelled: () =>
       </button>
       {error && <span className="error">{error}</span>}
     </>
+  );
+}
+
+function ExportLink({
+  job,
+  href,
+  title,
+  children,
+}: Readonly<{ job: Job; href: string; title: string; children: ReactNode }>) {
+  if (isActive(job.status)) {
+    return (
+      <button type="button" disabled title="Available once the job has finished or been cancelled">
+        {children}
+      </button>
+    );
+  }
+  return (
+    <a className="button" href={href} download title={title}>
+      {children}
+    </a>
   );
 }
 
