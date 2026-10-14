@@ -7,6 +7,7 @@ The model is simple but covers the artefacts a caller has to cope with (hopefull
 - somatic expansion
 - amplification bias toward shorter alleles
 - sequencing errors that rise along the read
+- SNPs carried by an allele, and PCR copying errors (both reads of a molecule show them)
 - heterogeneity spacers
 - adapter read-through
 
@@ -29,7 +30,8 @@ import numpy as np
 from .amplicon import HTT_AMPLICON, AmpliconSpec
 from .calibration import HTT_MISEQ, StutterCurve, cag_kernel
 from .seqio import FastqRecord, open_text, reverse_complement, write_fastq
-from .structure import AlleleStructure
+from .structure import FIELDS, UNITS, AlleleStructure
+from .substitutions import FIVE_PRIME, THREE_PRIME, Site
 
 if TYPE_CHECKING:
     from .genotype import Candidate
@@ -52,6 +54,8 @@ class SimAllele:
     # (geometrically distributed, at least one) among those that do.
     somatic_fraction: float = 0.0
     somatic_mean: float = 3.0
+    # SNPs struct e.g. CAG unit 12, CAG>CAT, Gln>His. ScaleHD 1.x was G->T@84 (also included)
+    snps: tuple[tuple[Site, str], ...] = ()
 
     def __post_init__(self) -> None:
         if self.abundance <= 0:
@@ -93,6 +97,7 @@ class SimulationSpec:
     stutter: StutterCurve = HTT_MISEQ
     # Probability of each of a one-unit CCG contraction and expansion.
     ccg_slippage: float = 0.01
+    pcr_error: float = 0.0
     sequencing: SequencingModel = field(default_factory=SequencingModel)
     amplicon: AmpliconSpec = HTT_AMPLICON
     seed: int = 0
@@ -123,6 +128,7 @@ class SimulatedSample:
                     "abundance": a.abundance,
                     "somatic_fraction": a.somatic_fraction,
                     "somatic_mean": a.somatic_mean,
+                    "snps": [{"site": site.key, "base": base} for site, base in a.snps],
                 }
                 for a in spec.alleles
             ],
@@ -130,6 +136,7 @@ class SimulatedSample:
             "off_target": spec.off_target,
             "stutter": asdict(spec.stutter),
             "ccg_slippage": spec.ccg_slippage,
+            "pcr_error": spec.pcr_error,
             "sequencing": asdict(spec.sequencing),
             "amplicon": asdict(spec.amplicon),
             "molecules": [
@@ -182,6 +189,10 @@ def simulate(spec: SimulationSpec) -> SimulatedSample:
         molecule = _amplify(rng, allele, spec.stutter, spec.ccg_slippage)
         molecules[molecule] += 1
         insert = spec.amplicon.sequence(molecule.repeat_sequence())
+        if allele.snps:
+            insert = _with_snps(insert, molecule, allele.snps, spec.amplicon)
+        if spec.pcr_error:
+            insert = _add_errors(rng, insert, np.full(len(insert), spec.pcr_error))
         r1.append(
             FastqRecord(f"sim{i} 1:N:0:{molecule.label}", read(insert, seq.readthrough_r1), quality)
         )
@@ -217,6 +228,32 @@ def _amplify(
     elif u < 2 * ccg_slippage:
         ccg += 1
     return structure.with_counts(cag=cag, ccg=max(1, ccg))
+
+
+def _with_snps(
+    insert: str,
+    molecule: AlleleStructure,
+    snps: tuple[tuple[Site, str], ...],
+    amplicon: AmpliconSpec,
+) -> str:
+    """The PCR product with the allele's SNPs, where the molecule has their sites."""
+    five, _ = amplicon.product_flanks
+    repeat = len(molecule.repeat_sequence())
+    bases = list(insert)
+    for site, base in snps:
+        if site.segment == FIVE_PRIME:
+            index = len(five) - site.unit
+        elif site.segment == THREE_PRIME:
+            index = len(five) + repeat + site.unit - 1
+        else:
+            tract = FIELDS.index(site.segment)
+            if not 1 <= site.unit <= molecule.counts[tract]:
+                continue
+            before = sum(len(UNITS[k]) * molecule.counts[k] for k in range(tract))
+            index = len(five) + before + (site.unit - 1) * len(UNITS[tract]) + site.offset
+        if 0 <= index < len(bases):
+            bases[index] = base
+    return "".join(bases)
 
 
 def _random_bases(rng: np.random.Generator, n: int) -> str:
