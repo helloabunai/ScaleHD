@@ -21,7 +21,7 @@ Settings are `SCALEHD_*` environment variables (`config.py`): `DATABASE_DIR`,
 In Docker the first two are mounted at the same path as on the host, so paths in the
 web interface and in result files are host paths. The server updates databases with migrations
 at boot via alembic. Copies are made incase of failure so reversion is easy. SQLite only
-for now. For adding a migration, see `DEVELOPMENT.md`.
+for now. For adding a migration, see `docs/DEVELOPMENT.md`.
 
 ### Accounts
 
