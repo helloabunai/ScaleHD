@@ -23,11 +23,12 @@ What has been implemented so far:
   yet started don't continue after cancellation, those running finish. Jobs cancelled can also be deleted.
   Users only see their own jobs.
 - A results page per sample with each allele's repeat structure rendered,
-  the CAG and CCG distributions, instability figures, alternative genotypes,
-  unexplained peaks and how its reads fared, with its counts and call JSON and its FASTQ
+  the CAG and CCG distributions, SNPs (single-base substitutions, on the allele that has
+  them), instability figures, alternative genotypes, unexplained peaks and how its reads fared, with its counts and call JSON and its FASTQ
   files to download. No results exporting yet (e.g. PDF file or something).
-- Settings: the default genotyping method and thresholds new jobs start with. Only basic settings
-  present for now.
+- Settings: the default genotyping method and thresholds new jobs start with, and the PCR
+  primers (GeM-HD by default), whose bases are left out of SNP calling unless "Trim primers"
+  is off. Only basic settings present for now.
 
 Not yet: exporting reports. API docs are at `/api/docs`. See
 [`apps/server/README.md`](../apps/server/README.md) for what is real and what's a stub.

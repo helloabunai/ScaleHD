@@ -170,4 +170,4 @@ def test_cli_call(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     sample("17_1_1_7_2", "43_1_1_7_2").write_json(counts_path)
     assert main(["call", str(counts_path), "-o", str(call_path)]) == 0
     assert "17_1_1_7_2/43_1_1_7_2" in capsys.readouterr().out
-    assert json.loads(call_path.read_text())["schema"] == "scalehd.call/2"
+    assert json.loads(call_path.read_text())["schema"] == "scalehd.call/3"

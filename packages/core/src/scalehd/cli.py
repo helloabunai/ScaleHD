@@ -10,9 +10,11 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import __version__
+from .amplicon import GEM_HD_PRIMERS, HTT_AMPLICON
 from .counts import SampleCounts, count_fastq
 from .genotype import GenotypeCall, NoMoleculesError, call_genotype
 from .pairs import DiscordancePolicy
+from .parse import ParserSettings, RepeatParser
 from .simulate import SequencingModel, SimAllele, SimulationSpec, simulate
 from .simulate_run import placeholder_samples, write_run
 from .structure import AlleleStructure
@@ -62,8 +64,17 @@ def _cmd_simulate_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _repeat_parser(args: argparse.Namespace) -> RepeatParser:
+    primers = (None, None) if args.no_primers else (args.forward_primer, args.reverse_primer)
+    try:
+        amplicon = HTT_AMPLICON.with_primers(*primers)
+    except ValueError as exc:
+        raise SystemExit(f"scalehd: {exc}") from None
+    return RepeatParser(amplicon, ParserSettings(trim_primers=not args.no_trim_primers))
+
+
 def _cmd_count(args: argparse.Namespace) -> int:
-    counts = count_fastq(args.r1, args.r2, policy=args.discordant)
+    counts = count_fastq(args.r1, args.r2, _repeat_parser(args), policy=args.discordant)
     if args.output:
         counts.write_json(args.output)
     _print_summary(counts, args.top)
@@ -75,7 +86,7 @@ def _cmd_call(args: argparse.Namespace) -> int:
 
 
 def _cmd_genotype(args: argparse.Namespace) -> int:
-    counts = count_fastq(args.r1, args.r2, policy=args.discordant)
+    counts = count_fastq(args.r1, args.r2, _repeat_parser(args), policy=args.discordant)
     if args.counts:
         counts.write_json(args.counts)
     _print_reads(counts)
@@ -116,6 +127,13 @@ def _print_call(call: GenotypeCall) -> None:
         print(f"  alternative {genotype}  {posterior:.2e}")
     for structure, n in call.unexplained:
         print(f"  unexplained peak {structure} ({n:,} molecules)")
+    for snp in call.snps or ():
+        carrier = "allele unknown" if snp.allele is None else call.alleles[snp.allele].label
+        partial = ", partial" if snp.partial else ""
+        print(
+            f"  SNP {snp.label} on {carrier}: {snp.molecules:,.0f} of {snp.depth:,.0f} molecules"
+            f"{partial}, quality {snp.quality:.0f}"
+        )
 
 
 def _print_reads(counts: SampleCounts) -> None:
@@ -199,6 +217,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=list(DiscordancePolicy),
         help="what to do when read base pairings disagree",
     )
+    _primer_arguments(count)
     count.set_defaults(func=_cmd_count)
 
     call = sub.add_parser("call", help="call a genotype from a counts JSON")
@@ -218,8 +237,29 @@ def build_parser() -> argparse.ArgumentParser:
         choices=list(DiscordancePolicy),
         help="what to do when read base pairings disagree",
     )
+    _primer_arguments(genotype)
     genotype.set_defaults(func=_cmd_genotype)
     return parser
+
+
+def _primer_arguments(command: argparse.ArgumentParser) -> None:
+    forward, reverse = GEM_HD_PRIMERS
+    command.add_argument(
+        "--forward-primer", default=forward, help="5' to 3' as ordered (default: GeM-HD)"
+    )
+    command.add_argument(
+        "--reverse-primer", default=reverse, help="5' to 3' as ordered (default: GeM-HD)"
+    )
+    command.add_argument(
+        "--no-primers",
+        action="store_true",
+        help="primers unknown: take the whole flanks as the PCR product",
+    )
+    command.add_argument(
+        "--no-trim-primers",
+        action="store_true",
+        help="use bases from the primers as SNP evidence too",
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:

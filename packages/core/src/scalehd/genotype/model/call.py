@@ -12,9 +12,10 @@ from ...counts import SampleCounts
 from .candidates import _truncation_bound, candidate_alleles
 from .fit import _Fit, _refine, _screen
 from .lengths import _estimate_long_allele, _local_n
-from .likelihood import _Model, _n_weights, _per_row, _row_loglik
-from .results import AlleleCall, Candidate, Flag, GenotypeCall, NoMoleculesError
+from .likelihood import _Model, _n_weights, _per_row, _responsibilities, _row_loglik
+from .results import AlleleCall, Candidate, Flag, GenotypeCall, NoMoleculesError, Snp
 from .settings import CallerSettings
+from .snps import _call_snps
 from .table import _Table
 
 
@@ -37,19 +38,18 @@ def _allele_calls(
     table: _Table, fit: _Fit, settings: CallerSettings
 ) -> tuple[AlleleCall, AlleleCall]:
     model, params = fit.model, fit.params
-    total, per_allele = _row_loglik(table, model, params)
-    weights = _n_weights(table, total)
     shares = [params.balance, 1 - params.balance] if model.heterozygous else [1.0]
     cag = table.value[:, 0]
     exact_cag = table.exact[:, 0]
     size = int(cag.max()) + 41 if table.size else 1
     calls = []
-    for allele, stutter, share, own in zip(
-        model.alleles, params.stutter, shares, per_allele, strict=True
+    for allele, stutter, share, responsibility in zip(
+        model.alleles,
+        params.stutter,
+        shares,
+        _responsibilities(table, model, params),
+        strict=True,
     ):
-        responsibility = _per_row(
-            np.exp(math.log1p(-params.background) + math.log(share) + own - total), weights
-        )
         attributed = table.weight * responsibility
         histogram = np.bincount(cag[exact_cag], weights=attributed[exact_cag], minlength=size)
         if allele.beyond_read_length:
@@ -194,8 +194,9 @@ def call_genotype(counts: SampleCounts, settings: CallerSettings | None = None) 
 
     alleles = _allele_calls(table, best_fit, settings)
     unexplained = _unexplained(table, best_fit, settings)
+    snps = _call_snps(counts, table, best_fit, settings)
     params = best_fit.params
-    flags = _flags(counts, best_fit, alleles, posterior, unexplained, settings)
+    flags = _flags(counts, best_fit, alleles, posterior, unexplained, snps, settings)
     return GenotypeCall(
         alleles=alleles,
         posterior=posterior,
@@ -207,6 +208,7 @@ def call_genotype(counts: SampleCounts, settings: CallerSettings | None = None) 
         ccg_slippage=params.ccg_slippage,
         misread=params.misread,
         unexplained=unexplained,
+        snps=snps,
     )
 
 
@@ -216,6 +218,7 @@ def _flags(
     alleles: tuple[AlleleCall, AlleleCall],
     posterior: float,
     unexplained: tuple[tuple[str, int], ...],
+    snps: tuple[Snp, ...] | None,
     settings: CallerSettings,
 ) -> tuple[Flag, ...]:
     flags = []
@@ -246,4 +249,8 @@ def _flags(
         flags.append(Flag.UNEXPLAINED_PEAK)
     if counts.molecules and counts.dropped / counts.molecules > settings.max_dropped:
         flags.append(Flag.HIGH_DISCORDANCE)
+    if snps:
+        flags.append(Flag.SNP)
+    if snps and any(snp.partial for snp in snps):
+        flags.append(Flag.PARTIAL_SNP)
     return tuple(flags)

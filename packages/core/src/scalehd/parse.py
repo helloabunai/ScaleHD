@@ -22,6 +22,7 @@ from numpy.lib.stride_tricks import sliding_window_view
 
 from .amplicon import HTT_AMPLICON, AmpliconSpec
 from .structure import UNITS, Counts, FieldStatus, Observation
+from .substitutions import Substitution, Windows, read_substitutions
 
 
 class ReadOutcome(StrEnum):
@@ -49,6 +50,8 @@ class ParserSettings:
     # substitution-equivalents is reported as nonconforming.
     max_errors: float = 2.0
     error_rate: float = 0.03
+    # Leave bases a read gets from the primers out of SNP evidence (see AmpliconSpec).
+    trim_primers: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +60,12 @@ class ReadParse:
     observation: Observation | None = None
     errors: float = 0.0
     region: str = ""
+    begin: int = 0
+    end: int = 0
+    five_anchored: bool = False
+    three_anchored: bool = False
+    decomposition: Decomposition | None = None
+    substitutions: tuple[Substitution, ...] = ()
 
     @property
     def usable(self) -> bool:
@@ -401,6 +410,11 @@ class RepeatParser:
         self.settings = settings or ParserSettings()
         self._five = amplicon.five_prime_anchor(self.settings.anchor_length)
         self._three = amplicon.three_prime_anchor(self.settings.anchor_length)
+        self._windows = Windows.of(
+            amplicon,
+            trim_primers=self.settings.trim_primers,
+            anchor_length=self.settings.anchor_length,
+        )
         self._cache: dict[str, ReadParse] = {}
         self._cache_size = cache_size
 
@@ -452,4 +466,18 @@ class RepeatParser:
         )
         if parsed.errors > s.max_errors + s.error_rate * len(region):
             outcome = ReadOutcome.NONCONFORMING
-        return ReadParse(outcome, observation, parsed.errors, region)
+        substitutions = read_substitutions(
+            read, begin, end, not open_start, not open_end, parsed, self._windows
+        )
+        return ReadParse(
+            outcome,
+            observation,
+            parsed.errors,
+            region,
+            begin,
+            end,
+            five_anchored=not open_start,
+            three_anchored=not open_end,
+            decomposition=parsed,
+            substitutions=substitutions,
+        )

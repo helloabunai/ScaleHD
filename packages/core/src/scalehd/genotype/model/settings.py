@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ...amplicon import HTT_AMPLICON, AmpliconSpec
 from ...calibration import HTT_MISEQ, StutterCurve, logit
 
 # Default reach of the stutter kernel (below, above); see CallerSettings.stutter_window.
@@ -64,3 +65,21 @@ class CallerSettings:
     # About 1 in 50 in simulated reads whose error rate rises to 2% at the end.
     # Pending change upon real data reception
     unconfirmed_error: float = 0.03
+    # SNPs (single-base substitutions only, for now). The amplicon gives each allele's
+    # sequence, for codons and positions.
+    amplicon: AmpliconSpec = HTT_AMPLICON
+    # A SNP is reported when at least snp_min_depth of an allele's molecules cover its
+    # base, its quality is at least snp_min_quality, and at least snp_partial_share of
+    # those molecules show it. Under snp_min_share it is reported as partial.
+    snp_min_depth: int = 20
+    snp_min_quality: float = 20.0
+    snp_min_share: float = 0.8
+    snp_partial_share: float = 0.2
+    # Chance a molecule shows a given substitution at a given base by copying or reading
+    # error, after its two reads have been checked against each other.
+    snp_error_rate: float = 0.002
+    # Chance a base of an allele carries a SNP, before looking at the reads.
+    snp_prior: float = 0.001
+    # Stutter moves a SNP inside a tract by a unit or so in some molecules (slippage
+    # before it), so a tract SNP takes its molecules from this many units either side.
+    snp_unit_window: int = 2

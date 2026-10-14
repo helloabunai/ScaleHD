@@ -281,3 +281,53 @@ style ratios:
 A peak of molecules read in full, holding at least 2% of the sample and well beyond
 what the fit expects there, is reported as unexplained. The flags, and their thresholds,
 are listed in [USING-FASTQ.md](USING-FASTQ.md#reading-the-result).
+
+## SNPs
+
+Only single-base substitutions are called for now. Insertions and deletions aren't. They will appear
+at some point in the mystical future.
+
+ScaleHD 1.x needed BWA-MEM alignments so FreeBayes had something to call against. Here the
+parser already knows where every base of a read sits in its allele, so there's nothing to
+align. The code is in
+[`packages/core/src/scalehd/substitutions.py`](../packages/core/src/scalehd/substitutions.py)
+and [`genotype/model/snps.py`](../packages/core/src/scalehd/genotype/model/snps.py).
+
+1. Each read. Any base that doesn't match what the read's own structure says should be
+   there (CAG read as CAT, e.g.) is a candidate SNP. Bases are placed by structure, like "CAG
+   unit 12, base 3", so they keep their place whatever the CAG length. Primer bases are
+   skipped, since they show the primer and not the sample.
+2. Each molecule. If both reads cover the base they have to agree (each at Q20 or
+   more). If only one does then it needs Q30 or more.
+3. Each allele. The genotype call already says how likely each molecule came from each
+   allele, so the evidence gets split the same way. PCR slippage can shift a SNP along a tract by
+   a unit in some molecules, so it collects molecules from 2 units either side.
+4. The call. Out of an allele's `n` molecules, `k` show the change (`f = k / n`). That's
+   compared with what copying and reading errors would give, `e = 0.002` per base (times 5
+   in a tract, for the 5 units it collects from), with `π = 0.001` the chance of a SNP at
+   any one base:
+
+   ```
+   ratio   = k · log(f / e) + (n - k) · log((1 - f) / (1 - e))
+   quality = 10 · log10(1 + exp(ratio + log(π / (1 - π))))
+   ```
+
+   It's reported at quality 20 or more, with at least 20 molecules covering the base and at
+   least 20% of them showing it. Under 80% it's marked partial (a mixed sample,
+   contamination, mosaicism).
+5. Reported like "CAG unit 12: CAG>CAT, Gln>His", plus the 1.x style "G->T@84", with the
+   `snp` and `partial_snp` flags. When the two alleles can't be told apart (same length, or
+   same structure within 3 CAG) the SNP doesn't get an allele.
+
+A couple of catches. With the GeM-HD primers there isn't much flank left to look at, 11 bases
+before the CAG and nothing after the repeats. And a change that turns one unit into another
+(CAG>CAA at the end of the tract reads as a CAACAG) counts as structure, so it turns up as an
+atypical allele and not as a SNP. Maybe this is something to live with but worth noting down.
+
+Again, simulated data, somewhat stinky, we can go forward from here.
+
+On simulated reads (`packages/core/benchmarks/snp_simulated.py`, 15 scenarios with 3 seeds
+each) every SNP I put in was found, on the right allele wherever the alleles could be told
+apart, with no false calls, even with five times the usual PCR errors. That flatters it, though.
+The simulator is pretty basic! Every molecule of an allele carries the SNP and stutter never
+moves it. This will most likely require massive tweaking for real data.
