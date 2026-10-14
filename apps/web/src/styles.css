@@ -109,6 +109,16 @@ button:disabled {
   cursor: default;
 }
 
+a.button {
+  display: inline-block;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.3rem;
+  background: var(--accent);
+  color: var(--on-accent);
+  text-decoration: none;
+}
+
 button.link {
   padding: 0;
   border: none;

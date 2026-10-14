@@ -25,11 +25,15 @@ What has been implemented so far:
 - A results page per sample with each allele's repeat structure rendered,
   the CAG and CCG distributions, instability figures, alternative genotypes,
   unexplained peaks and how its reads fared, with its counts and call JSON and its FASTQ
-  files to download. No results exporting yet (e.g. PDF file or something).
+  files to download.
+- Export a job's results as CSV from its page once it has finished or been cancelled. One row
+  per sample, with both alleles side by side, for opening in a spreadsheet (like ScaleHD 1.x's
+  InstanceReport.csv). Or the [validation export](VALIDATION-EXPORT.md), no sample names or
+  file paths, plus what checking and re-tuning/development the model needs.
 - Settings: the default genotyping method and thresholds new jobs start with. Only basic settings
   present for now.
 
-Not yet: exporting reports. API docs are at `/api/docs`. See
+Not yet: PDF reports. API docs are at `/api/docs`. See
 [`apps/server/README.md`](../apps/server/README.md) for what is real and what's a stub.
 
 Things will move around a lot as development proceeds.

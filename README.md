@@ -77,6 +77,8 @@ Read more documentation in the following:
 - [What's different](docs/WHATS-DIFFERENT.md): how this rewrite differs from ScaleHD 1.x
 - [The genotyping model](docs/MODEL.md): the statistical model behind the new model-based
   genotyping, its equations, assumptions and how a call's confidence is calculated.
+- [Validation export](docs/VALIDATION-EXPORT.md): for checking the model vs real data that can't 
+  be exported to non-staff (me)
 - [Development](docs/DEVELOPMENT.md): tests and checks, the pre-push hook, the dev server, the
   repository layout
 - [Ideas/planned features](docs/IDEAS.md)
