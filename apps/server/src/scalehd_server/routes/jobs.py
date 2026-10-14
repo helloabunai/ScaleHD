@@ -16,6 +16,7 @@ from ..auth import AdminUser, CurrentUser
 from ..config import ServerConfig
 from ..db import DbSession
 from ..errors import not_implemented
+from ..export import results_csv, results_filename
 from ..inputs import InputError, read_truth, resolve_file
 from ..models import Job, JobStatus, Sample, Tag, User
 from ..results import FileKind, sample_detail, sample_file
@@ -138,6 +139,21 @@ def _own_job(session: DbSession, user: User, job_id: int) -> Job:
 @router.get("/{job_id}")
 def get_job(job_id: int, user: CurrentUser, session: DbSession) -> JobOut:
     return job_out(_own_job(session, user, job_id))
+
+
+@router.get("/{job_id}/results.csv", response_class=Response)
+def get_job_results(job_id: int, user: CurrentUser, session: DbSession) -> Response:
+    """The job's results as CSV, a row per sample."""
+    job = _own_job(session, user, job_id)
+    return _csv(results_csv(job), results_filename(job))
+
+
+def _csv(content: str, filename: str) -> Response:
+    return Response(
+        content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.put("/{job_id}/tags")

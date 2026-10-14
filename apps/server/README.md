@@ -55,6 +55,8 @@ for now. For adding a migration, see `docs/DEVELOPMENT.md`.
 - While a sample runs, its worker writes `progress.json` in the sample's folder containing the stage
   (`simulating`, `counting`, `calling`). `GET /api/jobs/{id}` returns each sample's
   `progress`. Progress files are automatically deleted upon completion.
+- `GET /api/jobs/{id}/results.csv` downloads a job's results. It contains a row per sample, both alleles
+  side by side, built from the stored calls (samples not yet called have their results blank).
 - Also included UI tags for easy assignment of jobs to e.g. projects / data cohorts.
   Tags can be made on the job page by any user by needs an admin to edit/delete them
 
@@ -90,6 +92,7 @@ Gets some simulated data from the simulator and runs the new genotyping (only on
 | `runner.py`, `worker.py` | the job runner (queue, worker pool, recording) and one sample's work | works |
 | `progress.py` | sample progress monitoring | works |
 | `workspace.py` | job folders and `job.json` in the workspace | works |
+| `export.py` | a job's results as CSV | works |
 | `demo.py` | the demo job's simulated samples | works |
 | `inputs.py` | browsing the data folder, pairing FASTQ files, truth files of simulated runs | works |
 | `auth.py` | password hashing, session cookie, current user | works |
