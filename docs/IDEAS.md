@@ -9,6 +9,7 @@
 - more stuff probably
 - job tags (e.g. like the "demo" tag in demo job title) for labelling specific cohorts/papers
 - sequence struct hover details improvement
-- user specified primers/flanking sequences for genotyping jobs
+- user specified flanking sequences for genotyping jobs (primers can be set now)
+- SNP calling for insertions and deletions (substitutions only for now)
 - user specified PCR stutter/slippage models?
 - expose algorithm settings to allow user to tweak parameters for jobs

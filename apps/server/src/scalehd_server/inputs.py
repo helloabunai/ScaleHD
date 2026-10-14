@@ -109,9 +109,11 @@ def read_truth(r1: Path, sample: str) -> str | None:
         if data.get("schema") != "scalehd.simulation/1":
             return None
         structures = [AlleleStructure.from_label(a["structure"]) for a in data["alleles"]]
+        # A mix of more than two alleles (something like a contaminated sample) has no
+        # single genotype.
+        return "/".join(structure.label for structure in true_genotype(structures))
     except (OSError, ValueError, KeyError, TypeError):
         return None
-    return "/".join(structure.label for structure in true_genotype(structures))
 
 
 def _entries(root: Path, path: Path) -> tuple[list[str], list[str]]:

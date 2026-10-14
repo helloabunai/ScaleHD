@@ -70,6 +70,12 @@ Each job runs one of two methods (`JobSettings.method`):
   caller. Shown in the web interface as "New (model-based)", marked Beta. The default
   for users until legacy can run (no idea when this will be done).
 
+Job settings also hold the PCR primers (`forward_primer`, `reverse_primer`, GeM-HD by
+default, checked against the HTT flanks) and `trim_primers`. The worker counts with them, so
+SNPs are only called outside the primers. Calls are `scalehd.call/3`, with a `snps` list.
+
+More tweakable settings (e.g. model parameters? others?) will come in time
+
 `GET`/`PUT /api/settings` hold each user's default (stored in `users.default_settings`).
 A new job uses its own `settings` if given, otherwise the user's default.
 `RUNNABLE_METHODS` in `worker.py` lists what jobs can use.

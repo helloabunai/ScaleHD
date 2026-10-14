@@ -10,7 +10,16 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    model_validator,
+)
+from scalehd.amplicon import GEM_HD_PRIMERS, HTT_AMPLICON, AmpliconSpec
 from scalehd.genotype import CallerSettings
 from scalehd.pairs import DiscordancePolicy
 
@@ -95,6 +104,16 @@ class GenotypeMethod(StrEnum):
     MODEL = "model"
 
 
+def _tidy_sequence(value: object) -> object:
+    return value.strip().upper() if isinstance(value, str) else value
+
+
+# A PCR primer, 5' to 3' as ordered.
+Primer = Annotated[
+    str, BeforeValidator(_tidy_sequence), StringConstraints(pattern=r"^[ACGT]{10,60}$")
+]
+
+
 class JobSettings(BaseModel):
     """What a job runs, and with which settings. Unset thresholds keep the core defaults."""
 
@@ -108,6 +127,21 @@ class JobSettings(BaseModel):
     min_posterior: float | None = Field(default=None, ge=0, le=1)
     max_background: float | None = Field(default=None, ge=0, le=1)
     max_dropped: float | None = Field(default=None, ge=0, le=1)
+    # The PCR primers. Bases reads get from them show the primer, not the sample, so with
+    # trim_primers they're left out of SNP calling (reads aren't cut, the parser places
+    # reads by the sequence next to the repeats, which can overlap a primer).
+    forward_primer: Primer = GEM_HD_PRIMERS[0]
+    reverse_primer: Primer = GEM_HD_PRIMERS[1]
+    trim_primers: bool = True
+
+    @model_validator(mode="after")
+    def _primers_fit(self) -> JobSettings:
+        self.amplicon()
+        return self
+
+    def amplicon(self) -> AmpliconSpec:
+        """The HTT amplicon with these primers; ValueError if they aren't in its flanks."""
+        return HTT_AMPLICON.with_primers(self.forward_primer, self.reverse_primer)
 
     def caller_settings(self) -> CallerSettings:
         thresholds = ("min_molecules", "min_posterior", "max_background", "max_dropped")
@@ -339,7 +373,7 @@ class SampleDetail(BaseModel):
     demo: bool
     tags: list[JobTag]
     folder: str | None
-    # The full call (scalehd.call/2), once the sample has been called.
+    # The full call (scalehd.call/3), once the sample has been called.
     call: dict[str, Any] | None
     cag_charts: list[CagChart]
     ccg: list[CcgBar]

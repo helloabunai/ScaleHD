@@ -1,5 +1,6 @@
 """Browsing the data folder for FASTQ files, paired into samples."""
 
+import json
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -7,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from scalehd_server.app import create_app
 from scalehd_server.config import ServerSettings
-from scalehd_server.inputs import pair_files
+from scalehd_server.inputs import pair_files, read_truth
 
 RUN = [
     # Out of order on purpose. Should be returned sorted/filtered properly.
@@ -149,3 +150,16 @@ def test_pairing_skips_what_it_cant_pair_but_keeps_its_place() -> None:
         ("c", ["c_S3_L001_R2_001.fastq.gz"], "R2 without its R1"),
     ]
     assert [s.r1 for s in samples] == [None, "b_S2_L001_R1_001.fastq.gz", None]
+
+
+def test_a_simulated_sample_gives_its_true_genotype_unless_it_mixes_more_alleles(
+    tmp_path: Path,
+) -> None:
+    r1 = tmp_path / "s1_R1.fastq.gz"
+    truth = tmp_path / "s1.truth.json"
+    alleles = [{"structure": "43_1_1_7_2"}, {"structure": "17_1_1_7_2"}]
+    truth.write_text(json.dumps({"schema": "scalehd.simulation/1", "alleles": alleles}))
+    assert read_truth(r1, "s1") == "17_1_1_7_2/43_1_1_7_2"
+    mixed = [*alleles, {"structure": "43_1_1_7_2"}]
+    truth.write_text(json.dumps({"schema": "scalehd.simulation/1", "alleles": mixed}))
+    assert read_truth(r1, "s1") is None

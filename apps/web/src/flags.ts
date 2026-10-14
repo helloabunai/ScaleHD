@@ -11,4 +11,7 @@ export const FLAGS: Record<string, string> = {
   unexplained_peak:
     "A peak the genotype doesn't explain. A third allele, contamination, mosaicism?",
   high_discordance: "Over 15% of molecules were dropped because their read base pairings disagreed.",
+  snp: "A SNP (single-base substitution) in one or both alleles. See the SNPs table.",
+  partial_snp:
+    "A SNP only part of an allele's molecules show. A mixed or contaminated sample, mosaicism?",
 };

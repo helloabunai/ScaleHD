@@ -50,3 +50,21 @@ def test_a_job_can_choose_its_own_method(logged_in: TestClient) -> None:
     assert (
         logged_in.post("/api/jobs", json=JOB | {"settings": {"method": "model"}}).status_code == 409
     )
+
+
+def test_primers_default_to_gem_hd_and_are_checked_against_the_amplicon(
+    logged_in: TestClient,
+) -> None:
+    settings = logged_in.get("/api/settings").json()
+    assert (settings["forward_primer"], settings["reverse_primer"]) == (
+        "ATGAAGGCCTTCGAGTCCC",
+        "GGCTGAGGAAGCTGAGGA",
+    )
+    assert settings["trim_primers"] is True
+    tidied = logged_in.put("/api/settings", json=settings | {"forward_primer": " atgaaggccttcgag "})
+    assert tidied.json()["forward_primer"] == "ATGAAGGCCTTCGAG"
+    response = logged_in.put(
+        "/api/settings", json=settings | {"forward_primer": "ACGTACGTACGTACGT"}
+    )
+    assert response.status_code == 422
+    assert "forward primer isn't in the HTT exon 1 5' flank" in response.text

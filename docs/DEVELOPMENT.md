@@ -14,6 +14,7 @@ uv run mypy                          # types
 uv run python packages/core/benchmarks/parse_accuracy.py
 uv run python packages/core/benchmarks/genotype_simulated.py
 uv run python packages/core/benchmarks/legacy_matrix.py
+uv run python packages/core/benchmarks/snp_simulated.py
 ```
 
 `tools/check.sh` runs every check above in order (lint, format, types, frontend build, tests) and stops at the first failure. Run it before opening a PR: the tests take several minutes.

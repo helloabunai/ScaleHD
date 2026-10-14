@@ -13,6 +13,7 @@ from typing import Any
 
 from scalehd.counts import count_fastq
 from scalehd.genotype import GenotypeCall, call_genotype
+from scalehd.parse import ParserSettings, RepeatParser
 from scalehd.simulate import SimAllele, SimulationSpec, call_matches, simulate
 from scalehd.structure import AlleleStructure
 
@@ -66,7 +67,8 @@ def run_sample(
     if progress is not None:
         progress.stage(SampleStage.COUNTING, 0.0)
     counted = progress.counted if progress is not None else None
-    counts = count_fastq(r1, r2, policy=settings.discordant, progress=counted)
+    parser = RepeatParser(settings.amplicon(), ParserSettings(trim_primers=settings.trim_primers))
+    counts = count_fastq(r1, r2, parser, policy=settings.discordant, progress=counted)
     counts.write_json(out_dir / "counts.json")
     if not settings.call:
         return None

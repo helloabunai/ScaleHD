@@ -57,4 +57,9 @@ repeat length (calibrated on the ScaleHD 1.x training matrix, so the model again
 or up-to-date scientific insight). Candidates are compared by how well they statistically explain every molecule, 
 which gives a posterior probability for the call plus flags for the cases that deserve a manual look.
 
-Read about the statistical model in [MODEL.md](MODEL.md).
+SNPs are called without alignment too. ScaleHD 1.x ran FreeBayes on each allele's BWA-MEM
+alignments. Now each read's bases are compared with what its own repeat structure says is there,
+both reads of a molecule have to agree, and the called genotype says which allele each molecule
+came from, so a SNP comes out on an allele. Only single-base substitutions, for now.
+
+Read about the statistical model, and SNP calling, in [MODEL.md](MODEL.md).

@@ -51,6 +51,7 @@ export function SampleResults() {
               <Summary detail={detail} call={detail.call} />
               <CagDistributions charts={detail.cag_charts} scale={scale} setScale={setScale} />
               <Structures alleles={detail.call.alleles} />
+              <Snps call={detail.call} />
               <CcgDistribution bars={detail.ccg} call={detail.call} scale={scale} />
               <section>
                 <h2>CAG and CCG</h2>
@@ -342,6 +343,66 @@ function Instability({ alleles, demo }: Readonly<{ alleles: CalledAllele[]; demo
           ))}
         </tbody>
       </table>
+    </section>
+  );
+}
+
+function Snps({ call }: Readonly<{ call: GenotypeCall }>) {
+  const snps = call.snps ?? null;
+  const unknown = snps?.some((snp) => snp.allele === null);
+  return (
+    <section>
+      <h2>SNPs</h2>
+      <p className="muted">
+        Single-base substitutions only, for now: insertions and deletions aren't called. Bases
+        from the PCR primers are left out.
+      </p>
+      {snps === null && (
+        <p className="muted">Not looked for: this sample was counted before ScaleHD called SNPs.</p>
+      )}
+      {snps?.length === 0 && <p>None found.</p>}
+      {snps && snps.length > 0 && (
+        <table>
+          <thead>
+            <tr>
+              <th>Allele</th>
+              <th>Change</th>
+              <th>Molecules showing it</th>
+              <th>Quality</th>
+              <th>As ScaleHD 1.x</th>
+            </tr>
+          </thead>
+          <tbody>
+            {snps.map((snp) => (
+              <tr key={`${snp.allele}-${snp.segment}-${snp.unit}-${snp.offset}-${snp.alt}`}>
+                <td>
+                  {snp.allele === null ? (
+                    <span className="muted">unknown</span>
+                  ) : (
+                    call.alleles[snp.allele].structure
+                  )}
+                </td>
+                <td>
+                  {snp.label} {snp.partial && <span className="badge">partial</span>}
+                </td>
+                <td>
+                  {Math.round(snp.molecules).toLocaleString()} of{" "}
+                  {Math.round(snp.depth).toLocaleString()} ({percent(snp.share)})
+                </td>
+                <td>{snp.quality.toFixed(0)}</td>
+                <td>{snp.legacy_label ? <code>{snp.legacy_label}</code> : "–"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {unknown && (
+        <p className="muted">
+          Allele unknown?! the two alleles can't be told apart by their molecules (the same length,
+          or close lengths of the same structure). About half the molecules showing it = one
+          of them has the structure, nearly all = both do.
+        </p>
+      )}
     </section>
   );
 }

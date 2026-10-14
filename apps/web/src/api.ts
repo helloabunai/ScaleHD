@@ -55,6 +55,9 @@ export interface JobSettings {
   min_posterior: number | null;
   max_background: number | null;
   max_dropped: number | null;
+  forward_primer: string;
+  reverse_primer: string;
+  trim_primers: boolean;
 }
 
 /** A sample's FASTQ files, as paths relative to the server's data folder. */
@@ -166,7 +169,7 @@ export interface Stutter {
   expansion_tail: number;
 }
 
-/** One allele of a saved call (scalehd.call/2). */
+/** One allele of a saved call (scalehd.call/3). */
 export interface CalledAllele {
   structure: string;
   beyond_read_length: boolean;
@@ -188,7 +191,34 @@ export interface CalledAllele {
   cag_estimate: [number, number, number] | null;
 }
 
-/** A sample's saved genotype call (scalehd.call/2). */
+/** A SNP in a saved call: a single-base substitution (the only kind called, for now). */
+export interface Snp {
+  /** e.g. "CAG unit 12: CAG>CAT, Gln>His" */
+  label: string;
+  segment: string;
+  unit: number;
+  offset: number;
+  ref: string;
+  alt: string;
+  /** Index of the allele carrying it, null when the alleles can't be told apart. */
+  allele: number | null;
+  /** The allele's molecules showing it, of those whose reads covered its base. */
+  molecules: number;
+  depth: number;
+  share: number;
+  quality: number;
+  /** Shown by only part of the allele's molecules. */
+  partial: boolean;
+  ref_codon: string;
+  alt_codon: string;
+  ref_amino_acid: string;
+  alt_amino_acid: string;
+  /** Place in the allele's sequence, and the ScaleHD 1.x style label, e.g. "G->T@84". */
+  position: number | null;
+  legacy_label: string | null;
+}
+
+/** A sample's saved genotype call (scalehd.call/3). */
 export interface GenotypeCall {
   genotype: string;
   posterior: number;
@@ -201,6 +231,8 @@ export interface GenotypeCall {
   ccg_slippage: number;
   misread: number;
   unexplained: { structure: string; molecules: number }[];
+  /** Null, or missing from calls saved before SNPs were called, when nobody looked. */
+  snps?: Snp[] | null;
 }
 
 export interface CagBar {
@@ -296,7 +328,12 @@ function describe(detail: unknown): string | undefined {
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail)) {
     return detail
-      .map((d: { loc?: unknown[]; msg?: string }) => `${d.loc?.at(-1)}: ${d.msg}`)
+      .map((d: { loc?: unknown[]; msg?: string }) => {
+        const message = (d.msg ?? "").replace(/^Value error, /, "");
+        const field = d.loc?.at(-1);
+        // A check across a whole body (e.g. primers against the amplicon) names no field.
+        return field === undefined || field === "body" ? message : `${field}: ${message}`;
+      })
       .join("; ");
   }
   return undefined;

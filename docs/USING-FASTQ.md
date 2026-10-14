@@ -15,10 +15,16 @@ Basically the same rules as the previous implementation of ScaleHD because i kno
   `scalehd` will stop with an error.
 - No trimming or demultiplexing needed (different to 1.0). Mostly borne out of the fact
   I am simulating data for now so this may change. Reads are located by 20-base anchors either side of
-  the repeat (`TCGAGTCCCTCAAGTCCTTC` 5', `CAGCTTCCTCAGCCGCCGCC` 3'),
-  so primers, heterogeneity spacers, adapters and reads from other amplicons in the
-  same library are skipped. If your primers sit inside those anchors, the default
-  amplicon won't fit (see below).
+  the repeat (`TCGAGTCCCTCAAGTCCTTC` 5', `CAGCTTCCTCAGCC` 3', cut short where the default
+  reverse primer ends), so primers, heterogeneity spacers, adapters and reads from other
+  amplicons in the same library are skipped. If your primers sit inside those anchors, the
+  default amplicon won't fit (see below).
+- Primers: the GeM-HD pair by default (`ATGAAGGCCTTCGAGTCCC` / `GGCTGAGGAAGCTGAGGA`). Give
+  your own on the Settings page, or with `--forward-primer` and `--reverse-primer`, 5' to 3'
+  as ordered. They have to sit in the HTT flanks. Reads aren't cut, but the primers' bases are
+  left out of SNP calling, since they show the primer rather than the sample. Turn that off
+  with "Trim primers" on the Settings page or `--no-trim-primers`. `--no-primers` takes the
+  whole ScaleHD 1.x flanks as the PCR product.
 - All work in progress and subject to change. Feedback from real scientists will improve my assumptions
   and may alter how certain features work.
 
@@ -73,6 +79,13 @@ On a machine with many cores, cap the number running at once (for example with
   estimate like 93, 89-96 for a "true" CAG90), beyond that, expect the lower boundary call alone.
   This is one element where my out-of-date science knowledge will likely result in significant
   code changes once feedback is received.
+- SNPs: single-base substitutions only, for now (no insertions or deletions yet), outside the
+  primers. Each is given on the allele that carries it, as tract, unit and codon change with
+  the amino acid change (`CAG unit 12: CAG>CAT, Gln>His`), and as ScaleHD 1.x wrote it
+  (`G->T@84`), with how many of the allele's molecules show it and a quality. When the two
+  alleles can't be told apart (the same length, or the same structure within 3 CAG) a SNP
+  has no allele. About half their molecules showing it means one carries it, nearly all
+  means both. See [MODEL.md](MODEL.md#snps) for how they are called.
 - Flags mark what deserves a manual inspection (unchanged really from previous version):
 
   | flag | meaning |
@@ -87,6 +100,8 @@ On a machine with many cores, cap the number running at once (for example with
   | `high_background` | over 5% of molecules fit neither allele |
   | `unexplained_peak` | a peak the genotype doesn't explain. third allele, contamination, mosaicism? |
   | `high_discordance` | over 15% of molecules dropped because their read base pairings disagreed |
+  | `snp` | a SNP (single-base substitution) in one or both alleles |
+  | `partial_snp` | a SNP under 80% of an allele's molecules show. mixed or contaminated sample, mosaicism? |
 
 ## Checking the input went well / possible errors
 

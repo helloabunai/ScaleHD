@@ -4,8 +4,10 @@ import json
 from pathlib import Path
 
 import pytest
+from scalehd.amplicon import HTT_GEM_HD
 from scalehd.simulate import SimAllele, SimulationSpec, simulate
 from scalehd.structure import AlleleStructure
+from scalehd.substitutions import Site
 from scalehd_server import worker
 from scalehd_server.progress import ProgressReporter, SampleProgress, SampleStage, read_progress
 from scalehd_server.schemas import GenotypeMethod, JobSettings
@@ -28,6 +30,19 @@ def test_run_sample_counts_and_calls(tmp_path: Path) -> None:
     assert call.label == "17_1_1_7_2/43_1_1_7_2"
     assert json.loads((out / "call.json").read_text()) == call.to_dict()
     assert json.loads((out / "counts.json").read_text())["schema"] == "scalehd.counts/3"
+
+
+def test_run_sample_calls_snps_outside_the_primers(tmp_path: Path) -> None:
+    snp = SimAllele(AlleleStructure(43), snps=((Site("cag", 12, 2), "T"),))
+    spec = SimulationSpec(
+        (SimAllele(AlleleStructure(17)), snp), pairs=2000, seed=1, amplicon=HTT_GEM_HD
+    )
+    r1, r2, _ = simulate(spec).write(tmp_path / "input", "s1")
+    call = run_sample(r1, r2, tmp_path / "out", JobSettings(method=MODEL))
+    assert call is not None
+    assert [(s.allele, s.label) for s in call.snps or ()] == [(1, "CAG unit 12: CAG>CAT, Gln>His")]
+    saved = json.loads((tmp_path / "out" / "call.json").read_text())
+    assert saved["snps"][0]["legacy_label"] == "G->T@84"
 
 
 def test_count_only_job_skips_the_call(tmp_path: Path) -> None:
