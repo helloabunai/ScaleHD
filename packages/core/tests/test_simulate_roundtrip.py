@@ -138,12 +138,14 @@ def test_unconfirmed_counts_round_trip_and_version_1_files_still_read(tmp_path: 
     out = tmp_path / "s1.counts.json"
     counts.write_json(out)
     data = json.loads(out.read_text())
-    assert data["schema"] == "scalehd.counts/2"
+    assert data["schema"] == "scalehd.counts/3"
     assert data["partial"][0]["observation"] == "80~_1_1_7_2"
     assert data["partial"][0]["status"][0] == "unconfirmed"
     assert SampleCounts.read_json(out) == counts
 
-    # A file from before unconfirmed counts existed reads as it did.
+    # Files from before SNP evidence, and before unconfirmed counts, read as they did.
+    data["schema"] = "scalehd.counts/2"
+    assert SampleCounts.from_dict(data) == counts
     data["schema"] = "scalehd.counts/1"
     data["partial"] = []
     assert SampleCounts.from_dict(data).molecules == 1
