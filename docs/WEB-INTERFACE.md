@@ -26,8 +26,9 @@ What has been implemented so far:
   the CAG and CCG distributions, instability figures, alternative genotypes,
   unexplained peaks and how its reads fared, with its counts and call JSON and its FASTQ
   files to download.
-- Export a job's results as CSV from its page. One row per sample, with both alleles side by
-  side, for opening in a spreadsheet (like ScaleHD 1.x's InstanceReport.csv).
+- Export a job's results as CSV from its page once it has finished or been cancelled. One row
+  per sample, with both alleles side by side, for opening in a spreadsheet (like ScaleHD 1.x's
+  InstanceReport.csv).
 - Settings: the default genotyping method and thresholds new jobs start with. Only basic settings
   present for now.
 

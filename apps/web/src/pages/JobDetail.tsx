@@ -61,14 +61,20 @@ export function JobDetail() {
           </dl>
           <JobProgress samples={job.samples} />
           <div className="job-actions">
-            <a
-              className="button"
-              href={api.jobResultsUrl(job.id)}
-              download
-              title="A row per sample, for a spreadsheet"
-            >
-              Export results (CSV)
-            </a>
+            {isActive(job.status) ? (
+              <button type="button" disabled title="Available once the job has finished or been cancelled">
+                Export results (CSV)
+              </button>
+            ) : (
+              <a
+                className="button"
+                href={api.jobResultsUrl(job.id)}
+                download
+                title="A row per sample, for a spreadsheet"
+              >
+                Export results (CSV)
+              </a>
+            )}
             {(job.status === "queued" || job.status === "running") && (
               <CancelJob job={job} onCancelled={() => setVersion((v) => v + 1)} />
             )}
