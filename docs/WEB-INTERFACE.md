@@ -30,6 +30,6 @@ What has been implemented so far:
   present for now.
 
 Not yet: exporting reports. API docs are at `/api/docs`. See
-[`apps/server/README.md`](apps/server/README.md) for what is real and what's a stub.
+[`apps/server/README.md`](../apps/server/README.md) for what is real and what's a stub.
 
 Things will move around a lot as development proceeds.

@@ -16,7 +16,7 @@ anymore so this is mostly just a hobby project that may or may not go anywhere.
 
 For Users:
 
-Needs Docker, Docker Compose and git ([DOCKER.md](DOCKER.md) has installing them from
+Needs Docker, Docker Compose and git ([DOCKER.md](docs/DOCKER.md) has installing them from
 scratch). The paths below are the examples `.env.example` starts with; use your own.
 
 ```sh
@@ -30,7 +30,7 @@ docker compose up -d --build
 
 Then open <http://localhost:8000>. The first account you register is the admin, and
 "Run demo" on the home page runs simulated samples end to end. Reaching it from other
-computers, the other settings and updating are in [DOCKER.md](DOCKER.md).
+computers, the other settings and updating are in [DOCKER.md](docs/DOCKER.md).
 
 For Development:
 
@@ -47,7 +47,7 @@ tools/dev.sh    # API on port 8000, web interface at http://localhost:5173
 `tools/dev.sh` installs the web interface's packages when needed, reloads on code
 changes, and keeps its own database (`data/scalehd.db`). Stop the Docker stack first
 (`docker compose stop`), as both use port 8000. Tests, checks and the pre-push hook are
-in [DEVELOPMENT.md](DEVELOPMENT.md).
+in [DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Quick start (command line tool, alone)
 
@@ -69,17 +69,17 @@ available.
 
 Read more documentation in the following:
 
-- [Running the server with Docker](DOCKER.md): installing Docker from scratch, the
+- [Running the server with Docker](docs/DOCKER.md): installing Docker from scratch, the
   folders and `.env` settings, starting it, reaching it from other computers, updating
-- [Web interface and API](WEB-INTERFACE.md): what works (so far)
-- [Using real FASTQ files](USING-FASTQ.md): what the input should look like, one sample
+- [Web interface and API](docs/WEB-INTERFACE.md): what works (so far)
+- [Using real FASTQ files](docs/USING-FASTQ.md): what the input should look like, one sample
   or a batch, reading the result, checking the results, etc
-- [What's different](WHATS-DIFFERENT.md): how this rewrite differs from ScaleHD 1.x
-- [The genotyping model](MODEL.md): the statistical model behind the new model-based
+- [What's different](docs/WHATS-DIFFERENT.md): how this rewrite differs from ScaleHD 1.x
+- [The genotyping model](docs/MODEL.md): the statistical model behind the new model-based
   genotyping, its equations, assumptions and how a call's confidence is calculated.
-- [Development](DEVELOPMENT.md): tests and checks, the pre-push hook, the dev server, the
+- [Development](docs/DEVELOPMENT.md): tests and checks, the pre-push hook, the dev server, the
   repository layout
-- [Ideas/planned features](IDEAS.md)
+- [Ideas/planned features](docs/IDEAS.md)
 
 ## Licence
 
