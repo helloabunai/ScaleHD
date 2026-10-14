@@ -8,8 +8,10 @@ from typing import Any
 
 from ...calibration import Stutter
 from ...structure import AlleleStructure
+from ...substitutions import Site, amino_acid
 
-SCHEMA = "scalehd.call/2"
+# Schema 3 adds SNPs.
+SCHEMA = "scalehd.call/3"
 
 
 class Flag(StrEnum):
@@ -27,6 +29,10 @@ class Flag(StrEnum):
     UNEXPLAINED_PEAK = "unexplained_peak"
     # Many molecules dropped because their read base pairings disagreed.
     HIGH_DISCORDANCE = "high_discordance"
+    SNP = "snp"
+    # A SNP that only part of an allele's molecules demonstrate so maybe a mixed or
+    # contaminated sample, mosaicism, or molecules given to the wrong allele due to wip-ness.
+    PARTIAL_SNP = "partial_snp"
 
 
 class NoMoleculesError(ValueError):
@@ -106,6 +112,65 @@ class AlleleCall:
 
 
 @dataclass(frozen=True, slots=True)
+class Snp:
+    """A single-base substitution in an allele (the only kind of SNP called, for now)."""
+
+    site: Site
+    ref: str
+    alt: str
+    allele: int | None
+    molecules: float
+    depth: float
+    quality: float
+    partial: bool
+    ref_codon: str
+    alt_codon: str
+    position: int | None
+
+    @property
+    def share(self) -> float:
+        return self.molecules / self.depth if self.depth else 0.0
+
+    @property
+    def amino_acids(self) -> tuple[str, str]:
+        return amino_acid(self.ref_codon), amino_acid(self.alt_codon)
+
+    @property
+    def label(self) -> str:
+        """e.g. "CAG unit 12: CAG>CAT, Gln>His"."""
+        before, after = self.amino_acids
+        return f"{self.site.label}: {self.ref_codon}>{self.alt_codon}, {before}>{after}"
+
+    @property
+    def legacy_label(self) -> str | None:
+        """As ScaleHD 1.x wrote it, e.g. "G->T@83"."""
+        return None if self.position is None else f"{self.ref}->{self.alt}@{self.position}"
+
+    def to_dict(self) -> dict[str, Any]:
+        before, after = self.amino_acids
+        return {
+            "label": self.label,
+            "segment": self.site.segment,
+            "unit": self.site.unit,
+            "offset": self.site.offset,
+            "ref": self.ref,
+            "alt": self.alt,
+            "allele": self.allele,
+            "molecules": self.molecules,
+            "depth": self.depth,
+            "share": self.share,
+            "quality": self.quality,
+            "partial": self.partial,
+            "ref_codon": self.ref_codon,
+            "alt_codon": self.alt_codon,
+            "ref_amino_acid": before,
+            "alt_amino_acid": after,
+            "position": self.position,
+            "legacy_label": self.legacy_label,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class GenotypeCall:
     alleles: tuple[AlleleCall, AlleleCall]
     posterior: float
@@ -118,6 +183,8 @@ class GenotypeCall:
     ccg_slippage: float
     misread: float
     unexplained: tuple[tuple[str, int], ...] = field(default=())
+    # None when the counts hold no SNP evidence (counts made before SNPs were called).
+    snps: tuple[Snp, ...] | None = None
 
     @property
     def label(self) -> str:
@@ -141,4 +208,5 @@ class GenotypeCall:
             "ccg_slippage": self.ccg_slippage,
             "misread": self.misread,
             "unexplained": [{"structure": s, "molecules": n} for s, n in self.unexplained],
+            "snps": None if self.snps is None else [snp.to_dict() for snp in self.snps],
         }

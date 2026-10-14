@@ -215,6 +215,19 @@ def _per_row(values: np.ndarray, weights: np.ndarray | None) -> np.ndarray:
     return values if weights is None or values.ndim == 1 else weights @ values
 
 
+def _responsibilities(table: _Table, model: _Model, params: _Params) -> list[np.ndarray]:
+    """Each allele's share of every row i.e. how likely a molecule with that observation came
+    from it (background would take the rest)."""
+    total, per_allele = _row_loglik(table, model, params)
+    weights = _n_weights(table, total)
+    shares = [params.balance, 1 - params.balance] if model.heterozygous else [1.0]
+    keep = math.log1p(-params.background)
+    return [
+        _per_row(np.exp(keep + math.log(share) + own - total), weights)
+        for share, own in zip(shares, per_allele, strict=True)
+    ]
+
+
 def _negative_log_posterior(
     theta: np.ndarray, table: _Table, model: _Model, mean: np.ndarray, sd: np.ndarray
 ) -> float:
