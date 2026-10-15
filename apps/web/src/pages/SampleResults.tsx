@@ -15,6 +15,7 @@ import { Heatmap } from "../charts/Heatmap";
 import { FLAGS } from "../flags";
 import { useApi } from "../useApi";
 import { DemoTag, JobTags } from "./jobDisplay";
+import { LegacyResults } from "./LegacyResults";
 import { Status } from "./Status";
 import { StructureDiagrams } from "./StructureDiagram";
 
@@ -47,7 +48,14 @@ export function SampleResults() {
             {detail.sample.name} {detail.demo && <DemoTag />}
             <JobTags tags={detail.tags} />
           </h1>
-          {detail.call === null ? (
+          {detail.legacy ? (
+            <LegacyResults
+              detail={detail}
+              legacy={detail.legacy}
+              scale={scale}
+              setScale={setScale}
+            />
+          ) : detail.call === null ? (
             <NotCalled detail={detail} />
           ) : (
             <>
@@ -162,7 +170,7 @@ function Summary({ detail, call }: Readonly<{ detail: SampleDetail; call: Genoty
   );
 }
 
-function ScaleToggle({ scale, onChange }: Readonly<{ scale: Scale; onChange: (s: Scale) => void }>) {
+export function ScaleToggle({ scale, onChange }: Readonly<{ scale: Scale; onChange: (s: Scale) => void }>) {
   return (
     <div className="scale-toggle" role="group" aria-label="Chart scale">
       <span className="muted">Chart scale</span>
