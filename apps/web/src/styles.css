@@ -1079,3 +1079,138 @@ figcaption .badge {
   border-left: 1px dashed var(--muted);
   pointer-events: none;
 }
+
+.methods label.unavailable {
+  cursor: default;
+}
+
+.methods label.unavailable .method-name,
+.methods label.unavailable > span > .muted {
+  opacity: 0.6;
+}
+
+.legacy-settings {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.75rem 1rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+
+.legacy-settings legend {
+  padding: 0 0.25rem;
+  font-weight: 600;
+}
+
+.legacy-settings p {
+  margin: 0;
+}
+
+.legacy-settings .file-group {
+  margin-top: 0;
+}
+
+.legacy-settings .file-group > summary .muted + .muted {
+  margin-left: 0.4rem;
+}
+
+.settings-group {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+}
+
+.settings-group label,
+.cores {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.settings-group label.toggle {
+  grid-template-columns: auto 1fr;
+  gap: 0.6rem;
+  align-items: start;
+}
+
+.settings-group label.toggle input {
+  margin-top: 0.2rem;
+}
+
+.settings-group label.toggle > span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.setting-label code {
+  font-size: 0.8rem;
+}
+
+.field-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.25rem 0.75rem;
+}
+
+.field-pair > label {
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+}
+
+.field-pair > label > .setting-label {
+  align-self: end;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.settings-group input:not([type="checkbox"]),
+.settings-group select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.settings-group .pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem 0.5rem;
+  align-self: end;
+}
+
+.settings-group .pair > span {
+  grid-column: 1 / -1;
+}
+
+.settings-group .pair label {
+  font-size: 0.9rem;
+}
+
+.settings-group input.bases {
+  font-family: ui-monospace, monospace;
+}
+
+.settings-group select {
+  font: inherit;
+  padding: 0.35rem 0.5rem;
+}
+
+.settings-group .pair .setting-label,
+.settings-group label > .setting-label {
+  overflow-wrap: anywhere;
+}
+
+.cores input[type="range"] {
+  width: 100%;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+.file-group.disabled > summary {
+  color: var(--muted);
+  cursor: not-allowed;
+}

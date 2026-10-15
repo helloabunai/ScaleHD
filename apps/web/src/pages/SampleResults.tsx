@@ -23,6 +23,9 @@ const FILE_NAMES: Record<SampleFile, string> = {
   counts: "Molecule counts (JSON)",
   r1: "R1 FASTQ",
   r2: "R2 FASTQ",
+  "legacy-result": "Everything legacy ScaleHD knew about the sample (JSON)",
+  "legacy-graphs": "Legacy ScaleHD's graphs (PDF)",
+  "legacy-log": "Legacy ScaleHD's log",
 };
 
 export function SampleResults() {
@@ -278,12 +281,12 @@ const INSTABILITY: { key: keyof CalledAllele; name: string; meaning: string }[] 
   {
     key: "backward_slippage",
     name: "Backward slippage",
-    meaning: "Molecules at N-1 and N-2, relative to those at N (as in ScaleHD 1.x).",
+    meaning: "Molecules at N-1 and N-2, relative to those at N (as in legacy ScaleHD).",
   },
   {
     key: "somatic_mosaicism",
     name: "Somatic mosaicism",
-    meaning: "Molecules at N+1 to N+10, relative to those at N (as in ScaleHD 1.x).",
+    meaning: "Molecules at N+1 to N+10, relative to those at N (as in legacy ScaleHD).",
   },
   {
     key: "expansion_index",
