@@ -21,6 +21,9 @@ REQUEST.json names the sample and how to run it (i.e. old XML config but in JSON
       }
     }
 
+With demultiplex "True", 1.x demultiplexes the sample itself first (batchadapt, which runs
+cutadapt on each read file on its own). Same behaviour as CLI old version.
+
 OUT_DIR must be empty or not exist yet. It ends up containing:
 
     config.xml    the configuration 1.x was given
@@ -88,6 +91,7 @@ THREAD_MODULES = (
 # Stage equivalents for reporting back to web-app (eventually).
 STAGES = (
     ("Indexing reference(s)", "indexing"),
+    ("Demultiplexing reads", "demultiplexing"),
     ("Executing sequence quality control workflow", "quality_control"),
     ("Executing alignment workflow", "alignment"),
     ("Scanning for atypical alleles", "atypical_scanning"),
@@ -97,6 +101,8 @@ STAGES = (
 )
 _COLOUR = re.compile(r"\x1b\[[0-9;]*m")
 _PREFIX = "shd__"
+# 1.x's "<stage> failure on <sample>: <error>". Its sample is DMPX_<label> once demultiplexed.
+_FAILURE = re.compile(r"(.+?) failure on \S+: (.*)", re.DOTALL)
 
 
 class RequestError(ValueError):
@@ -150,11 +156,6 @@ def _read_config(config: Any) -> dict[str, dict[str, str]]:
             isinstance(name, str) and isinstance(value, str) for name, value in attributes.items()
         ):
             raise RequestError(f"config's {element} must map attribute names to strings")
-    if config["instance_flags"].get("demultiplex") != "False":
-        raise RequestError(
-            'demultiplex must be "False". Demultiplexing is done for the whole job as a '
-            "separate stage (WIP)."
-        )
     return {element: dict(config[element]) for element in ELEMENTS}
 
 
@@ -221,13 +222,12 @@ def legacy_environment(
 class Listener(logging.Handler):
     """Follows 1.x's log to stderr, reports each stage as it starts, and keeps failure messages."""
 
-    def __init__(self, label: str, events: TextIO | None) -> None:
+    def __init__(self, events: TextIO | None) -> None:
         super().__init__(logging.DEBUG)
         self.events = events
         self.stages: list[str] = []
         self.errors: list[str] = []
         self.failure: str | None = None
-        self._failure = re.compile(rf"(.+?) failure on {re.escape(label)}: (.*)", re.DOTALL)
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
@@ -248,7 +248,7 @@ class Listener(logging.Handler):
         for start, stage in STAGES:
             if message.startswith(start):
                 self.stage(stage)
-        failed = self._failure.fullmatch(message)
+        failed = _FAILURE.fullmatch(message)
         if failed and self.failure is None:
             self.failure = failed.group(2).strip()
 
@@ -362,11 +362,18 @@ def run(request: dict[str, Any], out_dir: Path, listener: Listener) -> dict[str,
         request["reverse_reference"],
     )
     (out_dir / "config.xml").write_text(config)
+    # Where 1.x's demultiplexing puts the sample's reads.
+    demultiplexed = out_dir / "input_demultiplexed"
     try:
         instance = run_scalehd(request, out_dir, listener)
+        if request["config"]["instance_flags"].get("demultiplex") == "True" and not any(
+            demultiplexed.glob("*")
+        ):
+            listener.errors.append("demultiplexing (batchadapt) wrote no reads")
     finally:
-        # Only the copy made above (1.x keeps its own trimmed reads).
+        # Only the copies made above and by demultiplexing (1.x keeps its own trimmed reads).
         shutil.rmtree(str(data_dir), ignore_errors=True)
+        shutil.rmtree(str(demultiplexed), ignore_errors=True)
     found = outcome(instance, listener)
     found["sample"] = to_json(found["sample"])
     found["instance_report"] = _text(out_dir / JOB_NAME / "InstanceReport.csv")
@@ -428,7 +435,7 @@ def main(argv: list[str] | None = None) -> int:
     environment = legacy_environment(dict(os.environ), request["threads"])
     os.environ.clear()
     os.environ.update(environment)
-    listener = Listener(request["label"], _take_stdout())
+    listener = Listener(_take_stdout())
     started = time.monotonic()
     try:
         found = run(request, out_dir, listener)

@@ -1,6 +1,7 @@
 """Automated process to confirm the legacy wrapper gets the same exact output as ScaleHD 1.x does
 on its own, for simulated samples. First go is all as a batch via CLI ScaleHD. Then, run one
 at a time through the wrapper (as would happen when called by the web frontend).
+All of it runs two times, once with demultiplexing and once without.
 
     python apps/legacy-runner/parity.py [--work DIR]
 """
@@ -80,6 +81,14 @@ CONFIG = {
     },
     "prediction_flags": {"snp_observation_threshold": "2", "quality_cutoff": "0"},
 }
+DEMULTIPLEXING = {
+    **CONFIG,
+    "instance_flags": {**CONFIG["instance_flags"], "demultiplex": "True"},
+}
+CONFIGS = {
+    "documented": ("1.x's documented settings", CONFIG),
+    "demultiplexing": ("the same, demultiplexing first", DEMULTIPLEXING),
+}
 
 
 def simulate_samples(folder: Path) -> dict[str, tuple[Path, Path]]:
@@ -94,18 +103,20 @@ def simulate_samples(folder: Path) -> dict[str, tuple[Path, Path]]:
     return reads
 
 
-def run_batch(reads: dict[str, tuple[Path, Path]], work: Path) -> Path:
+def run_batch(
+    reads: dict[str, tuple[Path, Path]], config: dict[str, dict[str, str]], work: Path
+) -> Path:
     """Run ScaleHD 1.x as if on CLI"""
     data = work / "data"
     data.mkdir(parents=True)
     for r1, r2 in reads.values():
         shutil.copy(r1, data)
         shutil.copy(r2, data)
-    config = work / "config.xml"
+    config_file = work / "config.xml"
     references = LEGACY_ROOT / "references"
-    config.write_text(
+    config_file.write_text(
         runner.config_xml(
-            CONFIG,
+            config,
             str(data),
             str(references / runner.FORWARD_REFERENCE),
             str(references / runner.REVERSE_REFERENCE),
@@ -115,7 +126,7 @@ def run_batch(reads: dict[str, tuple[Path, Path]], work: Path) -> Path:
     env = {**os.environ, "PATH": ":".join([*paths, os.environ["PATH"]])}
     with open(work / "batch.log", "w") as log:
         subprocess.run(
-            [str(SCALEHD_1X), "-v", "-c", str(config), "-o", str(work), "-j", "batch"],
+            [str(SCALEHD_1X), "-v", "-c", str(config_file), "-o", str(work), "-j", "batch"],
             env=env,
             stdin=subprocess.DEVNULL,
             stdout=log,
@@ -125,11 +136,13 @@ def run_batch(reads: dict[str, tuple[Path, Path]], work: Path) -> Path:
     return work / "batch"
 
 
-def run_sample(label: str, r1: Path, r2: Path, threads: int, work: Path) -> dict[str, Any]:
+def run_sample(
+    label: str, r1: Path, r2: Path, config: dict[str, dict[str, str]], threads: int, work: Path
+) -> dict[str, Any]:
     request = work / f"{label}.request.json"
     request.write_text(
         json.dumps(
-            {"label": label, "r1": str(r1), "r2": str(r2), "threads": threads, "config": CONFIG}
+            {"label": label, "r1": str(r1), "r2": str(r2), "threads": threads, "config": config}
         )
     )
     out = work / label
@@ -185,12 +198,29 @@ def main() -> int:
     args = parser.parse_args()
     work = args.work or Path(tempfile.mkdtemp(prefix="legacy-parity-"))
     work.mkdir(parents=True, exist_ok=True)
-    many = max(3, os.cpu_count() or 1)
 
     print(f"Simulating {len(SAMPLES)} samples in {work}", flush=True)
     reads = simulate_samples(work / "reads")
+    failures = []
+    for folder, (title, config) in CONFIGS.items():
+        print(f"\nWith {title}", flush=True)
+        failures += [f"{folder}, {failure}" for failure in check(reads, config, work / folder)]
+
+    print()
+    for failure in failures:
+        print(failure)
+    print("Parity! yay!" if not failures else f"{len(failures)} differences.")
+    return 1 if failures else 0
+
+
+def check(
+    reads: dict[str, tuple[Path, Path]], config: dict[str, dict[str, str]], work: Path
+) -> list[str]:
+    """Runs the samples as a batch and through the runner, prints how each went, and returns
+    what differed."""
+    many = max(3, os.cpu_count() or 1)
     print("ScaleHD 1.x on its own, as one batch", flush=True)
-    batch = run_batch(reads, work / "batch")
+    batch = run_batch(reads, config, work / "batch")
     batch_report = rows((batch / "InstanceReport.csv").read_text())
     batch_distributions = rows((batch / "AlignedDistributions.csv").read_text())
 
@@ -198,14 +228,15 @@ def main() -> int:
     (work / "one").mkdir()
     with ThreadPoolExecutor(len(SAMPLES)) as pool:
         running = {
-            label: pool.submit(run_sample, label, *pair, 1, work / "one")
+            label: pool.submit(run_sample, label, *pair, config, 1, work / "one")
             for label, pair in reads.items()
         }
         one = {label: future.result() for label, future in running.items()}
     print(f"The runner w/ one sample at a time, {many} threads each", flush=True)
     (work / "many").mkdir()
     several = {
-        label: run_sample(label, *pair, many, work / "many") for label, pair in reads.items()
+        label: run_sample(label, *pair, config, many, work / "many")
+        for label, pair in reads.items()
     }
 
     failures = []
@@ -213,15 +244,17 @@ def main() -> int:
     print(f"{'sample':<12} {'simulated':<24} {'1.x genotype':<24} {'status':<16} parity")
     for label, (alleles, _) in SAMPLES.items():
         result = one[label]
+        sample = result["sample"] or {}
+        # 1.x's name for the sample, DMPX_<label> once demultiplexed.
+        name = sample.get("label", label)
         problems = []
-        if rows(result["instance_report"]) != {label: batch_report.get(label)}:
+        if rows(result["instance_report"]) != {name: batch_report.get(name)}:
             problems.append("InstanceReport row differs from the batch")
-        if rows(result["aligned_distributions"]).get(label) != batch_distributions.get(label):
+        if rows(result["aligned_distributions"]).get(name) != batch_distributions.get(name):
             problems.append("AlignedDistributions rows differ from the batch")
         changed = differences(result, several[label])
         if changed:
             problems.append(f"{len(changed)} values differ with {many} threads: {changed[:3]}")
-        sample = result["sample"] or {}
         genotype = "/".join(
             (sample.get(allele) or {}).get("allelegenotype") or "-"
             for allele in ("primaryallele", "secondaryallele")
@@ -233,12 +266,7 @@ def main() -> int:
         parity = "DIFFERS" if problems else "ok"
         print(f"{label:<12} {simulated:<24} {genotype:<24} {status:<16} {parity}")
         failures += [f"{label}: {problem}" for problem in problems]
-
-    print()
-    for failure in failures:
-        print(failure)
-    print("Parity! yay!" if not failures else f"{len(failures)} differences.")
-    return 1 if failures else 0
+    return failures
 
 
 if __name__ == "__main__":

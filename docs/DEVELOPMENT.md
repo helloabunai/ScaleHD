@@ -50,7 +50,7 @@ runs. `apps/legacy-runner/scalehd_legacy_run.py` (`scalehd-legacy-run` in the im
 on one sample and saves everything 1.x knew about the sample as JSON, so we can connect it to the new
 front-end. The docstring at the top says what goes in and what comes out. 
 To check it gets exactly what 1.x gets when run on its
-own (this builds the image first, then takes about 3 minutes):
+own, with and without demultiplexing (this builds the image first, then takes about 6 minutes):
 
 ```sh
 tools/legacy-parity.sh

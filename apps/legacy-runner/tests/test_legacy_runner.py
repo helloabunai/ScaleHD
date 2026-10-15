@@ -114,13 +114,20 @@ def test_a_reference_must_be_named_so_1x_can_use_it(
         {k: v for k, v in _config().items() if k != "trim_flags"},
         {**_config(), "extra_flags": {}},
         {**_config(), "trim_flags": {"quality_threshold": 5}},
-        {**_config(), "instance_flags": {"demultiplex": "True"}},
-        {**_config(), "instance_flags": {}},
     ],
 )
 def test_a_bad_config_is_refused(request_data: dict[str, Any], config: dict[str, Any]) -> None:
-    with pytest.raises(runner.RequestError, match=r"config|demultiplex"):
+    with pytest.raises(runner.RequestError, match="config"):
         runner.read_request({**request_data, "config": config})
+
+
+def test_1x_can_demultiplex_the_sample_itself(request_data: dict[str, Any]) -> None:
+    config = _config()
+    config["instance_flags"]["demultiplex"] = "True"
+
+    request = runner.read_request({**request_data, "config": config})
+
+    assert request["config"]["instance_flags"]["demultiplex"] == "True"
 
 
 def test_the_config_is_written_as_given_in_the_dtds_order() -> None:
@@ -202,9 +209,10 @@ def _log(colour: str, message: str) -> str:
 
 def test_the_listener_reports_stages_as_1x_logs_them() -> None:
     events = io.StringIO()
-    listener = runner.Listener("s1", events)
+    listener = runner.Listener(events)
     for colour, message in [
         (BOLD, "Indexing reference(s) before initialising sample pair cycle.."),
+        (BOLD, "Demultiplexing reads.. (this may take some time)"),
         (BOLD, "Processing sequence pair: 1/1 (s1)"),
         (YELLOW, "Executing sequence quality control workflow.."),
         (YELLOW, "Executing alignment workflow.."),
@@ -219,6 +227,7 @@ def test_the_listener_reports_stages_as_1x_logs_them() -> None:
     lines = [json.loads(line) for line in events.getvalue().splitlines()]
     assert [line["stage"] for line in lines] == [
         "indexing",
+        "demultiplexing",
         "quality_control",
         "alignment",
         "atypical_scanning",
@@ -231,7 +240,7 @@ def test_the_listener_reports_stages_as_1x_logs_them() -> None:
 
 
 def test_the_listener_keeps_why_the_sample_failed() -> None:
-    listener = runner.Listener("s1", None)
+    listener = runner.Listener(None)
     error = "<200 aligned reads in Allele #1. Data un-usable."
     listener.heard(logging.INFO, _log(RED, f"Atypical scanning failure on s1: {error}\n"))
     listener.heard(logging.INFO, _log(RED, "Genotyping failure on s1: later"))
@@ -239,8 +248,15 @@ def test_the_listener_keeps_why_the_sample_failed() -> None:
     assert listener.failure == error
 
 
+def test_the_listener_knows_a_demultiplexed_sample() -> None:
+    listener = runner.Listener(None)
+    listener.heard(logging.INFO, _log(RED, "Alignment failure on DMPX_s1: no reads\n"))
+
+    assert listener.failure == "no reads"
+
+
 def test_the_listener_keeps_1xs_errors() -> None:
-    listener = runner.Listener("s1", None)
+    listener = runner.Listener(None)
     dtd = "DTD validation failure /out/config.xml: No declaration for attribute adapter"
     listener.heard(logging.ERROR, dtd)
     listener.heard(logging.ERROR, _log(RED, "XML Config: Failure, exiting."))
@@ -251,7 +267,7 @@ def test_the_listener_keeps_1xs_errors() -> None:
 
 def test_the_listener_hears_1xs_logging() -> None:
     events = io.StringIO()
-    listener = runner.Listener("s1", events)
+    listener = runner.Listener(events)
     logger = logging.getLogger("test_legacy_runner")
     logger.addHandler(listener)
     try:
@@ -342,7 +358,7 @@ class FailedSample(Sample):
 
 
 def test_a_complete_sample() -> None:
-    found = runner.outcome(Instance([Sample()]), runner.Listener("s1", None))
+    found = runner.outcome(Instance([Sample()]), runner.Listener(None))
 
     assert found["status"] == "complete"
     assert found["failed_stage"] is None
@@ -350,7 +366,7 @@ def test_a_complete_sample() -> None:
 
 
 def test_a_sample_1x_could_not_finish() -> None:
-    listener = runner.Listener("s1", None)
+    listener = runner.Listener(None)
     listener.heard(logging.INFO, _log(RED, "Atypical scanning failure on s1: too few reads"))
 
     found = runner.outcome(Instance([FailedSample()]), listener)
@@ -361,7 +377,7 @@ def test_a_sample_1x_could_not_finish() -> None:
 
 
 def test_1x_stopping_before_the_sample() -> None:
-    listener = runner.Listener("s1", None)
+    listener = runner.Listener(None)
     listener.heard(logging.CRITICAL, _log(RED, "Missing binary: freebayes!"))
     listener.heard(logging.ERROR, _log(RED, "Detected missing library from system/$PATH."))
 
@@ -372,6 +388,26 @@ def test_1x_stopping_before_the_sample() -> None:
         assert found["error"] == (
             "Missing binary: freebayes!; Detected missing library from system/$PATH."
         )
+
+
+def test_demultiplexing_that_wrote_nothing_is_said_so(
+    request_data: dict[str, Any], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _config()
+    config["instance_flags"]["demultiplex"] = "True"
+    request = runner.read_request({**request_data, "config": config})
+    out = runner.prepare_out_dir(tmp_path / "out")
+
+    def run_scalehd(request: dict[str, Any], out_dir: Path, listener: Any) -> None:
+        # As 1.x does when batchadapt fails i.e. an empty folder, and no samples.
+        (out_dir / "input_demultiplexed").mkdir()
+
+    monkeypatch.setattr(runner, "run_scalehd", run_scalehd)
+    found = runner.run(request, out, runner.Listener(None))
+
+    assert found["status"] == "failed"
+    assert found["error"] == "demultiplexing (batchadapt) wrote no reads"
+    assert sorted(path.name for path in out.iterdir()) == ["config.xml"]
 
 
 def test_versions_say_where_1x_came_from(tmp_path: Path) -> None:
