@@ -38,7 +38,7 @@ flowchart TB
 
             subgraph legacy["ScaleHD 1.x, /opt/legacy"]
                 runner["scalehd-legacy-run<br/>runs 1.x on one sample"]
-                old["ScaleHD 1.1<br/>Python 3.8"]
+                old["ScaleHD 1.3<br/>Python 3.12"]
                 tools["bwa, samtools, seqtk,<br/>cutadapt, FastQC,<br/>freebayes, picard"]
             end
         end

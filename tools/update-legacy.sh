@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Replace legacy/ with ScaleHD 1.x as maintained upstream (MVLS-RSE), at one commit, unmodified.
+# Replace legacy/ with ScaleHD 1.x as maintained upstream (MoncktonLab), at one commit, unmodified.
 #
 #   tools/update-legacy.sh <commit>
 #
@@ -7,7 +7,7 @@
 # checked by apps/server/tests/test_legacy_snapshot.py so nothing in legacy/ is edited by hand).
 set -euo pipefail
 
-UPSTREAM=https://github.com/MVLS-RSE/ScaleHD
+UPSTREAM=https://github.com/MoncktonLab/ScaleHD
 COMMIT=${1:?usage: tools/update-legacy.sh <commit>}
 REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 LEGACY="$REPO_ROOT/legacy"
@@ -18,14 +18,26 @@ git clone --quiet "$UPSTREAM" "$work/upstream"
 full=$(git -C "$work/upstream" rev-parse --verify "$COMMIT^{commit}")
 date=$(git -C "$work/upstream" log -1 --format=%cs "$full")
 
-# Upstream keeps the package under src/. Here it sits at legacy/ directly, as before.
+# Upstream keeps the package under src/. Here it sits at legacy/ directly, as before. Its
+# tests (test/, the lab's ContinuousTesting/) come too, where that commit has them.
+paths=(src pytest.ini README.md)
+for optional in test ContinuousTesting; do
+    if git -C "$work/upstream" cat-file -e "$full:$optional" 2>/dev/null; then
+        paths+=("$optional")
+    fi
+done
 mkdir "$work/snapshot"
-git -C "$work/upstream" archive "$full" src test pytest.ini README.md | tar -x -C "$work/snapshot"
+git -C "$work/upstream" archive "$full" "${paths[@]}" | tar -x -C "$work/snapshot"
 rm -rf "$LEGACY"
 mkdir "$LEGACY"
 cp -a "$work/snapshot/src/." "$LEGACY/"
-cp -a "$work/snapshot/test" "$work/snapshot/pytest.ini" "$LEGACY/"
-cp -a "$work/snapshot/README.md" "$LEGACY/README.repo-root.md"
+for path in "${paths[@]:1}"; do
+    if [[ "$path" == README.md ]]; then
+        cp -a "$work/snapshot/README.md" "$LEGACY/README.repo-root.md"
+    else
+        cp -a "$work/snapshot/$path" "$LEGACY/"
+    fi
+done
 
 printf 'url=%s\ncommit=%s\ndate=%s\n' "$UPSTREAM" "$full" "$date" > "$LEGACY/UPSTREAM"
 (cd "$LEGACY" && find . -type f ! -name UPSTREAM ! -name UPSTREAM.sha256 -print0 \

@@ -6,11 +6,12 @@ PyVCF3==1.0.4
 fadapa==0.3.1
 generatr==1.0
 BatchAdapt==1.2
-progressbar2==4.5.0
-python-utils==3.8.2
-typing_extensions==4.13.2
-# cutadapt 1.18 is compiled manually in the build environment
-cutadapt==1.18
-xopen==2.0.2
-isal==1.7.2
-zlib-ng==0.5.1
+progressbar2==4.6.0
+python-utils==4.1.2
+typing_extensions==4.16.0
+cutadapt==4.9
+dnaio==1.2.4
+xopen==2.1.0
+isal==1.8.0
+zlib-ng==1.0.0
+backports.zstd==1.8.0

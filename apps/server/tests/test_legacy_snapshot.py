@@ -39,5 +39,5 @@ def test_nothing_is_added_to_or_missing_from_legacy() -> None:
 
 def test_legacy_says_where_it_came_from() -> None:
     upstream = dict(line.split("=", 1) for line in (LEGACY / "UPSTREAM").read_text().splitlines())
-    assert upstream["url"] == "https://github.com/MVLS-RSE/ScaleHD"
+    assert upstream["url"] == "https://github.com/MoncktonLab/ScaleHD"
     assert len(upstream["commit"]) == 40

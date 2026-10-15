@@ -96,6 +96,14 @@ If you do not have sudo access (to install requisite packages), you should run S
 
 5. Check that libxml2-dev and libxslt-dev are installed...
 
+
+ScaleHD (legacy) docker
+==============
+A Docker image containing third party dependencies and ScaleHD is available at https://hub.docker.com/repository/docker/mlwood1/scalehd/general
+```bash
+docker pull mlwood1/scalehd:v1.3
+```
+
 Usage
 =====
 General usage is as follows:

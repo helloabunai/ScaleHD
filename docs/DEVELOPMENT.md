@@ -41,16 +41,18 @@ tools/new-migration.sh "add a notes column to jobs"
 
 ### ScaleHD 1.x
 
-`legacy/` is ScaleHD 1.x as maintained upstream (github: MVLS-RSE), unmodified. A test checks each
+`legacy/` is ScaleHD 1.x as maintained upstream (github: MoncktonLab), unmodified. A test checks each
 file against `legacy/UPSTREAM.sha256`. `tools/update-legacy.sh <commit>` swaps in another
 upstream commit.
 
-The docker image has 1.x installed in `/opt/legacy`, with its own Python (3.8) and the binaries it
+The docker image has 1.x installed in `/opt/legacy`, with its own Python (3.12) and the binaries it
 runs. `apps/legacy-runner/scalehd_legacy_run.py` (`scalehd-legacy-run` in the image) runs it
 on one sample and saves everything 1.x knew about the sample as JSON, so we can connect it to the new
 front-end. The docstring at the top says what goes in and what comes out. 
 To check it gets exactly what 1.x gets when run on its
-own, with and without demultiplexing (this builds the image first, then takes about 6 minutes):
+own, with and without demultiplexing, and that the lab's own test sample
+(`legacy/ContinuousTesting`) gives the reports the lab expects (this builds the image
+first, then takes about 6 minutes):
 
 ```sh
 tools/legacy-parity.sh

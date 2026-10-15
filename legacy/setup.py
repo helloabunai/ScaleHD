@@ -8,12 +8,12 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 	long_description = f.read()
 
 ##
-## Begin the setup installation
+## Begin the setup installation 
 setup(
     name='ScaleHD',
 
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='1.1.0',
+    version='1.3.0',
 
     description='Automated DNA micro-satellite genotyping.',
     long_description=long_description,
@@ -74,20 +74,20 @@ setup(
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=['lxml',
-					  'numpy',
+					  'numpy==2.2.1',
 					  'seaborn',
 					  'matplotlib',
-					  'scikit-learn',
-					  'scipy',
+					  'scikit-learn==1.6.1',
+					  'scipy==1.15.1',
 					  'peakutils',
-                      'pandas',
-					  'pysam',
+					  'pandas',
+					  'pysam==0.22.1',
 					  'regex',
 					  'PyPDF2',
 					  'reportlab',
 					  'generatr==1.0',
 					  'batchadapt==1.2',  # 1.0 was yanked
-					  'cutadapt==1.18',
+					  'cutadapt==4.9',
 					  'PyVCF3',
 					  'fadapa',
 					  'pytest',

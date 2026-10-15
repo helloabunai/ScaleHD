@@ -1,7 +1,8 @@
 """Automated process to confirm the legacy wrapper gets the same exact output as ScaleHD 1.x does
 on its own, for simulated samples. First go is all as a batch via CLI ScaleHD. Then, run one
 at a time through the wrapper (as would happen when called by the web frontend).
-All of it runs two times, once with demultiplexing and once without.
+All of it runs two times, once with demultiplexing and once without. Also run legacy/ContinuousTesting
+sample file through to verify (same test file as from 1.3 legacy)
 
     python apps/legacy-runner/parity.py [--work DIR]
 """
@@ -9,6 +10,7 @@ All of it runs two times, once with demultiplexing and once without.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -18,6 +20,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
+from xml.etree import ElementTree
 
 import scalehd_legacy_run as runner
 from scalehd.simulate import SimAllele, SimulationSpec, simulate
@@ -26,6 +29,8 @@ from scalehd.structure import AlleleStructure
 LEGACY_ROOT = Path("/opt/legacy")
 RUNNER = LEGACY_ROOT / "bin" / "scalehd-legacy-run"
 SCALEHD_1X = LEGACY_ROOT / "python" / "bin" / "ScaleHD"
+# legacy/ContinuousTesting, mounted by tools/legacy-parity.sh.
+LAB_TEST = Path("/lab-test")
 
 # label: (alleles, read pairs)
 SAMPLES = {
@@ -206,11 +211,61 @@ def main() -> int:
         print(f"\nWith {title}", flush=True)
         failures += [f"{folder}, {failure}" for failure in check(reads, config, work / folder)]
 
+    if LAB_TEST.is_dir():
+        print("\nThe Monckton lab's own test sample", flush=True)
+        failures += [f"lab test, {failure}" for failure in check_lab_test(work / "lab-test")]
+    else:
+        print(f"\n{LAB_TEST} isn't there, so the lab's own test is left out")
+
     print()
     for failure in failures:
         print(failure)
     print("Parity! yay!" if not failures else f"{len(failures)} differences.")
     return 1 if failures else 0
+
+
+def check_lab_test(work: Path) -> list[str]:
+    """The lab's sample, configuration and references, run as their test runs 1.x (with -b):
+    the reports must match the lab's expected SHA-256s."""
+    config_file = LAB_TEST / "ConfigurationFile_MiSeq_runX.xml"
+    root = ElementTree.fromstring(config_file.read_text())
+    (r1,) = (LAB_TEST / "FastqFiles").glob("*_R1.fastq.gz")
+    request = {
+        # 1.x's name for the sample, from its files.
+        "label": r1.name.split(".")[0].removesuffix("_R1"),
+        "r1": str(r1),
+        "r2": str(r1.with_name(r1.name.replace("_R1", "_R2"))),
+        "forward_reference": str(
+            LAB_TEST / "References" / Path(root.attrib["forward_reference"]).name
+        ),
+        "reverse_reference": str(
+            LAB_TEST / "References" / Path(root.attrib["reverse_reference"]).name
+        ),
+        "threads": max(3, os.cpu_count() or 1),
+        "broadscope": True,
+        "config": {element.tag: dict(element.attrib) for element in root},
+    }
+    work.mkdir(parents=True)
+    (work / "request.json").write_text(json.dumps(request))
+    with open(work / "runner.log", "w") as log:
+        subprocess.run(
+            [str(RUNNER), str(work / "request.json"), str(work / "out")],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=log,
+        )
+    expected = dict(
+        line.split(",")
+        for line in (LAB_TEST / "scalehd_test_expected_checksums.csv").read_text().split()
+    )
+    failures = []
+    for report, digest in expected.items():
+        path = work / "out" / runner.JOB_NAME / report
+        found = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
+        print(f"{report:<28} {'ok' if found == digest else 'DIFFERS'}")
+        if found != digest:
+            failures.append(f"{report} isn't what the lab expects")
+    return failures
 
 
 def check(

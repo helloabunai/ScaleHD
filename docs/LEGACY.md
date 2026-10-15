@@ -1,12 +1,14 @@
 # Legacy genotyping (ScaleHD 1.x)
 
 Pick "Legacy ScaleHD" as a job's genotyping method and each sample runs through
-ScaleHD 1.x itself, completely unchanged. Version 1.1 as maintained by MVLS-RSE (the copy in
-[`legacy/`](../legacy/), see `legacy/UPSTREAM`). A sample gets what 1.x would give it
-when run on its own, and `tools/legacy-parity.sh` checks that it does (see
-[DEVELOPMENT.md](DEVELOPMENT.md)).
+ScaleHD 1.x itself, completely unchanged. Version 1.3 as maintained by the Monckton lab
+(MoncktonLab on GitHub, the copy in [`legacy/`](../legacy/), see `legacy/UPSTREAM`), on the
+Python and libraries its `setup.py` pins. A sample gets what 1.x would give it when run on its
+own, and `tools/legacy-parity.sh` checks that it does (see [DEVELOPMENT.md](DEVELOPMENT.md)).
+That includes the lab's own test sample (`legacy/ContinuousTesting`), which gives exactly the
+reports the lab expects.
 
-1.x needs its own Python (3.8) and the programs it runs (bwa, samtools, cutadapt, FastQC,
+1.x needs its own Python (3.12) and the programs it runs (bwa, samtools, cutadapt, FastQC,
 seqtk, freebayes, picard), which is installed with the Docker image. If you run the new
 stack outside of docker, it will only offer the model based genotype calling.
 1.x also needs both read files of each sample, a job

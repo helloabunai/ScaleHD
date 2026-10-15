@@ -10,7 +10,7 @@
 **/node_modules
 apps/web/dist
 legacy/docs
-legacy/test
+legacy/ContinuousTesting
 scratch
 data
 input

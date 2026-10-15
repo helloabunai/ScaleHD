@@ -42,7 +42,7 @@ Around the code, this only:
   on frontend)
 - reads every get_* value from the sample and its two alleles afterwards
 
-Runs on 1.x's Python (3.8) as that is what was used in MVLS-RSE repository.
+Runs on 1.x's Python (3.12) as that is what the Monckton lab runs 1.3.0 on.
 """
 
 from __future__ import annotations
