@@ -1,7 +1,6 @@
+from setuptools import setup, find_packages
 from codecs import open
 from os import path
-
-from setuptools import find_packages, setup
 
 # Get the long description from the relevant file
 here = path.abspath(path.dirname(__file__))
@@ -14,12 +13,12 @@ setup(
     name='ScaleHD',
 
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='1.0',
+    version='1.1.0',
 
     description='Automated DNA micro-satellite genotyping.',
     long_description=long_description,
 	long_description_content_type='text/markdown',
-	python_requires='>=3.7',
+	python_requires='>=3.8',
     # The project's main homepage.
     url='https://github.com/helloabunai/ScaleHD',
 
@@ -49,7 +48,7 @@ setup(
 
 		# Specific version of the python interpreter that are supported
 		# by this package.
-        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
 
 		## And so on
         'Environment :: Console',
@@ -78,7 +77,7 @@ setup(
 					  'numpy',
 					  'seaborn',
 					  'matplotlib',
-					  'sklearn',
+					  'scikit-learn',
 					  'scipy',
 					  'peakutils',
                       'pandas',
@@ -87,9 +86,11 @@ setup(
 					  'PyPDF2',
 					  'reportlab',
 					  'generatr==1.0',
-					  'batchadapt==1.0',
-					  'pyvcf',
-					  'fadapa'
+					  'batchadapt==1.2',  # 1.0 was yanked
+					  'cutadapt==1.18',
+					  'PyVCF3',
+					  'fadapa',
+					  'pytest',
 					  ],
 
     # These are the data files to be included in the package

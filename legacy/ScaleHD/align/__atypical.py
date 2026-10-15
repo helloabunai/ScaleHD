@@ -1,23 +1,20 @@
 
 ##
 ##Imports
-import difflib
-import logging as log
-import multiprocessing
 import os
 import re
-import subprocess
-from collections import Counter
-from operator import itemgetter
-
-import numpy as np
-import pysam
 import regex
-
-from ..__allelecontainer import IndividualAllele
+import pysam
+import difflib
+import subprocess
+import numpy as np
+import logging as log
+import multiprocessing
+from operator import itemgetter
+from collections import Counter
 from ..__backend import Colour as clr
 from ..seq_qc.__quality_control import THREADS
-
+from ..__allelecontainer import IndividualAllele
 
 ## required for worker thread
 ## (can't serialise class-bound methods)
@@ -269,7 +266,9 @@ def scan_reference_reads(current_iterator):
 							'EstimatedCCT': est_cct,
 							'InterveningSequence': common_intervening[0][0]}
 
-	if atypical_count > typical_count or est_cct != 2:
+	if atypical_count > typical_count:
+		reference_dictionary['Status'] = 'Atypical'
+	elif est_cct != 2:
 		reference_dictionary['Status'] = 'Atypical'
 	else:
 		reference_dictionary['Status'] = 'Typical'
@@ -951,9 +950,9 @@ class ScanAtypical:
 		##Easy checks##
 		###############
 		for count in [int_one['Count'], int_two['Count']]:
-			if int(count) not in [0,1,2]:
+			if not int(count) in [0,1,2]:
 				self.sequencepair_object.set_novel_atypical_structure(True)
-		if int(input_reference['EstimatedCCT']) not in [0,1,2,3]:
+		if not int(input_reference['EstimatedCCT']) in [0,1,2,3]:
 			self.sequencepair_object.set_novel_atypical_structure(True)
 		if input_reference['Status'] == 'Typical' and (caacag_count != 1 or ccgcca_count != 1):
 			caacag_count = 1; ccgcca_count = 1

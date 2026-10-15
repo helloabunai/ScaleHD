@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # ScaleHD documentation build configuration file, created by
 # sphinx-quickstart on Thu Feb  1 12:04:17 2018.

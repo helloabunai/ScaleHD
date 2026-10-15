@@ -1,11 +1,6 @@
 from .sherpa import *
-
-__all__ = [
-		   '__alleleface.py',
+__all__ = ['sherpa.py',
 		   '__backend.py',
+		   '__alleleface.py',
 		   '__init__.py',
-		   '__main__.py',
-		   'sherpa.py',
-]
-__author__='alastair.maxwell@glasgow.ac.uk'
-__version__='1.0'
+		   '__main__.py']

@@ -1,6 +1,5 @@
-import errno
 import os
-
+import errno
 
 class SequenceSample:
 	def __init__(self):

@@ -1,5 +1,12 @@
 .. _sect_changelog:
 
+Version 1.1.0
+-------------
+
+* Upgrade to Python 3.8
+* Initial wave of integration and unit tests using pytest
+* Implement Continuous integration using GitHub Actions workflow. Build and run linting and tests to succeed. Triggered by PR/Push to master or monthly cron.
+
 Version 1.0
 -----------
 

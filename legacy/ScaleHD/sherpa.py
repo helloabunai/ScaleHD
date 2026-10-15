@@ -1,10 +1,9 @@
 #/usr/bin/python
-__version__ = '1.0'
-__author__ = 'alastair.maxwell@glasgow.ac.uk'
 
 ##
 ## Python libraries
 import os
+import io
 import gc
 import sys
 import PyPDF2
@@ -16,6 +15,7 @@ from shutil import rmtree
 from shutil import copyfile
 from reportlab.pdfgen import canvas
 from multiprocessing import cpu_count
+from importlib.metadata import version
 
 ##
 ## Backend junk
@@ -34,7 +34,10 @@ import warnings; warnings.simplefilter("ignore") ## lazy
 
 ##
 ## Package stages
-from . import align, genHTML, predict, seq_qc
+from . import seq_qc
+from . import align
+from . import predict
+from . import genHTML
 
 ##
 ## Globals
@@ -95,8 +98,8 @@ class ScaleHD:
 			if sys.version_info[2] > 6:
 				pass
 			if sys.version_info[2] < 6:
-				current_user_version = f'{sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}'
-				log.error('{}{}{}{}{}.'.format(clr.red, 'shd__ ', clr.end, 'ScaleHD requires python3 3.7.6 or later!'
+				current_user_version = '{}.{}.{}'.format(sys.version_info[0], sys.version_info[1], sys.version_info[2])
+				log.error('{}{}{}{}{}.'.format(clr.red, 'shd__ ', clr.end, 'ScaleHD requires python version 3.8 or later!'
 																		   ' You are using: ', current_user_version))
 				sys.exit(2)
 
@@ -472,10 +475,10 @@ class ScaleHD:
 
 		##
 		## Merge sample summary PDF with instance-wide PDF
-		merger = PyPDF2.PdfFileMerger()
+		merger = PyPDF2.PdfMerger()
 		for filename in [self.instance_graphs, sample_pdf_path]:
 			with open(filename, 'rb') as outfi:
-				merger.append(PyPDF2.PdfFileReader(outfi))
+				merger.append(PyPDF2.PdfReader(outfi))
 		merger.write(instance_path)
 
 	def append_report(self, sequencepair_object):
@@ -504,7 +507,7 @@ class ScaleHD:
 						func_output += 'FAIL'
 				else:
 					func_output = ' '
-				rep_str += f'{func_output},'
+				rep_str += '{},'.format(func_output)
 			return rep_str
 
 		unparsed_info = [[sequencepair_object, 'get_label'], ['NULL', 'NULL'], [primary_allele, 'get_reflabel'],
@@ -538,7 +541,7 @@ class ScaleHD:
 			with open(self.instance_results, 'a') as outfi:
 				outfi.write(report_string)
 				outfi.close()
-		except OSError:
+		except IOError:
 			from os.path import expanduser; home = expanduser("~")
 			log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'InstanceReport.csv resource LOCKED. Open in excel?'))
 			log.info('{}{}{}{}{}'.format(clr.yellow, 'shd__ ', clr.end, 'Cannot write while locked. Writing to: ', home))
@@ -557,7 +560,7 @@ class ScaleHD:
 				with open(self.simplified_results, 'a') as outfi:
 					outfi.write(simple_string)
 					outfi.close()
-			except OSError:
+			except IOError:
 				from os.path import expanduser; home = expanduser("~")
 				log.error('{}{}{}{}'.format(clr.red, 'shd__ ', clr.end, 'InstanceReport.csv resource LOCKED. Open in excel?'))
 				log.info('{}{}{}{}{}'.format(clr.yellow, 'shd__ ', clr.end, 'Cannot write while locked. Writing to: ', home))
@@ -571,7 +574,7 @@ class ScaleHD:
 		log.info('{}{}{}{}'.format(clr.green, 'shd__ ', clr.end, 'Generating HTML results output..'))
 		## Pass to subpackge to take data and format into HTML templates
 		genHTML.genHTML(scalehdResults = self.instance_objects,
-		 shdVersion = __version__,
+		 shdVersion = version(__package__),
 		 jobLabel=self.instance_params.config_dict['JobName'],
 		 outputPath=self.instance_params.config_dict['HTMLPath'])
 
