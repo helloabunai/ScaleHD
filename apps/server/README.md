@@ -64,25 +64,29 @@ for now. For adding a migration, see `docs/DEVELOPMENT.md`.
 
 ### Genotyping method
 
-We plan to allow users to pick between the legacy genotyping method used in ScaleHD 1.x and a newer genotyping approach which may or may not be better, or worse! you're welcome!
+Users pick between the legacy genotyping method used in ScaleHD 1.x and a newer genotyping approach which may or may not be better, or worse! you're welcome!
 
 Each job runs one of two methods (`JobSettings.method`):
 
-- `legacy`: ScaleHD 1.x, aligning reads to a user provided reference library, then use the 1.x genotyper. Not runnable yet: it still has to be
-  extracted from `legacy/`, alignment included. Until then, jobs using it are refused when submitted ("legacy genotyping is not available yet").
+- `legacy`: ScaleHD 1.x itself, unchanged, run on each sample by the legacy-runner in the
+  Docker image (`legacy.py` here, `apps/legacy-runner/`, `docs/LEGACY.md`). Its settings are
+  `JobSettings.legacy` aka 1.x's configuration XML, and the cores each sample gets. Offered only
+  where the runner is installed (`ServerSettings.legacy_runner`).
 - `model`: reads the repeat structure straight from each read, then the model-based
   caller. Shown in the web interface as "New (model-based)", marked Beta. The default
-  for users until legacy can run (no idea when this will be done).
+  for new users.
 
 `GET`/`PUT /api/settings` hold each user's default (stored in `users.default_settings`).
 A new job uses its own `settings` if given, otherwise the user's default.
-`RUNNABLE_METHODS` in `worker.py` lists what jobs can use.
+`GET /api/settings/options` says which methods this server can run, its cores, and 1.x's
+documented settings. `GET /api/jobs/{id}/legacy/InstanceReport.csv` (or
+`AlignedDistributions.csv`) is 1.x's own report for a legacy job.
 
 ### Simple job demo
 
 Basically written just to test the end to end/API functionality.
 
-Gets some simulated data from the simulator and runs the new genotyping (only one that exists at the moment) model with data reported back to the frontend.
+Gets some simulated data from the simulator and runs it with the user's default genotyping method (the model, where the server can't run legacy), with data reported back to the frontend.
 
 | module | what | state |
 |---|---|---|
@@ -91,7 +95,8 @@ Gets some simulated data from the simulator and runs the new genotyping (only on
 | `db.py`, `models.py` | SQLAlchemy engine, sessions; users, login sessions, jobs, samples, tags tables | works |
 | `migrate.py`, `migrations/` | alembic migrations to create/update DB | works |
 | `schemas.py` | API request and response bodies, job settings → `CallerSettings` | works |
-| `runner.py`, `worker.py` | the job runner (queue, worker pool, recording) and one sample's work | works |
+| `runner.py`, `worker.py` | the job runner (queue, cores, worker pool, recording) and one sample's work | works |
+| `legacy.py` | a sample through ScaleHD 1.x (the legacy runner), and reading what 1.x saved | works |
 | `progress.py` | sample progress monitoring | works |
 | `workspace.py` | job folders and `job.json` in the workspace | works |
 | `export.py` | a job's results as CSV, and the validation export | works |

@@ -62,7 +62,7 @@ tools/legacy-parity.sh
 packages/core/        scalehd: pure-Python library and CLI (no web or DB dependencies)
   src/scalehd/        structure, amplicon, parse, pairs, counts, calibration,
                       simulate, seqio, cli
-    genotype/         model/ (the model-based caller), legacy/ (ScaleHD 1.x, not yet implemented)
+    genotype/         model/ (the model-based caller), legacy/ (a placeholder: 1.x runs as itself)
   tests/              unit, property-based and end-to-end tests
   benchmarks/         accuracy on simulated data and the legacy labelled matrix
 apps/server/          scalehd-server: FastAPI, job runner, SQLite database

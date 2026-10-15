@@ -1,7 +1,7 @@
 # ScaleHD
 
 > [!WARNING] 
-> I'm re-writing ScaleHD as a hobby project. If you are looking for the original ScaleHD, it's either been forked by others, or check the legacy folder within the repository. Eventually the legacy genotyping method will be usable from the web interface within this version of ScaleHD.
+> I'm re-writing ScaleHD as a hobby project. If you are looking for the original ScaleHD, it's either been forked by others, or check the legacy folder within the repository. The legacy genotyping method (ScaleHD 1.x itself, unchanged) can also be picked for jobs in the web interface of this version, see [docs/LEGACY.md](docs/LEGACY.md).
 
 Genotyping of the Huntington disease *HTT* CAG/CCG repeat from paired-end amplicon
 sequencing. This is a ground-up rewrite. The previous ScaleHD implementation
@@ -17,7 +17,7 @@ anymore so this is mostly just a hobby project that may or may not go anywhere.
 Everything runs in one Docker image. The web interface talks to the server's API, the
 server hands each sample to a worker process, and results go to the workspace folder on
 the host. ScaleHD 1.x sits in `/opt/legacy` within the container, with its own Python (and the binaries it needs).
-Once it's connected to the front-end, it will run one sample at a time through `scalehd-legacy-run`.
+For a legacy job, a worker runs it on each sample through `scalehd-legacy-run`.
 
 ```mermaid
 flowchart TB
@@ -49,7 +49,7 @@ flowchart TB
     server <--> volume
     server --> workers
     workers --> core
-    workers -.->|"legacy method<br/>(not connected yet)"| runner
+    workers -->|"legacy method"| runner
     runner --> old
     old --> tools
     data -->|"FASTQ"| workers
@@ -120,6 +120,8 @@ Read more documentation in the following:
 - [Using real FASTQ files](docs/USING-FASTQ.md): what the input should look like, one sample
   or a batch, reading the result, checking the results, etc
 - [What's different](docs/WHATS-DIFFERENT.md): how this rewrite differs from ScaleHD 1.x
+- [Legacy genotyping](docs/LEGACY.md): running ScaleHD 1.x itself from the web interface, its
+  settings, etc
 - [The genotyping model](docs/MODEL.md): the statistical model behind the new model-based
   genotyping, its equations, assumptions and how a call's confidence is calculated.
 - [Validation export](docs/VALIDATION-EXPORT.md): for checking the model vs real data that can't 

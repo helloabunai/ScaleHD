@@ -27,8 +27,8 @@ will get things wrong when presented with real data, but the structure exists so
 to the statistical model in the future will be straight forward.
 
 Comparisons between ScaleHD 1.x and this version are thus a concern for scientific reproducability and as
-a result I will eventually incorporate the exact same code/algorithm that ScaleHD 1.x uses for genotyping.
-Users will be able to choose which genotyping approach they want to use when configuring a job to be run.
+a result the exact same code that ScaleHD 1.x uses for genotyping is included: ScaleHD 1.x itself, unchanged.
+Users choose which genotyping approach they want to use when configuring a job to be run (see [LEGACY.md](LEGACY.md)).
 
 This re-write, or ScaleHD 2, or whatever this is called, reads the repeat structure straight
 from each read instead:

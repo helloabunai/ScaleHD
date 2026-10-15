@@ -17,7 +17,7 @@ What has been implemented so far:
   and a light/dark setting per account. Any admin can promote regular users to have admin rights,
   and set a new password for a user who has forgotten theirs (which logs them out everywhere).
 - "Run demo" on the home page genotypes thirteen simulated samples with known
-  genotypes, end to end, with the model-based caller.
+  genotypes, end to end, with your default genotyping method.
 - Jobs: launch genotyping jobs. Browse running jobs (and progress), and previous jobs
   with their genotyping results / analysis flags. Cancel a job which you started. Samples not
   yet started don't continue after cancellation, those running finish. Jobs cancelled can also be deleted.
@@ -31,7 +31,10 @@ What has been implemented so far:
   InstanceReport.csv). Or the [validation export](VALIDATION-EXPORT.md), no sample names or
   file paths, plus what checking and re-tuning/development the model needs.
 - Settings: the default genotyping method and thresholds new jobs start with. Only basic settings
-  present for now.
+  present for now for the model. For legacy (ScaleHD 1.x), every setting of 1.x's configuration
+  XML and the cores each sample gets (see [LEGACY.md](LEGACY.md)).
+- Legacy jobs: each stage of 1.x as it runs, a results page per sample from what 1.x knew about it,
+  and 1.x's own InstanceReport.csv and AlignedDistributions.csv for the job.
 
 Not yet: PDF reports. API docs are at `/api/docs`. See
 [`apps/server/README.md`](../apps/server/README.md) for what is real and what's a stub.

@@ -82,8 +82,10 @@ them alone.
 
 Most settings are work in progress and/or missing.
 
-- Of the genotyping methods (Settings page, and per job), Legacy (ScaleHD 1.x) is not
-  available yet and New (model-based) is a beta. The demo always uses New.
+- Of the genotyping methods (Settings page, and per job), Legacy runs ScaleHD 1.x itself
+  (see [LEGACY.md](LEGACY.md)) and New (model-based) is a beta. The demo uses your default.
+- `SCALEHD_WORKERS` sets the cores for running samples (all of them by default). A legacy job
+  shares them out by its cores per sample.
 - The flag thresholds and the other job settings are not implemented or don't exist yet so ignore those.
 
 4. Start it
