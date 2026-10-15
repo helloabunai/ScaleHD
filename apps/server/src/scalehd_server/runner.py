@@ -1,8 +1,10 @@
 """Hands samples to worker processes and records what comes back.
 
-One first-come, first-served queue of samples across all jobs. At most ``workers``
-samples are with the pool at once, and only those are marked running. Each result is
-saved as its sample finishes. Only this process writes the database.
+One first-come, first-served queue of samples across all jobs. Samples share ``workers``
+cores. A legacy job's sample takes its (user settings) cores per sample. A sample
+waits at the front of the queue until enough are free. Only samples with the pool are
+marked running. Each result is saved as its sample finishes. Only this process writes the
+database.
 """
 
 from __future__ import annotations
@@ -15,15 +17,16 @@ from concurrent.futures import CancelledError, Executor, Future, ProcessPoolExec
 from concurrent.futures.process import BrokenProcessPool
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import Depends, Request
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
+from .legacy import LegacyError
 from .models import Job, JobStatus, Sample, SampleStatus
 from .progress import clear_progress
-from .schemas import JobSettings
+from .schemas import GenotypeMethod, JobSettings
 from .worker import SampleResult, SampleTask, run_task
 from .workspace import sample_folders
 
@@ -45,14 +48,16 @@ class JobRunner:
         sessions: sessionmaker[Session],
         workers: int,
         executor_factory: ExecutorFactory = process_pool,
+        legacy_runner: Path | None = None,
     ) -> None:
         self._sessions = sessions
         self._workers = workers
         self._executor_factory = executor_factory
+        self._legacy_runner = legacy_runner
         self._pool: Executor | None = None
         self._queue: deque[int] = deque()
-        # Pooled samples and if a lock is present.
-        self._handed_out: dict[Future[SampleResult], tuple[int, Executor]] = {}
+        # pooled sample id, pool and core(s).
+        self._handed_out: dict[Future[SampleResult], tuple[int, Executor, int]] = {}
         self._lock = threading.RLock()
         self._stopped = False
 
@@ -130,13 +135,17 @@ class JobRunner:
 
     def _fill(self) -> None:
         with self._lock:
-            while not self._stopped and self._queue and len(self._handed_out) < self._workers:
-                task = self._start_sample(self._queue.popleft())
+            while not self._stopped and self._queue:
+                busy = sum(cores for _, _, cores in self._handed_out.values())
+                task = self._start_sample(self._queue[0], self._workers - busy)
+                if task == "wait":
+                    break
+                self._queue.popleft()
                 if task is None:
                     continue
                 pool = self._executor()
                 future = pool.submit(run_task, task)
-                self._handed_out[future] = (task.sample_id, pool)
+                self._handed_out[future] = (task.sample_id, pool, task.threads)
                 future.add_done_callback(self._finished_soon)
 
     def _finished_soon(self, future: Future[SampleResult]) -> None:
@@ -147,7 +156,7 @@ class JobRunner:
             entry = self._handed_out.pop(future, None)
             if entry is None or self._stopped:
                 return
-            sample_id, pool = entry
+            sample_id, pool, _ = entry
             result: SampleResult | None = None
             error: str | None = None
             try:
@@ -157,18 +166,26 @@ class JobRunner:
             except BrokenProcessPool:
                 error = "worker process crashed"
                 self._discard(pool)
+            except LegacyError as exc:
+                # Already says it was ScaleHD 1.x, and where it failed.
+                error = str(exc)
             except Exception as exc:
                 error = f"{type(exc).__name__}: {exc}"
             self._record(sample_id, result, error)
         self._fill()
 
-    def _start_sample(self, sample_id: int) -> SampleTask | None:
-        """Mark a queued sample running (and its job, if first) and describe it."""
+    def _start_sample(self, sample_id: int, free: int) -> SampleTask | Literal["wait"] | None:
+        """Mark a queued sample running (and its job, if first) and describe it. "wait" if
+        it needs more cores than are free, None if it isn't queued any more."""
         with self._sessions() as session:
             sample = session.get(Sample, sample_id)
             if sample is None or sample.status != SampleStatus.QUEUED:
                 return None
             job = sample.job
+            settings = JobSettings.model_validate(job.settings)
+            threads = self._cores(settings)
+            if threads > free:
+                return "wait"
             sample.status = SampleStatus.RUNNING
             if job.status == JobStatus.QUEUED:
                 job.status, job.started_at = JobStatus.RUNNING, datetime.now(UTC)
@@ -179,14 +196,22 @@ class JobRunner:
                 sample_id=sample.id,
                 name=sample.name,
                 folder=folder,
-                settings=JobSettings.model_validate(job.settings),
+                settings=settings,
                 r1=Path(sample.r1) if sample.r1 else None,
                 r2=Path(sample.r2) if sample.r2 else None,
                 simulation=sample.simulation,
                 truth=sample.truth,
+                threads=threads,
+                legacy_runner=self._legacy_runner,
             )
             session.commit()
             return task
+
+    def _cores(self, settings: JobSettings) -> int:
+        """Cores for one of a job's samples"""
+        if settings.method is GenotypeMethod.LEGACY and settings.legacy is not None:
+            return min(settings.legacy.cores_per_sample, self._workers)
+        return 1
 
     def _record(self, sample_id: int, result: SampleResult | None, error: str | None) -> None:
         with self._sessions() as session:

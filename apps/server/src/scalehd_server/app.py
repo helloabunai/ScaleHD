@@ -44,7 +44,8 @@ def create_app(
         migrate(settings.database)
         engine = make_engine(settings.database)
         sessions = sessionmaker(engine)
-        runner = JobRunner(sessions, settings.workers, executor_factory)
+        legacy_runner = settings.legacy_runner if settings.legacy_available else None
+        runner = JobRunner(sessions, settings.workers, executor_factory, legacy_runner)
         runner.start()
         app.state.settings = settings
         app.state.sessions = sessions
