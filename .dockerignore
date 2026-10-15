@@ -9,7 +9,8 @@
 .hypothesis
 **/node_modules
 apps/web/dist
-legacy
+legacy/docs
+legacy/test
 scratch
 data
 input
