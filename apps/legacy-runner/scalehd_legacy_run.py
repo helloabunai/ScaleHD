@@ -35,7 +35,8 @@ Around the code, this only:
 - sets the THREADS that three 1.x modules copy at import to the request's threads, where
   1.x would use every core on the machine
 - skips the HTML report 1.x writes at the end (cos got web frontend now)
-- listens to 1.x's log for each stage starting and for failure messages (for stage reporting on frontend)
+- listens to 1.x's log for each stage starting and for failure messages (for stage reporting
+  on frontend)
 - reads every get_* value from the sample and its two alleles afterwards
 
 Runs on 1.x's Python (3.8) as that is what was used in MVLS-RSE repository.
@@ -151,7 +152,8 @@ def _read_config(config: Any) -> dict[str, dict[str, str]]:
             raise RequestError(f"config's {element} must map attribute names to strings")
     if config["instance_flags"].get("demultiplex") != "False":
         raise RequestError(
-            'demultiplex must be "False". Demultiplexing is done for the whole job as a separate stage (WIP).'
+            'demultiplex must be "False". Demultiplexing is done for the whole job as a '
+            "separate stage (WIP)."
         )
     return {element: dict(config[element]) for element in ELEMENTS}
 

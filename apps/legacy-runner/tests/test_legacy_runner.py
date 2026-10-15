@@ -397,7 +397,8 @@ def test_a_bad_request_stops_before_anything_runs(
     assert not (tmp_path / "out").exists()
 
 
-# What the runner relies on in 1.x, checked against legacy/ so an update can't break the wrapper quietly
+# What the runner relies on in 1.x, checked against legacy/ so an update can't break the
+# wrapper quietly
 
 SHERPA = (LEGACY / "sherpa.py").read_text()
 
