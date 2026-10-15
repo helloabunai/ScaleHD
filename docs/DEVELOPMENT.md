@@ -39,6 +39,23 @@ changing it so you can revert if something breaks. After changing the models in 
 tools/new-migration.sh "add a notes column to jobs"
 ```
 
+### ScaleHD 1.x
+
+`legacy/` is ScaleHD 1.x as maintained upstream (github: MVLS-RSE), unmodified. A test checks each
+file against `legacy/UPSTREAM.sha256`. `tools/update-legacy.sh <commit>` swaps in another
+upstream commit.
+
+The docker image has 1.x installed in `/opt/legacy`, with its own Python (3.8) and the binaries it
+runs. `apps/legacy-runner/scalehd_legacy_run.py` (`scalehd-legacy-run` in the image) runs it
+on one sample and saves everything 1.x knew about the sample as JSON, so we can connect it to the new
+front-end. The docstring at the top says what goes in and what comes out. 
+To check it gets exactly what 1.x gets when run on its
+own (this builds the image first, then takes about 3 minutes):
+
+```sh
+tools/legacy-parity.sh
+```
+
 ## Layout
 
 ```
@@ -50,9 +67,12 @@ packages/core/        scalehd: pure-Python library and CLI (no web or DB depende
   benchmarks/         accuracy on simulated data and the legacy labelled matrix
 apps/server/          scalehd-server: FastAPI, job runner, SQLite database
 apps/web/             web interface: React, TypeScript, Vite
-tools/                check.sh, dev.sh, refresh.sh, new-migration.sh and the pre-push git hook
+apps/legacy-runner/   runs ScaleHD 1.x on one sample in the image, its pinned environments,
+                      and the parity check
+tools/                check.sh, dev.sh, refresh.sh, new-migration.sh, update-legacy.sh,
+                      legacy-parity.sh and the pre-push git hook
 Dockerfile            one image with the server, the core and the built frontend
 compose.yaml          runs the docker image with a database volume, the data (input) folder read-only and
                       the workspace (job results) read-write
-legacy/               ScaleHD 1.x, for reference only
+legacy/               ScaleHD 1.x as maintained upstream, unmodified (see legacy/UPSTREAM)
 ```

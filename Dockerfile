@@ -39,7 +39,8 @@ RUN /opt/legacy/python/bin/pip install --no-cache-dir --no-deps --find-links /tm
 COPY legacy /tmp/legacy
 RUN /opt/legacy/python/bin/pip install --no-cache-dir --no-deps /tmp/legacy \
  && mkdir -p /opt/legacy/references \
- && cp /tmp/legacy/ScaleHD/config/*.fasta /opt/legacy/references/
+ && cp /tmp/legacy/ScaleHD/config/*.fasta /opt/legacy/references/ \
+ && cp /tmp/legacy/UPSTREAM /opt/legacy/UPSTREAM
 COPY apps/legacy-runner/picard /opt/legacy/bin/picard
 
 # The Python environment: scalehd and scalehd-server, installed into /app/.venv.
@@ -63,6 +64,8 @@ RUN useradd --create-home --uid 1000 scalehd && mkdir /data && chown scalehd /da
 COPY --from=python /app/.venv /app/.venv
 COPY --from=web /web/dist /app/web
 COPY --from=legacy /opt/legacy /opt/legacy
+# wrapper to run scalehd 1.x per-sample and report back to new web frontend
+COPY --chmod=755 apps/legacy-runner/scalehd_legacy_run.py /opt/legacy/bin/scalehd-legacy-run
 ENV PATH=/app/.venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     SCALEHD_DATABASE_DIR=/data \

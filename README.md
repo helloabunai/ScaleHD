@@ -12,6 +12,51 @@ is more professional.
 I am no longer working with the Monckton research group at University of Glasgow 
 anymore so this is mostly just a hobby project that may or may not go anywhere.
 
+## Project layout
+
+Everything runs in one Docker image. The web interface talks to the server's API, the
+server hands each sample to a worker process, and results go to the workspace folder on
+the host. ScaleHD 1.x sits in `/opt/legacy` within the container, with its own Python (and the binaries it needs).
+Once it's connected to the front-end, it will run one sample at a time through `scalehd-legacy-run`.
+
+```mermaid
+flowchart TB
+    browser["Web browser"]
+
+    subgraph host["Host machine"]
+        data[("Sequencing data<br/>SCALEHD_DATA_ROOT<br/>read-only")]
+        workspace[("Job results<br/>SCALEHD_WORKSPACE<br/>read-write")]
+        volume[("Database<br/>SQLite, in a<br/>Docker volume")]
+
+        subgraph container["Docker container"]
+            subgraph app["New ScaleHD, /app"]
+                web["Web interface<br/>React, TypeScript"]
+                server["scalehd-server<br/>API and job runner<br/>Python 3.14"]
+                workers["Worker processes<br/>one sample each"]
+                core["scalehd library<br/>counts reads,<br/>calls genotypes"]
+            end
+
+            subgraph legacy["ScaleHD 1.x, /opt/legacy"]
+                runner["scalehd-legacy-run<br/>runs 1.x on one sample"]
+                old["ScaleHD 1.1<br/>Python 3.8"]
+                tools["bwa, samtools, seqtk,<br/>cutadapt, FastQC,<br/>freebayes, picard"]
+            end
+        end
+    end
+
+    browser -->|"port 8000"| web
+    web -->|"/api"| server
+    server <--> volume
+    server --> workers
+    workers --> core
+    workers -.->|"legacy method<br/>(not connected yet)"| runner
+    runner --> old
+    old --> tools
+    data -->|"FASTQ"| workers
+    workers -->|"counts, calls"| workspace
+    runner -->|"1.x output"| workspace
+```
+
 ## Quick start (entire stack (web, api, backend))
 
 For Users:
