@@ -36,13 +36,14 @@ DEMO_SAMPLES: tuple[DemoSample, ...] = (
 )
 
 
-def demo_job(owner: User, defaults: JobSettings) -> Job:
+def demo_job(owner: User, defaults: JobSettings, methods: list[GenotypeMethod]) -> Job:
     """The demo job, not yet stored.
 
-    Always the model method, because legacy can't run yet. The flag thresholds come
-    from the user's defaults, so changing those changes the demo's flags.
+    Run with the user's default method and settings, so changing those changes the demo,
+    or with the model method if this server can't run the default.
     """
-    settings = defaults.model_copy(update={"method": GenotypeMethod.MODEL, "call": True})
+    method = defaults.method if defaults.method in methods else GenotypeMethod.MODEL
+    settings = defaults.model_copy(update={"method": method, "call": True}).for_job()
     job = Job(
         owner=owner,
         name=f"Demo: {len(DEMO_SAMPLES)} simulated samples",

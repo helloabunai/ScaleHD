@@ -44,9 +44,9 @@ def test_job_thresholds_reach_the_caller() -> None:
     assert caller.max_background == JobSettings().caller_settings().max_background
 
 
-def test_legacy_method_is_refused_until_extracted(tmp_path: Path) -> None:
+def test_only_the_model_method_counts_reads(tmp_path: Path) -> None:
     r1 = tmp_path / "s1_R1.fastq"
-    with pytest.raises(ValueError, match="legacy genotyping is not available yet"):
+    with pytest.raises(ValueError, match="legacy genotyping doesn't count reads"):
         run_sample(r1, None, tmp_path / "out", JobSettings(method=GenotypeMethod.LEGACY))
 
 

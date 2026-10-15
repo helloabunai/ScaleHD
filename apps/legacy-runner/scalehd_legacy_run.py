@@ -130,7 +130,9 @@ def read_request(data: Any) -> dict[str, Any]:
         files[name] = str(Path(path).resolve())
     for name in references:
         if not SHELL_SAFE.fullmatch(Path(files[name]).name):
-            raise RequestError(f"{name}'s file name has characters 1.x can't use: {files[name]}")
+            raise RequestError(
+                f"{name}'s file name has characters legacy ScaleHD can't use: {files[name]}"
+            )
     threads = data.get("threads")
     if isinstance(threads, bool) or not isinstance(threads, int) or threads < 1:
         raise RequestError("threads must be a whole number, at least 1")
@@ -162,7 +164,9 @@ def _read_config(config: Any) -> dict[str, dict[str, str]]:
 def prepare_out_dir(path: Path) -> Path:
     out_dir = path.resolve()
     if not SHELL_SAFE.fullmatch(str(out_dir)):
-        raise RequestError(f"the output folder's path has characters 1.x can't use: {out_dir}")
+        raise RequestError(
+            f"the output folder's path has characters legacy ScaleHD can't use: {out_dir}"
+        )
     if out_dir.exists() and (not out_dir.is_dir() or any(out_dir.iterdir())):
         raise RequestError(f"the output folder must be empty: {out_dir}")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -301,7 +305,7 @@ def run_scalehd(request: dict[str, Any], out_dir: Path, listener: Listener) -> A
         pass
     except Exception as error:
         traceback.print_exc()
-        listener.errors.append(f"1.x stopped: {type(error).__name__}: {error}")
+        listener.errors.append(f"legacy ScaleHD stopped: {type(error).__name__}: {error}")
     return instances[0] if instances else None
 
 
@@ -342,7 +346,7 @@ def outcome(instance: Any, listener: Listener) -> dict[str, Any]:
     """The sample's status, the stage it failed at (1.x's name for it) and any given reason"""
     samples = getattr(instance, "instance_objects", None) or []
     if not samples:
-        error = "; ".join(listener.errors) or "1.x stopped before the sample"
+        error = "; ".join(listener.errors) or "legacy ScaleHD stopped before the sample"
         return {"status": "failed", "failed_stage": None, "error": error, "sample": None}
     sample = samples[0]
     stage = sample.get_exceptionraised()

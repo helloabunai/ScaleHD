@@ -5,13 +5,14 @@ events could replace polling later without changing anything else.
 """
 
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Response, status
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from .. import demo
+from .. import demo, legacy
 from ..auth import AdminUser, CurrentUser
 from ..config import ServerConfig
 from ..db import DbSession
@@ -22,6 +23,7 @@ from ..models import Job, JobStatus, Sample, Tag, User
 from ..results import FileKind, sample_detail, sample_file
 from ..runner import Runner
 from ..schemas import (
+    GenotypeMethod,
     JobCreate,
     JobOut,
     JobSettings,
@@ -31,8 +33,14 @@ from ..schemas import (
     job_out,
     job_summary,
 )
-from ..worker import RUNNABLE_METHODS
-from ..workspace import WorkspaceError, remove_job_folder, write_job_folder
+from ..worker import available_methods
+from ..workspace import (
+    WorkspaceError,
+    folder_name,
+    remove_job_folder,
+    sample_folders,
+    write_job_folder,
+)
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -54,12 +62,21 @@ def create_job(
     job: JobCreate, user: CurrentUser, session: DbSession, config: ServerConfig, runner: Runner
 ) -> JobOut:
     """Check each sample's files exist in the input directory, store the job, queue it."""
-    settings = job.settings or JobSettings.model_validate(user.default_settings)
-    if settings.method not in RUNNABLE_METHODS:
+    settings = (job.settings or JobSettings.model_validate(user.default_settings)).for_job()
+    if settings.method not in available_methods(config):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            f"{settings.method} genotyping is not available yet. Placeholder flag.",
+            f"{settings.method} genotyping isn't available on this server"
+            " (legacy ScaleHD is only in the Docker image)",
         )
+    if settings.method is GenotypeMethod.LEGACY:
+        one_read = [sample.name for sample in job.samples if not sample.r2]
+        if one_read:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Legacy ScaleHD needs both read files (R1 and R2), and these have one: "
+                + ", ".join(one_read),
+            )
     if config.data_root is None:
         raise HTTPException(
             status.HTTP_409_CONFLICT, "this server has no data folder set (SCALEHD_DATA_ROOT)"
@@ -104,7 +121,9 @@ def create_demo_job(
     user: CurrentUser, session: DbSession, config: ServerConfig, runner: Runner
 ) -> JobOut:
     """Simulated samples with known genotypes, run like any other job."""
-    job = demo.demo_job(user, JobSettings.model_validate(user.default_settings))
+    job = demo.demo_job(
+        user, JobSettings.model_validate(user.default_settings), available_methods(config)
+    )
     session.add(job)
     session.flush()
     try:
@@ -162,6 +181,22 @@ def get_job_validation(job_id: int, user: CurrentUser, session: DbSession) -> Re
     (see export.py)."""
     job = _own_job(session, user, job_id)
     return _csv(validation_csv(job), validation_filename(job))
+
+
+@router.get("/{job_id}/legacy/{report}.csv", response_class=Response)
+def get_legacy_report(
+    job_id: int,
+    report: Literal["InstanceReport", "AlignedDistributions"],
+    user: CurrentUser,
+    session: DbSession,
+) -> Response:
+    """One of ScaleHD 1.x's reports for a legacy job."""
+    job = _own_job(session, user, job_id)
+    text = legacy.job_report(list(sample_folders(job).values()), report) if job.output_dir else None
+    if text is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no legacy ScaleHD results in this job")
+    label = "demo" if job.demo else folder_name(job.name, "job")
+    return _csv(text, f"{job.id}-{label}-{report}.csv")
 
 
 @router.put("/{job_id}/tags")
@@ -230,7 +265,13 @@ def get_sample_file(
     path = sample_file(job, sample, kind)
     if path is None or not path.is_file():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such file")
-    name = path.name if kind in ("r1", "r2") else f"{path.parent.name}-{path.name}"
+    folder = sample_folders(job)[sample.id].name
+    if kind in ("r1", "r2"):
+        name = path.name
+    elif kind.startswith("legacy-"):
+        name = f"{folder}-{kind}{path.suffix}"
+    else:
+        name = f"{folder}-{path.name}"
     return FileResponse(path, filename=name)
 
 

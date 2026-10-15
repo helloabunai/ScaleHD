@@ -13,6 +13,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +24,7 @@ from scalehd.seqio import read_fastq
 from . import __version__
 from .models import Job, Sample
 from .results import cag_tallies, sample_file
-from .schemas import JobSettings
+from .schemas import GenotypeMethod, JobSettings
 from .workspace import folder_name, sample_folders
 
 # Each allele's columns: the header after "Allele 1 " or "Allele 2 ", and the call's key.
@@ -309,11 +310,24 @@ def _versions(job: Job) -> dict[str, str]:
 
 
 def _settings(settings: JobSettings) -> str:
-    """Used job settings (sharing)."""
-    shown = settings.model_dump(mode="json", exclude={"method"})
+    """Used job settings (sharing). A legacy job has ScaleHD 1.x settings. Model settings not
+    exposed yet."""
+    if settings.method is GenotypeMethod.LEGACY:
+        shown = settings.model_dump(mode="json", include={"legacy"})
+    else:
+        shown = settings.model_dump(mode="json", exclude={"method", "legacy"})
     return "; ".join(
-        f"{name}={'default' if value is None else value}" for name, value in shown.items()
+        f"{name}={'default' if value is None else value}" for name, value in _flat(shown)
     )
+
+
+def _flat(values: dict[str, Any], prefix: str = "") -> Iterator[tuple[str, Any]]:
+    """Nested settings as dotted names, e.g. legacy.trim_flags.error_tolerance."""
+    for name, value in values.items():
+        if isinstance(value, dict):
+            yield from _flat(value, f"{prefix}{name}.")
+        else:
+            yield f"{prefix}{name}", value
 
 
 def _number(value: float | None, places: int) -> str:

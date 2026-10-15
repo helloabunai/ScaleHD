@@ -10,8 +10,21 @@ def test_settings_need_a_login(client: TestClient) -> None:
 
 
 def test_new_users_default_to_model_based_genotyping(logged_in: TestClient) -> None:
-    # idk when legacy will exist so change these
     assert logged_in.get("/api/settings").json()["method"] == "model"
+
+
+def test_settings_come_with_1xs_filled_in(logged_in: TestClient) -> None:
+    legacy = logged_in.get("/api/settings").json()["legacy"]
+    assert legacy["trim_flags"]["error_tolerance"] == 0.39
+    assert legacy["alignment_flags"]["indel_penalty"] == [6, 6]
+    assert legacy["cores_per_sample"] == 1
+
+
+def test_options_say_what_the_server_can_run(logged_in: TestClient) -> None:
+    # The test server has no ScaleHD 1.x, as outside the Docker image.
+    options = logged_in.get("/api/settings/options").json()
+    assert (options["methods"], options["cores"]) == (["model"], 1)
+    assert options["legacy_defaults"] == logged_in.get("/api/settings").json()["legacy"]
 
 
 def test_saved_settings_come_back(logged_in: TestClient) -> None:
@@ -40,7 +53,7 @@ def test_jobs_use_the_users_default_method(logged_in: TestClient) -> None:
     logged_in.put("/api/settings", json={"method": "legacy"})
     response = logged_in.post("/api/jobs", json=JOB)
     assert response.status_code == 400
-    assert response.json()["detail"].startswith("legacy genotyping is not available yet")
+    assert response.json()["detail"].startswith("legacy genotyping isn't available")
 
 
 def test_a_job_can_choose_its_own_method(logged_in: TestClient) -> None:
