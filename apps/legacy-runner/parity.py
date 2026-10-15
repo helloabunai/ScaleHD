@@ -1,8 +1,8 @@
 """Automated process to confirm the legacy wrapper gets the same exact output as ScaleHD 1.x does
 on its own, for simulated samples. First go is all as a batch via CLI ScaleHD. Then, run one
 at a time through the wrapper (as would happen when called by the web frontend).
-All of it runs two times, once with demultiplexing and once without. Also run legacy/ContinuousTesting
-sample file through to verify (same test file as from 1.3 legacy)
+All of it runs two times, once with demultiplexing and once without. Also run
+legacy/ContinuousTesting sample file through to verify (same test file as from 1.3 legacy)
 
     python apps/legacy-runner/parity.py [--work DIR]
 """
