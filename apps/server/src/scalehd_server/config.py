@@ -29,8 +29,10 @@ class ServerSettings(BaseSettings):
     # The built web frontend (apps/web/dist) to serve at /. Unset in development, where
     # Vite serves the frontend and forwards /api here.
     web_dir: Path | None = None
-    # Samples processed at once, one process each.
+    # Legacy setting - one sample per core, or fewer samples given several cores
     workers: int = Field(default_factory=lambda: os.process_cpu_count() or 1, ge=1)
+    # Runs ScaleHD 1.x on a sample (apps/legacy-runner), installed in the Docker image.
+    legacy_runner: Path = Path("/opt/legacy/bin/scalehd-legacy-run")
     # Whether anyone who can reach the server may create an account. The first
     # account (the admin) can always be created.
     allow_registration: bool = True
@@ -41,6 +43,10 @@ class ServerSettings(BaseSettings):
     @classmethod
     def _absolute(cls, folder: Path | None) -> Path | None:
         return None if folder is None else folder.expanduser().resolve()
+
+    @property
+    def legacy_available(self) -> bool:
+        return self.legacy_runner.is_file() and os.access(self.legacy_runner, os.X_OK)
 
     @property
     def database(self) -> str:
