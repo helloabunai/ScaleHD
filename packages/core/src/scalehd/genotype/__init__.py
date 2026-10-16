@@ -3,7 +3,7 @@
 Each method is a subpackage:
 
 - ``model``: the model-based caller written for this rework (see its ``__init__``).
-- ``legacy``: ScaleHD 1.x genotyping. Not brought over yet.
+- ``legacy``: ScaleHD 1.x genotyping, which the server runs as 1.x itself, not here.
 
 The model method's API is re-exported here, so ``from scalehd.genotype import
 call_genotype`` is the model-based caller.

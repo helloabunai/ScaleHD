@@ -1,0 +1,4 @@
+#!/bin/sh
+# ScaleHD 1.x uses `picard <reference> <dictionary>`
+exec java -jar /opt/legacy/tools/share/picard-2.18.23-0/picard.jar CreateSequenceDictionary \
+    REFERENCE="$1" OUTPUT="$2"

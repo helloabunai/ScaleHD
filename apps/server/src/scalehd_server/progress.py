@@ -17,6 +17,16 @@ class SampleStage(StrEnum):
     SIMULATING = "simulating"  # not for real jobs
     COUNTING = "counting"
     CALLING = "calling"
+    # ScaleHD 1.x's stages, as the legacy runner reports them.
+    PREPARING = "preparing"
+    INDEXING = "indexing"
+    DEMULTIPLEXING = "demultiplexing"
+    QUALITY_CONTROL = "quality_control"
+    ALIGNMENT = "alignment"
+    ATYPICAL_SCANNING = "atypical_scanning"
+    REALIGNMENT = "realignment"
+    GENOTYPING = "genotyping"
+    SNP_CALLING = "snp_calling"
 
 
 class SampleProgress(BaseModel):

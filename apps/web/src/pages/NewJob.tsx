@@ -1,13 +1,21 @@
 import { type SubmitEvent, useEffect, useId, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { api, type InputFolder, type InputSample, type JobSettings } from "../api";
+import {
+  api,
+  type InputFolder,
+  type InputSample,
+  type JobSettings,
+  type ServerOptions,
+} from "../api";
 import { useApi } from "../useApi";
+import { LegacySettingsForm, sameSettings } from "./LegacySettingsForm";
 import { MethodPicker } from "./MethodPicker";
 import { Status } from "./Status";
 import { type PickedTag, TagPicker, tagIds } from "./TagPicker";
 
 export function NewJob() {
   const defaults = useApi(api.getSettings);
+  const options = useApi(api.getOptions);
   // Each visit is a new location, so the New job link starts the page afresh even from here.
   const { key } = useLocation();
   return (
@@ -16,12 +24,21 @@ export function NewJob() {
       <p className="muted">
         Pick a data subdirectory from the server's data root, then the samples to genotype.
       </p>
-      <Status of={defaults}>{(settings) => <NewJobForm key={key} defaults={settings} />}</Status>
+      <Status of={defaults}>
+        {(settings) => (
+          <Status of={options}>
+            {(server) => <NewJobForm key={key} defaults={settings} options={server} />}
+          </Status>
+        )}
+      </Status>
     </>
   );
 }
 
-function NewJobForm({ defaults }: Readonly<{ defaults: JobSettings }>) {
+function NewJobForm({
+  defaults,
+  options,
+}: Readonly<{ defaults: JobSettings; options: ServerOptions }>) {
   const [folder, setFolder] = useState("");
   const listing = useApi(() => api.listInputs(folder), [folder]);
   return (
@@ -31,7 +48,7 @@ function NewJobForm({ defaults }: Readonly<{ defaults: JobSettings }>) {
         <Status of={listing}>
           {(found) =>
             found.samples.length > 0 ? (
-              <JobForm key={found.folder} found={found} defaults={defaults} />
+              <JobForm key={found.folder} found={found} defaults={defaults} options={options} />
             ) : (
               <p className="muted">
                 No FASTQ files in {found.path}. <br/>
@@ -141,13 +158,22 @@ function FolderNode({
 /** A sample that can be run (i.e. at least R1 found. R2 only = nono) */
 type Runnable = InputSample & { r1: string };
 
-function JobForm({ found, defaults }: Readonly<{ found: InputFolder; defaults: JobSettings }>) {
+function JobForm({
+  found,
+  defaults,
+  options,
+}: Readonly<{ found: InputFolder; defaults: JobSettings; options: ServerOptions }>) {
   const navigate = useNavigate();
   const ids = useId();
   const folderName = found.folder.split("/").at(-1) ?? "";
   const runnable = found.samples.filter((s): s is Runnable => s.r1 !== null);
   const [name, setName] = useState(folderName || "New job");
-  const [method, setMethod] = useState(defaults.method);
+  const [method, setMethod] = useState(
+    options.methods.includes(defaults.method) ? defaults.method : options.methods[0],
+  );
+  // The user's own 1.x settings, if they've set any, else 1.x's defaultzzz.
+  const accountLegacy = defaults.legacy ?? options.legacy_defaults;
+  const [legacy, setLegacy] = useState(accountLegacy);
   const [tags, setTags] = useState<PickedTag[]>([]);
   // Every sample but the Undetermined reads, to start with.
   const [chosen, setChosen] = useState(
@@ -155,7 +181,7 @@ function JobForm({ found, defaults }: Readonly<{ found: InputFolder; defaults: J
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => setError(null), [chosen, name, method]);
+  useEffect(() => setError(null), [chosen, name, method, legacy]);
 
   function toggle(r1: string) {
     const next = new Set(chosen);
@@ -173,7 +199,7 @@ function JobForm({ found, defaults }: Readonly<{ found: InputFolder; defaults: J
         samples: runnable
           .filter((s) => chosen.has(s.r1))
           .map(({ name, r1, r2 }) => ({ name, r1, r2 })),
-        settings: { ...defaults, method },
+        settings: { ...defaults, method, legacy },
         tags: await tagIds(tags),
       });
       navigate(`/jobs/${job.id}`);
@@ -184,6 +210,9 @@ function JobForm({ found, defaults }: Readonly<{ found: InputFolder; defaults: J
   }
 
   const problems = found.samples.filter((s) => s.r1 === null);
+  // ScaleHD 1.x pairs R1 with R2, so can't run a sample with only one.
+  const oneRead =
+    method === "legacy" ? runnable.filter((s) => chosen.has(s.r1) && s.r2 === null) : [];
   const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
   return (
     <form className="new-job" onSubmit={submit}>
@@ -296,8 +325,33 @@ function JobForm({ found, defaults }: Readonly<{ found: InputFolder; defaults: J
           <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={200} />
         </label>
         <TagPicker value={tags} onChange={setTags} />
-        <MethodPicker value={method} onChange={setMethod} defaultMethod={defaults.method} />
-        <button type="submit" disabled={busy || chosen.size === 0}>
+        <MethodPicker
+          value={method}
+          onChange={setMethod}
+          defaultMethod={defaults.method}
+          available={options.methods}
+        />
+        {method === "legacy" && (
+          <LegacySettingsForm
+            value={legacy}
+            onChange={setLegacy}
+            cores={options.cores}
+            revertTo={accountLegacy}
+            revertLabel={
+              sameSettings(accountLegacy, options.legacy_defaults)
+                ? "Revert to ScaleHD legacy defaults"
+                : "Revert to your account defaults"
+            }
+          />
+        )}
+        {oneRead.length > 0 && (
+          <p className="error">
+            Legacy ScaleHD needs both read files (R1 and R2), and{" "}
+            {plural(oneRead.length, "ticked sample")} {oneRead.length === 1 ? "has" : "have"} only
+            R1: {oneRead.map((s) => s.name).join(", ")}.
+          </p>
+        )}
+        <button type="submit" disabled={busy || chosen.size === 0 || oneRead.length > 0}>
           Run {chosen.size} sample{chosen.size === 1 ? "" : "s"}
         </button>
         {error && <p className="error">{error}</p>}

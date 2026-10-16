@@ -9,12 +9,41 @@ from typing import Any, Literal
 from scalehd.counts import SampleCounts
 from scalehd.structure import FieldStatus
 
+from . import legacy
 from .models import Job, Sample
-from .schemas import CagBar, CagChart, CcgBar, Cell, JobTag, Reads, SampleDetail, SampleOut
+from .schemas import (
+    CagBar,
+    CagChart,
+    CcgBar,
+    Cell,
+    GenotypeMethod,
+    JobSettings,
+    JobTag,
+    LegacyCagChart,
+    LegacyCcgChart,
+    LegacySample,
+    Reads,
+    SampleDetail,
+    SampleOut,
+)
 from .workspace import sample_folders
 
-FileKind = Literal["call", "counts", "r1", "r2"]
-FILE_KINDS: tuple[FileKind, ...] = ("call", "counts", "r1", "r2")
+# LEGACY: 1.x's result.json, its PDF of graphs, FastQC's own report, and its log.
+FileKind = Literal[
+    "call", "counts", "r1", "r2", "legacy-result", "legacy-graphs", "legacy-fastqc", "legacy-log"
+]
+FILE_KINDS: tuple[FileKind, ...] = (
+    "call",
+    "counts",
+    "r1",
+    "r2",
+    "legacy-result",
+    "legacy-graphs",
+    "legacy-fastqc",
+    "legacy-log",
+)
+# 1.x failed in these after genotyping: its genotype stands.
+_AFTER_GENOTYPING = ("SNPCalling", "Report/Graph")
 
 # Everything about a structure but its CAG count: CAACAG, CCGCCA, CCG, CCT.
 _Rest = tuple[int, int, int, int]
@@ -110,6 +139,17 @@ def sample_file(job: Job, sample: Sample, kind: FileKind) -> Path | None:
         return folder / "call.json"
     if kind == "counts":
         return folder / "counts.json"
+    if kind == "legacy-result":
+        return folder / legacy.FOLDER / legacy.RESULT
+    if kind == "legacy-log":
+        return folder / legacy.LOG
+    if kind in ("legacy-graphs", "legacy-fastqc"):
+        result = legacy.read_result(folder)
+        found = None
+        if result:
+            found = legacy.graphs(result) if kind == "legacy-graphs" else legacy.fastqc(result)
+        # Only ever a file in the sample's own folder.
+        return found if found and found.resolve().is_relative_to(folder.resolve()) else None
     read = 1 if kind == "r1" else 2
     if sample.simulation is not None:
         return folder / "input" / f"{folder.name}_R{read}.fastq.gz"
@@ -129,6 +169,7 @@ def sample_detail(job: Job, sample: Sample) -> SampleDetail:
     )
     ids = [other.id for other in job.samples]
     at = ids.index(sample.id)
+    is_legacy = JobSettings.model_validate(job.settings).method is GenotypeMethod.LEGACY
     return SampleDetail(
         sample=SampleOut.model_validate(sample),
         job_id=job.id,
@@ -141,7 +182,64 @@ def sample_detail(job: Job, sample: Sample) -> SampleDetail:
         ccg=ccg_distribution(counts) if counts else [],
         cells=cag_ccg_cells(counts) if counts else [],
         reads=reads(counts) if counts else None,
+        legacy=legacy_sample(folder) if folder and is_legacy else None,
         files=files,
         previous_id=ids[at - 1] if at > 0 else None,
         next_id=ids[at + 1] if at + 1 < len(ids) else None,
     )
+
+
+def legacy_sample(folder: Path) -> LegacySample | None:
+    result = legacy.read_result(folder)
+    if result is None:
+        return None
+    genotyped = "genotyping" in result.get("stages", []) and (
+        result["status"] == "complete" or result.get("failed_stage") in _AFTER_GENOTYPING
+    )
+    alleles = [
+        (result.get("sample") or {}).get(key) for key in ("primaryallele", "secondaryallele")
+    ]
+    called = genotyped and all(allele and allele.get("reflabel") for allele in alleles)
+    return LegacySample(
+        status=result["status"],
+        failed_stage=result.get("failed_stage"),
+        error=result.get("error"),
+        stages=result.get("stages", []),
+        seconds=result.get("seconds"),
+        threads=result.get("threads"),
+        versions=result.get("versions"),
+        call=legacy.call(result) if called else None,
+        cag_charts=_legacy_cag_charts(alleles) if called else [],
+        ccg_charts=_legacy_ccg_charts(alleles) if called else [],
+        quality_control=result.get("quality_control"),
+        aligned_reads=result.get("aligned_reads") or [],
+    )
+
+
+def _legacy_cag_charts(alleles: list[Any]) -> list[LegacyCagChart]:
+    charts: list[LegacyCagChart] = []
+    for allele in alleles:
+        structure = allele["reflabel"]
+        cag = int(structure.split("_")[0])
+        reads = legacy.cag_reads(allele)
+        same = next((c for c in charts if c.ccg == allele["ccg"] and c.reads == reads), None)
+        if same is None:
+            charts.append(
+                LegacyCagChart(alleles=[structure], called=[cag], ccg=allele["ccg"], reads=reads)
+            )
+        else:
+            same.alleles = sorted({*same.alleles, structure})
+            same.called = sorted({*same.called, cag})
+    return charts
+
+
+def _legacy_ccg_charts(alleles: list[Any]) -> list[LegacyCcgChart]:
+    charts: list[LegacyCcgChart] = []
+    for allele in alleles:
+        structure, reads = allele["reflabel"], allele["rvarray"]
+        same = next((c for c in charts if c.reads == reads), None)
+        if same is None:
+            charts.append(LegacyCcgChart(alleles=[structure], reads=reads))
+        elif structure not in same.alleles:
+            same.alleles.append(structure)
+    return charts

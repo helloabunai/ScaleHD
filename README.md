@@ -1,16 +1,61 @@
 # ScaleHD
 
 > [!WARNING] 
-> I'm re-writing ScaleHD as a hobby project. If you are looking for the original ScaleHD, it's either been forked by others, or check the legacy folder within the repository. Eventually the legacy genotyping method will be usable from the web interface within this version of ScaleHD.
+> I'm re-writing ScaleHD as a hobby project. If you are looking for the original ScaleHD, it's maintained by the Monckton lab at [MoncktonLab/ScaleHD](https://github.com/MoncktonLab/ScaleHD). The legacy genotyping method (ScaleHD 1.x itself, unchanged) can also be picked for jobs in the web interface of this version, see [docs/LEGACY.md](docs/LEGACY.md).
 
 Genotyping of the Huntington disease *HTT* CAG/CCG repeat from paired-end amplicon
 sequencing. This is a ground-up rewrite. The previous ScaleHD implementation
-is kept for reference in [`legacy/`](legacy/). Looking back at old work is embarrassing
+is maintained at [MoncktonLab/ScaleHD](https://github.com/MoncktonLab/ScaleHD). Looking back at old work is embarrassing
 but everyone starts their professional journey somewhere. Hopefully this implementation
 is more professional.
 
 I am no longer working with the Monckton research group at University of Glasgow 
 anymore so this is mostly just a hobby project that may or may not go anywhere.
+
+## Project layout
+
+Everything runs in one Docker image. The web interface talks to the server's API, the
+server hands each sample to a worker process, and results go to the workspace folder on
+the host. ScaleHD 1.x sits in `/opt/legacy` within the container, with its own Python (and the binaries it needs).
+For a legacy job, a worker runs it on each sample through `scalehd-legacy-run`.
+
+```mermaid
+flowchart TB
+    browser["Web browser"]
+
+    subgraph host["Host machine"]
+        data[("Sequencing data<br/>SCALEHD_DATA_ROOT<br/>read-only")]
+        workspace[("Job results<br/>SCALEHD_WORKSPACE<br/>read-write")]
+        volume[("Database<br/>SQLite, in a<br/>Docker volume")]
+
+        subgraph container["Docker container"]
+            subgraph app["New ScaleHD, /app"]
+                web["Web interface<br/>React, TypeScript"]
+                server["scalehd-server<br/>API and job runner<br/>Python 3.14"]
+                workers["Worker processes<br/>one sample each"]
+                core["scalehd library<br/>counts reads,<br/>calls genotypes"]
+            end
+
+            subgraph legacy["ScaleHD 1.x, /opt/legacy"]
+                runner["scalehd-legacy-run<br/>runs 1.x on one sample"]
+                old["ScaleHD 1.3<br/>Python 3.12"]
+                tools["bwa, samtools, seqtk,<br/>cutadapt, FastQC,<br/>freebayes, picard"]
+            end
+        end
+    end
+
+    browser -->|"port 8000"| web
+    web -->|"/api"| server
+    server <--> volume
+    server --> workers
+    workers --> core
+    workers -->|"legacy method"| runner
+    runner --> old
+    old --> tools
+    data -->|"FASTQ"| workers
+    workers -->|"counts, calls"| workspace
+    runner -->|"1.x output"| workspace
+```
 
 ## Quick start (entire stack (web, api, backend))
 
@@ -75,6 +120,8 @@ Read more documentation in the following:
 - [Using real FASTQ files](docs/USING-FASTQ.md): what the input should look like, one sample
   or a batch, reading the result, checking the results, etc
 - [What's different](docs/WHATS-DIFFERENT.md): how this rewrite differs from ScaleHD 1.x
+- [Legacy genotyping](docs/LEGACY.md): running ScaleHD 1.x itself from the web interface, its
+  settings, etc
 - [The genotyping model](docs/MODEL.md): the statistical model behind the new model-based
   genotyping, its equations, assumptions and how a call's confidence is calculated.
 - [Validation export](docs/VALIDATION-EXPORT.md): for checking the model vs real data that can't 

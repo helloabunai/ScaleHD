@@ -37,6 +37,12 @@ export function JobDetail() {
             <dd>{job.status}</dd>
             <dt>Method</dt>
             <dd>{METHODS[job.method].label}</dd>
+            {job.settings.legacy && (
+              <>
+                <dt>Cores per sample</dt>
+                <dd>{job.settings.legacy.cores_per_sample}</dd>
+              </>
+            )}
             <dt>Tags</dt>
             <dd>
               {job.tags.length > 0 ? <JobTags tags={job.tags} /> : "none"}
@@ -75,6 +81,24 @@ export function JobDetail() {
             >
               Validation export (CSV)
             </ExportLink>
+            {job.method === "legacy" && (
+              <>
+                <ExportLink
+                  job={job}
+                  href={api.legacyReportUrl(job.id, "InstanceReport")}
+                  title="Legacy ScaleHD's own report 'InstanceReport'"
+                >
+                  Legacy InstanceReport (CSV)
+                </ExportLink>
+                <ExportLink
+                  job={job}
+                  href={api.legacyReportUrl(job.id, "AlignedDistributions")}
+                  title="Legacy ScaleHD's aligned read distributions"
+                >
+                  Legacy AlignedDistributions (CSV)
+                </ExportLink>
+              </>
+            )}
             {(job.status === "queued" || job.status === "running") && (
               <CancelJob job={job} onCancelled={() => setVersion((v) => v + 1)} />
             )}
@@ -90,7 +114,7 @@ export function JobDetail() {
                 <th>Status</th>
                 <th>Progress</th>
                 <th>Genotype</th>
-                <th>Confidence</th>
+                <th>{job.method === "legacy" ? "Legacy confidence" : "Confidence"}</th>
                 <th>Flags</th>
                 {hasTruth(job) && <th>Truth</th>}
                 {hasTruth(job) && <th>Match</th>}
@@ -113,7 +137,9 @@ export function JobDetail() {
                     <SampleProgress sample={sample} />
                   </td>
                   <td>{sample.genotype ?? "–"}</td>
-                  <td>{sample.confidence?.toFixed(1) ?? "–"}</td>
+                  <td title={job.method === "legacy" ? "Its least confident allele's" : undefined}>
+                    {confidence(job, sample)}
+                  </td>
                   <td>{sample.flags.join(", ")}</td>
                   {hasTruth(job) && <td>{sample.truth ?? "–"}</td>}
                   {hasTruth(job) && (
@@ -191,7 +217,22 @@ const STAGE_NAMES: Record<SampleStage, string> = {
   simulating: "simulating reads",
   counting: "counting reads",
   calling: "calling genotype",
+  preparing: "preparing",
+  indexing: "indexing references",
+  demultiplexing: "demultiplexing",
+  quality_control: "trimming reads",
+  alignment: "aligning reads",
+  atypical_scanning: "scanning for atypical alleles",
+  realignment: "re-aligning an atypical allele",
+  genotyping: "genotyping",
+  snp_calling: "calling SNPs",
 };
+
+/** ScaleHD 1.x's is a percentage, the model's a Phred-scaled quality. */
+function confidence(job: Job, sample: Sample): string {
+  if (sample.confidence === null) return "–";
+  return job.method === "legacy" ? `${sample.confidence}%` : sample.confidence.toFixed(1);
+}
 
 function SampleStatus({ sample }: { sample: Sample }) {
   if (sample.status === "failed") return <span className="error">{sample.error ?? "failed"}</span>;
@@ -326,7 +367,8 @@ function JobProgress({ samples }: Readonly<{ samples: Sample[] }>) {
   );
 }
 
-/** Real per-stage progress bars */
+/** Real per-stage progress bars: the share of reads counted, or for ScaleHD 1.x, a fixed
+ * part per stage (by how long each generally takes) */
 function SampleProgress({ sample }: Readonly<{ sample: Sample }>) {
   const stage = sample.status;
   const share = stage === "running" ? (sample.progress?.share ?? null) : null;
@@ -343,7 +385,7 @@ function SampleProgress({ sample }: Readonly<{ sample: Sample }>) {
       <div
         className="progress small"
         role="progressbar"
-        aria-label="reads counted"
+        aria-label={sample.progress?.stage === "counting" ? "reads counted" : "sample done"}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}

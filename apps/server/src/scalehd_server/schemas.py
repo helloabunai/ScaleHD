@@ -10,7 +10,15 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+)
 from scalehd.genotype import CallerSettings
 from scalehd.pairs import DiscordancePolicy
 
@@ -87,18 +95,151 @@ class ThemeChange(BaseModel):
 class GenotypeMethod(StrEnum):
     """How a job genotypes its samples. The web interface holds the names people see."""
 
-    # ScaleHD 1.x: align reads to the reference library, then the 1.x genotyper.
-    # Not runnable yet as it needs extracting from legacy/, alignment included.
+    # ScaleHD 1.x, unchanged. Align reads to the reference library, then the 1.x
+    # genotyper. Runs in the Docker image (apps/legacy-runner).
     LEGACY = "legacy"
     # Read the repeat structure straight from each read, then the model-based caller
     # (scalehd.genotype). Work in progress.
     MODEL = "model"
 
 
+# ScaleHD 1.x's settings: the attributes of its configuration XML
+# (its config/config.dtd), element by element, under the XML's own names.
+# Defaults are scraped from 1.x's documented configuration.
+
+
+def _tidy_bases(value: Any) -> Any:
+    return value.strip().upper() if isinstance(value, str) else value
+
+
+Bases = Annotated[str, BeforeValidator(_tidy_bases), StringConstraints(pattern=r"^[ACGT]+$")]
+# A bwa mem option taking two whole numbers, e.g. gap open penalties for insertions and
+# deletions.
+NumberPair = tuple[Annotated[int, Field(ge=0)], Annotated[int, Field(ge=0)]]
+# Where a demultiplexing adapter sits: 5' or 3' end. 1.x also takes "AP" (either end), but
+# then hands batchadapt no flag for it, and batchadapt writes nothing.
+AdapterPosition = Literal["5P", "3P"]
+# Error tolerances 1.x refuses although they're between 0 and 1: it checks the value is in
+# numpy.arange(0, 1.1, 0.01), and these aren't, exactly.
+REFUSED_ERROR_TOLERANCES = frozenset({0.35, 0.41, 0.47, 0.57, 0.69, 0.70, 0.82, 0.83, 0.94, 0.95})
+
+
+class LegacyInstanceFlags(BaseModel):
+    """Which 1.x stages run."""
+
+    demultiplex: bool = False
+    quality_control: bool = True
+    # Always on. No alignment = no fun and games
+    sequence_alignment: Literal[True] = True
+    atypical_realignment: bool = True
+    genotype_prediction: Literal[True] = True
+    snp_calling: bool = True
+
+
+class LegacyDemultiplexFlags(BaseModel):
+    """batchadapt: keeps the reads with these adapters (cutadapt on each read file)."""
+
+    forward_adapter: Bases = "GCGACCCTGG"
+    forward_position: AdapterPosition = "5P"
+    reverse_adapter: Bases = "GCAGCGGCTG"
+    reverse_position: AdapterPosition = "5P"
+    error_rate: int = Field(default=0, ge=0)
+    min_overlap: int = Field(default=10, ge=0)
+
+
+class LegacyTrimFlags(BaseModel):
+    """cutadapt: quality and adapter trimming."""
+
+    trim_type: Literal["Quality", "Adapter", "Both"] = "Adapter"
+    quality_threshold: int = Field(default=5, ge=0, le=38)
+    adapter_flag: Literal["-a", "-g", "-a$", "-g^", "-b"] = "-a"
+    forward_adapter: Bases = "GATCGGAAGAGCACACGTCTGAACTCCAGTCAC"
+    reverse_adapter: Bases = "AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT"
+    error_tolerance: float = Field(default=0.39, ge=0, le=1)
+
+    @field_validator("error_tolerance")
+    @classmethod
+    def _tolerance_1x_takes(cls, value: float) -> float:
+        if round(value, 2) != value:
+            raise ValueError("legacy ScaleHD takes error tolerances in steps of 0.01")
+        if value in REFUSED_ERROR_TOLERANCES:
+            raise ValueError(
+                f"legacy ScaleHD refuses an error tolerance of {value:.2f}: try one either side"
+            )
+        return value
+
+
+class LegacyAlignmentFlags(BaseModel):
+    """bwa mem: the option each one sets is in its comment."""
+
+    min_seed_length: int = Field(default=19, ge=0)  # -k
+    band_width: int = Field(default=100, ge=0)  # -w
+    seed_length_extension: float = Field(default=1.5, ge=0)  # -r
+    skip_seed_with_occurrence: int = Field(default=500, ge=0)  # -c
+    chain_drop: float = Field(default=0.5, ge=0)  # -D
+    seeded_chain_drop: int = Field(default=0, ge=0)  # -W
+    seq_match_score: int = Field(default=1, ge=0)  # -A
+    mismatch_penalty: int = Field(default=4, ge=0)  # -B
+    indel_penalty: NumberPair = (6, 6)  # -O
+    gap_extend_penalty: NumberPair = (6, 6)  # -E
+    prime_clipping_penalty: NumberPair = (5, 5)  # -L
+    unpaired_pairing_penalty: int = Field(default=17, ge=0)  # -U
+
+
+class LegacyPredictionFlags(BaseModel):
+    """SNP calling (freebayes)."""
+
+    # Reads that must show a variant (freebayes -C). 1.x's documentation: 1 to 5.
+    snp_observation_threshold: int = Field(default=2, ge=1, le=5)
+    # Lowest variant quality (VCF QUAL) kept.
+    quality_cutoff: int = Field(default=0, ge=0)
+
+
+class LegacySettings(BaseModel):
+    """How a legacy job runs ScaleHD 1.x."""
+
+    instance_flags: LegacyInstanceFlags = Field(default_factory=LegacyInstanceFlags)
+    demultiplex_flags: LegacyDemultiplexFlags = Field(default_factory=LegacyDemultiplexFlags)
+    trim_flags: LegacyTrimFlags = Field(default_factory=LegacyTrimFlags)
+    alignment_flags: LegacyAlignmentFlags = Field(default_factory=LegacyAlignmentFlags)
+    prediction_flags: LegacyPredictionFlags = Field(default_factory=LegacyPredictionFlags)
+    # 1.x's -e: keep reads that map equally well to more than one reference.
+    enshrine: bool = False
+    # 1.x's -b: don't subsample samples with many reads.
+    broadscope: bool = False
+    # Cores each sample gets (1.x's THREADS). The server runs as many samples at once as
+    # its cores allow, so more here means fewer at once.
+    cores_per_sample: int = Field(default=1, ge=1)
+
+    def config(self) -> dict[str, dict[str, str]]:
+        """The configuration XML's attributes, as the legacy runner takes them."""
+        elements = {
+            "instance_flags": self.instance_flags,
+            "demultiplex_flags": self.demultiplex_flags,
+            "trim_flags": self.trim_flags,
+            "alignment_flags": self.alignment_flags,
+            "prediction_flags": self.prediction_flags,
+        }
+        config = {
+            element: {name: _xml_value(value) for name, value in flags}
+            for element, flags in elements.items()
+        }
+        config["demultiplex_flags"] |= {"min_length": "", "max_length": ""}
+        return config
+
+
+def _xml_value(value: bool | int | float | str | tuple[int, int]) -> str:
+    """A setting as 1.x reads it from its XML."""
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, tuple):
+        return ",".join(str(n) for n in value)
+    return str(value)
+
+
 class JobSettings(BaseModel):
     """What a job runs, and with which settings. Unset thresholds keep the core defaults."""
 
-    # Model-based default until the legacy method exists as an actual optino
     method: GenotypeMethod = GenotypeMethod.MODEL
     # Call genotypes, or only count each sample's repeat structures.
     call: bool = True
@@ -108,6 +249,8 @@ class JobSettings(BaseModel):
     min_posterior: float | None = Field(default=None, ge=0, le=1)
     max_background: float | None = Field(default=None, ge=0, le=1)
     max_dropped: float | None = Field(default=None, ge=0, le=1)
+    # only for legacy jobs....
+    legacy: LegacySettings | None = None
 
     def caller_settings(self) -> CallerSettings:
         thresholds = ("min_molecules", "min_posterior", "max_background", "max_dropped")
@@ -115,6 +258,27 @@ class JobSettings(BaseModel):
             name: value for name in thresholds if (value := getattr(self, name)) is not None
         }
         return replace(CallerSettings(), **overrides)
+
+    def with_legacy(self) -> JobSettings:
+        """These settings with 1.x's filled in (defaults, if unset by user)."""
+        return self.model_copy(update={"legacy": self.legacy or LegacySettings()})
+
+    def for_job(self) -> JobSettings:
+        """The settings a job keeps"""
+        if self.method is GenotypeMethod.LEGACY:
+            return self.with_legacy()
+        return self.model_copy(update={"legacy": None})
+
+
+class ServerOptions(BaseModel):
+    """What this server can run jobs with."""
+
+    # Legacy needs ScaleHD 1.x, which is only in the Docker image.
+    methods: list[GenotypeMethod]
+    # Cores for running samples (SCALEHD_WORKERS). A legacy job's samples share them.
+    cores: int
+    # ScaleHD 1.x's documented settings, for defaulting
+    legacy_defaults: LegacySettings = Field(default_factory=LegacySettings)
 
 
 class InputPair(BaseModel):
@@ -330,6 +494,100 @@ class Reads(BaseModel):
     discordant: dict[str, int]
 
 
+class LegacyCagChart(BaseModel):
+    """Aligned reads at each CAG length (1-200) at one CCG: what ScaleHD 1.x charted."""
+
+    # The called alleles it shows (two alleles with the same CCG share one), and their CAG.
+    alleles: list[str]
+    called: list[int]
+    ccg: int
+    reads: list[int]
+
+
+class LegacyCcgChart(BaseModel):
+    """Aligned reverse reads at each CCG length (1-20), as from 1.x."""
+
+    alleles: list[str]
+    reads: list[int]
+
+
+class LegacyTrimming(BaseModel):
+    """One read file's trimming (cutadapt) i.e. summary lines, each as [what, value]."""
+
+    read: str
+    summary: list[tuple[str, str]]
+    adapter: list[tuple[str, str]]
+
+
+class LegacyFastqcModule(BaseModel):
+    module: str
+    status: str  # pass, warn or fail
+
+
+class LegacyBaseQuality(BaseModel):
+    """FastQC's read quality at one base, Phred scale."""
+
+    base: str
+    mean: float | None
+    median: float | None
+    lower_quartile: float | None
+    upper_quartile: float | None
+    # The 10th and 90th percentiles.
+    low: float | None
+    high: float | None
+
+
+class LegacyReadLength(BaseModel):
+    length: str
+    reads: float | None
+
+
+class LegacyFastqc(BaseModel):
+    """FastQC's fw read results, after trimming, as per 1.x."""
+
+    modules: list[LegacyFastqcModule]
+    basic_statistics: list[tuple[str, str]]
+    per_base_quality: list[LegacyBaseQuality]
+    lengths: list[LegacyReadLength]
+
+
+class LegacyQualityControl(BaseModel):
+    trimming: list[LegacyTrimming]
+    fastqc: LegacyFastqc | None
+
+
+class LegacyAlignedReads(BaseModel):
+    """Subsection of aligned reads for frontend rendering"""
+
+    allele: str
+    # The reference they're aligned to, and how many reads are.
+    contig: str | None = None
+    reads: int | None = None
+    sequences: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+class LegacySample(BaseModel):
+    """What ScaleHD 1.x made of a legacy job's sample (its result.json)."""
+
+    status: Literal["complete", "failed"]
+    # 1.x's name for the stage it failed in (e.g. "DSP"), and why?
+    failed_stage: str | None
+    error: str | None
+    # The 1.x stages it went through.
+    stages: list[str]
+    seconds: float | None
+    threads: int | None
+    versions: dict[str, Any] | None
+    # The call (scalehd.legacy-call/1), if 1.x got as far as genotyping.
+    call: dict[str, Any] | None
+    cag_charts: list[LegacyCagChart]
+    ccg_charts: list[LegacyCcgChart]
+    # 1.x report info
+    quality_control: LegacyQualityControl | None = None
+    aligned_reads: list[LegacyAlignedReads] = Field(default_factory=list)
+
+
 class SampleDetail(BaseModel):
     """All data needed in an indv sample result page"""
 
@@ -345,7 +603,8 @@ class SampleDetail(BaseModel):
     ccg: list[CcgBar]
     cells: list[Cell]
     reads: Reads | None
-    # Which files can be downloaded: "call", "counts", "r1", "r2".
+    legacy: LegacySample | None = None
+    # Which files can be downloaded (results.FILE_KINDS).
     files: list[str]
     previous_id: int | None
     next_id: int | None

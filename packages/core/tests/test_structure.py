@@ -2,7 +2,7 @@ import pytest
 from scalehd.amplicon import HTT_AMPLICON
 from scalehd.structure import AlleleStructure, FieldStatus, Observation
 
-# Example reference from the ScaleHD 1.x docs (legacy/docs/DataAssumptions.rst).
+# Example reference from the ScaleHD 1.x docs (its docs/DataAssumptions.rst).
 LEGACY_17_1_1_6_2 = (
     "GCGACCCTGGAAAAGCTGATGAAGGCCTTCGAGTCCCTCAAGTCCTTCCAGCAGCAGCAGCAGCAGCAGCAGCAGCAG"
     "CAGCAGCAGCAGCAGCAGCAGCAACAGCCGCCACCGCCGCCGCCGCCGCCGCCTCCTCAGCTTCCTCAGCCGCCGCCG"

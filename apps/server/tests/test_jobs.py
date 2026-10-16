@@ -47,7 +47,7 @@ def test_demo_job_writes_its_folder(quiet_client: TestClient, tmp_path: Path) ->
     assert len(record["samples"]) == 13
 
 
-def test_demo_uses_the_model_method_even_when_the_default_is_legacy(
+def test_demo_uses_the_model_method_when_the_server_cant_run_legacy(
     quiet_client: TestClient,
 ) -> None:
     quiet_client.put("/api/settings", json={"method": "legacy"})

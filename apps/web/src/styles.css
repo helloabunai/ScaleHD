@@ -29,6 +29,7 @@ body {
 
 .layout {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto 1fr auto;
   min-height: 100vh;
   max-width: 72rem;
@@ -667,7 +668,7 @@ button.danger {
 
 .job-facts {
   display: grid;
-  grid-template-columns: max-content 1fr;
+  grid-template-columns: max-content minmax(0, 1fr);
   gap: 0.25rem 1.5rem;
   margin: 0 0 1rem;
 }
@@ -678,6 +679,7 @@ button.danger {
 
 .job-facts dd {
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .progress {
@@ -1078,4 +1080,295 @@ figcaption .badge {
   width: 0;
   border-left: 1px dashed var(--muted);
   pointer-events: none;
+}
+
+.methods label.unavailable {
+  cursor: default;
+}
+
+.methods label.unavailable .method-name,
+.methods label.unavailable > span > .muted {
+  opacity: 0.6;
+}
+
+.legacy-settings {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.75rem 1rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+
+.legacy-settings legend {
+  padding: 0 0.25rem;
+  font-weight: 600;
+}
+
+.legacy-settings p {
+  margin: 0;
+}
+
+.legacy-settings .file-group {
+  margin-top: 0;
+}
+
+.legacy-settings .file-group > summary .muted + .muted {
+  margin-left: 0.4rem;
+}
+
+.settings-group {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+}
+
+.settings-group label,
+.cores {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.settings-group label.toggle {
+  grid-template-columns: auto 1fr;
+  gap: 0.6rem;
+  align-items: start;
+}
+
+.settings-group label.toggle input {
+  margin-top: 0.2rem;
+}
+
+.settings-group label.toggle > span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.setting-label code {
+  font-size: 0.8rem;
+}
+
+.field-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.25rem 0.75rem;
+}
+
+.field-pair > label {
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+}
+
+.field-pair > label > .setting-label {
+  align-self: end;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.settings-group input:not([type="checkbox"]),
+.settings-group select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.settings-group .pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem 0.5rem;
+  align-self: end;
+}
+
+.settings-group .pair > span {
+  grid-column: 1 / -1;
+}
+
+.settings-group .pair label {
+  font-size: 0.9rem;
+}
+
+.settings-group input.bases {
+  font-family: ui-monospace, monospace;
+}
+
+.settings-group select {
+  font: inherit;
+  padding: 0.35rem 0.5rem;
+}
+
+.settings-group .pair .setting-label,
+.settings-group label > .setting-label {
+  overflow-wrap: anywhere;
+}
+
+.cores input[type="range"] {
+  width: 100%;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+.file-group.disabled > summary {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+/* A legacy sample's aligned reads */
+figure:has(> .read-blocks) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: 1rem;
+}
+
+figure:has(> .read-blocks) > *,
+.read-blocks > * {
+  grid-column: 1 / -1;
+}
+
+figure:has(> .read-blocks) > figcaption {
+  grid-row: 1;
+  grid-column: 1;
+}
+
+.read-blocks {
+  display: contents;
+}
+
+.read-blocks > .read-blocks-zoom {
+  grid-row: 1;
+  grid-column: 2;
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 36rem) {
+  .read-blocks > .read-blocks-zoom {
+    grid-row: auto;
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+}
+
+.read-blocks-frame {
+  overflow: hidden;
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+}
+
+.read-blocks canvas {
+  display: block;
+  cursor: crosshair;
+}
+
+.read-blocks canvas.zoomed {
+  cursor: grab;
+  touch-action: none;
+}
+
+.read-blocks canvas.dragging {
+  cursor: grabbing;
+  touch-action: none;
+}
+
+.chart-tip.read-tip {
+  position: fixed;
+}
+
+:root {
+  --base-a: #2e9e3e;
+  --base-c: #2f6fd6;
+  --base-g: #e0961c;
+  --base-t: #d64541;
+  --base-n: #9a9a9a;
+  --base-letter: #111;
+}
+
+:root[data-theme="dark"] {
+  --base-a: #5cc56a;
+  --base-c: #6f9cf2;
+  --base-g: #f0b45a;
+  --base-t: #f07a72;
+  --base-n: #777;
+}
+
+.base-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.base-key .swatch {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 0.15rem;
+  vertical-align: -0.15rem;
+}
+
+.swatch.base-A {
+  background: var(--base-a);
+}
+
+.swatch.base-C {
+  background: var(--base-c);
+}
+
+.swatch.base-G {
+  background: var(--base-g);
+}
+
+.swatch.base-T {
+  background: var(--base-t);
+}
+
+.swatch.base-N {
+  background: var(--base-n);
+}
+
+td.bases {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.fastqc-modules {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 20rem));
+  gap: 0.35rem 1rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.fastqc-status {
+  display: inline-block;
+  min-width: 2.6rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.fastqc-status.pass {
+  background: var(--success);
+  color: var(--on-accent);
+}
+
+.fastqc-status.warn {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.fastqc-status.fail {
+  background: var(--error);
+  color: white;
 }

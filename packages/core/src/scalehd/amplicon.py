@@ -34,7 +34,7 @@ class AmpliconSpec:
         return self.five_prime_flank + repeat + self.three_prime_flank
 
 
-# Flanking sequenceof every sequence in the ScaleHD 1.x reference library (legacy/ScaleHD/config).
+# Flanking sequenceof every sequence in the ScaleHD 1.x reference library (its config/).
 # The GeM-HD MiSeq primers (Cell 2019; ATGAAGGCCTTCGAGTCCC / GGCTGAGGAAGCTGAGGA)
 HTT_AMPLICON = AmpliconSpec(
     name="HTT exon 1",

@@ -1,10 +1,10 @@
-"""Legacy (ScaleHD 1.x) genotyping: a placeholder until it is brought over."""
+"""Legacy (ScaleHD 1.x) genotyping!! not ported to this library, ran directly in docker."""
 
 import pytest
 from scalehd.counts import SampleCounts
 from scalehd.genotype import legacy
 
 
-def test_legacy_genotyping_is_not_available_yet() -> None:
-    with pytest.raises(NotImplementedError, match="not available yet"):
+def test_legacy_genotyping_isnt_in_this_library() -> None:
+    with pytest.raises(NotImplementedError, match=r"runs 1\.x itself"):
         legacy.call_genotype(SampleCounts())

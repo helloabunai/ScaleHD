@@ -47,6 +47,60 @@ export interface Registration {
 
 export type GenotypeMethod = "legacy" | "model";
 
+/** ScaleHD 1.x's settings from default XML example */
+export interface LegacySettings {
+  instance_flags: {
+    demultiplex: boolean;
+    quality_control: boolean;
+    /** Always on */
+    sequence_alignment: true;
+    atypical_realignment: boolean;
+    /** Always on */
+    genotype_prediction: true;
+    snp_calling: boolean;
+  };
+  demultiplex_flags: {
+    forward_adapter: string;
+    forward_position: AdapterPosition;
+    reverse_adapter: string;
+    reverse_position: AdapterPosition;
+    error_rate: number;
+    min_overlap: number;
+  };
+  trim_flags: {
+    trim_type: "Quality" | "Adapter" | "Both";
+    quality_threshold: number;
+    adapter_flag: "-a" | "-g" | "-a$" | "-g^" | "-b";
+    forward_adapter: string;
+    reverse_adapter: string;
+    error_tolerance: number;
+  };
+  alignment_flags: {
+    min_seed_length: number;
+    band_width: number;
+    seed_length_extension: number;
+    skip_seed_with_occurrence: number;
+    chain_drop: number;
+    seeded_chain_drop: number;
+    seq_match_score: number;
+    mismatch_penalty: number;
+    indel_penalty: [number, number];
+    gap_extend_penalty: [number, number];
+    prime_clipping_penalty: [number, number];
+    unpaired_pairing_penalty: number;
+  };
+  prediction_flags: {
+    snp_observation_threshold: number;
+    quality_cutoff: number;
+  };
+  enshrine: boolean;
+  broadscope: boolean;
+  cores_per_sample: number;
+}
+
+/** Where a demultiplexing adapter sits: 5' or 3' end. */
+export type AdapterPosition = "5P" | "3P";
+
 export interface JobSettings {
   method: GenotypeMethod;
   call: boolean;
@@ -55,6 +109,18 @@ export interface JobSettings {
   min_posterior: number | null;
   max_background: number | null;
   max_dropped: number | null;
+  /** Filled in for the user's defaults; a job keeps them only if it runs 1.x. */
+  legacy: LegacySettings | null;
+}
+
+/** What this server can run jobs with. */
+export interface ServerOptions {
+  /** Legacy needs ScaleHD 1.x, which only the Docker image has. */
+  methods: GenotypeMethod[];
+  /** Cores for running samples: a legacy job's samples share them. */
+  cores: number;
+  /** ScaleHD 1.x's documented settings, to go back to. */
+  legacy_defaults: LegacySettings;
 }
 
 /** A sample's FASTQ files, as paths relative to the server's data folder. */
@@ -118,7 +184,8 @@ export interface Sample {
   r2: string | null;
   status: SampleStatus;
   genotype: string | null;
-  /** Phred-scaled confidence of the call (the call's quality). */
+  /** Phred-scaled confidence of the call (the call's quality). For ScaleHD 1.x, its
+   * least confident allele's confidence, 0-100. */
   confidence: number | null;
   flags: string[];
   /** Simulated samples: the true genotype, and whether the call matched it. */
@@ -128,7 +195,20 @@ export interface Sample {
   progress: SampleProgress | null;
 }
 
-export type SampleStage = "simulating" | "counting" | "calling";
+export type SampleStage =
+  | "simulating"
+  | "counting"
+  | "calling"
+  // ScaleHD 1.x's.
+  | "preparing"
+  | "indexing"
+  | "demultiplexing"
+  | "quality_control"
+  | "alignment"
+  | "atypical_scanning"
+  | "realignment"
+  | "genotyping"
+  | "snp_calling";
 
 export interface SampleProgress {
   stage: SampleStage;
@@ -242,7 +322,117 @@ export interface Reads {
   discordant: Record<string, number>;
 }
 
-export type SampleFile = "call" | "counts" | "r1" | "r2";
+export type SampleFile =
+  | "call"
+  | "counts"
+  | "r1"
+  | "r2"
+  | "legacy-result"
+  | "legacy-graphs"
+  | "legacy-fastqc"
+  | "legacy-log";
+
+/** One allele of ScaleHD 1.x values from InstanceReport. */
+export interface LegacyAllele {
+  structure: string;
+  status: "Typical" | "Atypical";
+  cag: number | null;
+  caacag: number | null;
+  ccgcca: number | null;
+  ccg: number | null;
+  cct: number | null;
+  intervening: string;
+  confidence: number;
+  confidence_interval: string;
+  backward_slippage: number;
+  somatic_mosaicism: number;
+  variant_call: string;
+  variant_score: number;
+  map_fw: number;
+  map_percent_fw: number;
+  purged_fw: number;
+  map_rv: number;
+  map_percent_rv: number;
+  purged_rv: number;
+}
+
+/** ScaleHD 1.x's genotype call (scalehd.legacy-call/1). */
+export interface LegacyCall {
+  /** Primary then secondary allele */
+  genotype: string;
+  alleles: LegacyAllele[];
+  /** The flags 1.x put into it's InstanceReport column. */
+  flags: string[];
+  flag_values: Record<string, boolean>;
+}
+
+export interface LegacyCagChart {
+  alleles: string[];
+  called: number[];
+  ccg: number;
+  reads: number[];
+}
+
+export interface LegacyCcgChart {
+  alleles: string[];
+  reads: number[];
+}
+
+export interface LegacySample {
+  status: "complete" | "failed";
+  failed_stage: string | null;
+  error: string | null;
+  stages: SampleStage[];
+  seconds: number | null;
+  threads: number | null;
+  versions: {
+    scalehd: string | null;
+    upstream: { url: string; commit: string; date: string } | null;
+    python: string;
+  } | null;
+  call: LegacyCall | null;
+  cag_charts: LegacyCagChart[];
+  ccg_charts: LegacyCcgChart[];
+  quality_control: LegacyQualityControl | null;
+  aligned_reads: LegacyAlignedReads[];
+}
+
+export interface LegacyTrimming {
+  read: "R1" | "R2";
+  summary: [string, string][];
+  adapter: [string, string][];
+}
+
+export interface LegacyBaseQuality {
+  base: string;
+  mean: number | null;
+  median: number | null;
+  lower_quartile: number | null;
+  upper_quartile: number | null;
+  /** The 10th and 90th percentiles. */
+  low: number | null;
+  high: number | null;
+}
+
+export interface LegacyFastqc {
+  modules: { module: string; status: "pass" | "warn" | "fail" | "" }[];
+  basic_statistics: [string, string][];
+  per_base_quality: LegacyBaseQuality[];
+  lengths: { length: string; reads: number | null }[];
+}
+
+export interface LegacyQualityControl {
+  trimming: LegacyTrimming[];
+  fastqc: LegacyFastqc | null;
+}
+
+export interface LegacyAlignedReads {
+  allele: string;
+  contig: string | null;
+  reads: number | null;
+  sequences: string[];
+  notes: string[];
+}
 
 export interface SampleDetail {
   sample: Sample;
@@ -256,6 +446,7 @@ export interface SampleDetail {
   ccg: CcgBar[];
   cells: Cell[];
   reads: Reads | null;
+  legacy: LegacySample | null;
   files: SampleFile[];
   previous_id: number | null;
   next_id: number | null;
@@ -338,6 +529,8 @@ export const api = {
     `/api/jobs/${jobId}/samples/${sampleId}/files/${file}`,
   jobResultsUrl: (jobId: number) => `/api/jobs/${jobId}/results.csv`,
   jobValidationUrl: (jobId: number) => `/api/jobs/${jobId}/validation.csv`,
+  legacyReportUrl: (jobId: number, report: "InstanceReport" | "AlignedDistributions") =>
+    `/api/jobs/${jobId}/legacy/${report}.csv`,
   createJob: (job: JobCreate) => request<Job>("/jobs", post(job)),
   createDemoJob: () => request<Job>("/jobs/demo", post()),
   cancelJob: (id: number) => request<Job>(`/jobs/${id}/cancel`, post()),
@@ -364,6 +557,7 @@ export const api = {
     }),
 
   getSettings: () => request<JobSettings>("/settings"),
+  getOptions: () => request<ServerOptions>("/settings/options"),
   saveSettings: (settings: JobSettings) =>
     request<JobSettings>("/settings", { method: "PUT", body: JSON.stringify(settings) }),
 };
