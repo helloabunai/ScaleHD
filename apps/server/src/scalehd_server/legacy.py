@@ -288,6 +288,12 @@ def graphs(result: dict[str, Any]) -> Path | None:
     return Path(sample["predictpath"]) / f"{sample['label']}.pdf"
 
 
+def fastqc(result: dict[str, Any]) -> Path | None:
+    """FastQC's own HTML report on the forward reads."""
+    reports = (result.get("sample") or {}).get("fqcreport") or []
+    return Path(reports[0]).with_name("fastqc_report.html") if reports else None
+
+
 def job_report(folders: list[Path], report: str) -> str | None:
     """One of 1.x's reports for the whole job."""
     key = REPORTS[report]

@@ -511,6 +511,62 @@ class LegacyCcgChart(BaseModel):
     reads: list[int]
 
 
+class LegacyTrimming(BaseModel):
+    """One read file's trimming (cutadapt) i.e. summary lines, each as [what, value]."""
+
+    read: str
+    summary: list[tuple[str, str]]
+    adapter: list[tuple[str, str]]
+
+
+class LegacyFastqcModule(BaseModel):
+    module: str
+    status: str  # pass, warn or fail
+
+
+class LegacyBaseQuality(BaseModel):
+    """FastQC's read quality at one base, Phred scale."""
+
+    base: str
+    mean: float | None
+    median: float | None
+    lower_quartile: float | None
+    upper_quartile: float | None
+    # The 10th and 90th percentiles.
+    low: float | None
+    high: float | None
+
+
+class LegacyReadLength(BaseModel):
+    length: str
+    reads: float | None
+
+
+class LegacyFastqc(BaseModel):
+    """FastQC's fw read results, after trimming, as per 1.x."""
+
+    modules: list[LegacyFastqcModule]
+    basic_statistics: list[tuple[str, str]]
+    per_base_quality: list[LegacyBaseQuality]
+    lengths: list[LegacyReadLength]
+
+
+class LegacyQualityControl(BaseModel):
+    trimming: list[LegacyTrimming]
+    fastqc: LegacyFastqc | None
+
+
+class LegacyAlignedReads(BaseModel):
+    """Subsection of aligned reads for frontend rendering"""
+
+    allele: str
+    # The reference they're aligned to, and how many reads are.
+    contig: str | None = None
+    reads: int | None = None
+    sequences: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
 class LegacySample(BaseModel):
     """What ScaleHD 1.x made of a legacy job's sample (its result.json)."""
 
@@ -527,6 +583,9 @@ class LegacySample(BaseModel):
     call: dict[str, Any] | None
     cag_charts: list[LegacyCagChart]
     ccg_charts: list[LegacyCcgChart]
+    # 1.x report info
+    quality_control: LegacyQualityControl | None = None
+    aligned_reads: list[LegacyAlignedReads] = Field(default_factory=list)
 
 
 class SampleDetail(BaseModel):

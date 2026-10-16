@@ -562,6 +562,30 @@ def test_a_legacy_samples_page(legacy_server: TestClient) -> None:
     assert detail["call"] is None
 
 
+def test_a_legacy_samples_page_has_what_1xs_report_showed(legacy_server: TestClient) -> None:
+    job = _legacy_job(legacy_server)
+    _ran(job, "atypical", "few-reads")
+    first, failed = (sample["id"] for sample in job["samples"])
+
+    detail = legacy_server.get(f"/api/jobs/{job['id']}/samples/{first}").json()["legacy"]
+    checks = detail["quality_control"]
+    assert [trimming["read"] for trimming in checks["trimming"]] == ["R1", "R2"]
+    assert checks["trimming"][0]["summary"][0][0] == "Total reads processed"
+    assert {module["status"] for module in checks["fastqc"]["modules"]} <= {"pass", "warn", "fail"}
+    assert checks["fastqc"]["per_base_quality"]
+    reads = detail["aligned_reads"]
+    assert [(allele["allele"], len(allele["sequences"])) for allele in reads] == [
+        ("17_1_1_7_2", 43),
+        ("22_2_1_7_2", 43),
+    ]
+    assert reads[1]["contig"] == "22_2_1_7_2_CAG22_CCG7_CCT2"  # 1.x regens atypical references
+
+    detail = legacy_server.get(f"/api/jobs/{job['id']}/samples/{failed}").json()["legacy"]
+    # 1.x trimmed its reads before it failed, but never aligned them.
+    assert detail["quality_control"]["trimming"]
+    assert detail["aligned_reads"] == []
+
+
 def test_a_legacy_samples_files(legacy_server: TestClient) -> None:
     job = _legacy_job(legacy_server)
     (folder, _) = _ran(job, "atypical", "few-reads")

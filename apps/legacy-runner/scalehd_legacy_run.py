@@ -41,6 +41,8 @@ Around the code, this only:
 - listens to 1.x's log for each stage starting and for failure messages (for stage reporting
   on frontend)
 - reads every get_* value from the sample and its two alleles afterwards
+- reads info from the 1.x gen HTML report i.e. each read file's trimming summary, the FastQC
+  results and some of each allele's aligned reads (for rendering)
 
 Runs on 1.x's Python (3.12) as that is what the Monckton lab runs 1.3.0 on.
 """
@@ -379,10 +381,143 @@ def run(request: dict[str, Any], out_dir: Path, listener: Listener) -> dict[str,
         shutil.rmtree(str(data_dir), ignore_errors=True)
         shutil.rmtree(str(demultiplexed), ignore_errors=True)
     found = outcome(instance, listener)
-    found["sample"] = to_json(found["sample"])
+    sample = found["sample"]
+    found["quality_control"] = quality_control(sample) if sample is not None else None
+    found["aligned_reads"] = aligned_reads(sample) if sample is not None else []
+    found["sample"] = to_json(sample)
     found["instance_report"] = _text(out_dir / JOB_NAME / "InstanceReport.csv")
     found["aligned_distributions"] = _text(out_dir / JOB_NAME / "AlignedDistributions.csv")
     return found
+
+
+# 1.x's HTML report saved as data instead, read as the report read them.
+# It showed each allele's aligned reads (a subsction of)
+SHOWN_READS = range(2, 45)
+
+
+def quality_control(sample: Any) -> dict[str, Any] | None:
+    """cutadapt summary, and the forward reads' FastQC results."""
+    trimming = [found for path in sample.get_trimreport() if (found := _trimming(Path(path)))]
+    fastqc = [found for path in sample.get_fqcreport() if (found := _fastqc(Path(path)))]
+    if not trimming and not fastqc:
+        return None
+    return {"trimming": trimming, "fastqc": fastqc[0] if fastqc else None}
+
+
+def _trimming(path: Path) -> dict[str, Any] | None:
+    """cutadapt's report"""
+    try:
+        text = path.read_text()
+    except OSError:
+        return None
+    _, _, after = text.partition("=== Summary ===")
+    summary_part, _, adapter_part = after.partition("=== Adapter 1 ===")
+    summary = [
+        [found.group(1).strip(), found.group(2).strip()]
+        for line in summary_part.splitlines()
+        if (found := re.match(r"(.+?):\s+(.+)", line.strip()))
+    ]
+    adapter_line = next((line for line in adapter_part.splitlines() if line.strip()), "")
+    adapter = [
+        [name.strip(), value.strip()]
+        for name, _, value in (part.partition(":") for part in adapter_line.split(";"))
+        if value
+    ]
+    read = "R2" if "_R2_" in path.name else "R1"
+    return {"read": read, "summary": summary, "adapter": adapter}
+
+
+def _fastqc(path: Path) -> dict[str, Any] | None:
+    """FastQC's results"""
+    if not path.is_file():
+        return None
+    report = importlib.import_module("fadapa").Fadapa(str(path))
+    quality = report.clean_data("Per base sequence quality")
+    lengths = report.clean_data("Sequence Length Distribution")
+    return {
+        "modules": [_module(row) for row in report.summary()[1:]],
+        "basic_statistics": [
+            [name, value] for name, value in report.clean_data("Basic Statistics")[1:]
+        ],
+        # FastQC's columns: base, mean, median, lower and upper quartile, 10th and 90th percentile.
+        "per_base_quality": [
+            {
+                "base": row[0],
+                **dict(zip(_QUALITY, (_figure(value) for value in row[1:7]), strict=True)),
+            }
+            for row in quality[1:]
+        ],
+        "lengths": [{"length": row[0], "reads": _figure(row[1])} for row in lengths[1:]],
+    }
+
+
+_QUALITY = ("mean", "median", "lower_quartile", "upper_quartile", "low", "high")
+_STATUSES = ("pass", "warn", "fail")
+
+
+def _module(row: list[str]) -> dict[str, str]:
+    """A FastQC module and its status (pass, warn or fail), whichever way round fadapa read them."""
+    status = next((value for value in row if value in _STATUSES), "")
+    name = next((value for value in row if value not in _STATUSES), "")
+    return {"module": name, "status": status}
+
+
+def _figure(value: str) -> float | None:
+    try:
+        number = float(value)
+    except ValueError:
+        return None
+    return number if math.isfinite(number) else None
+
+
+def aligned_reads(sample: Any) -> list[dict[str, Any]]:
+    """Some of each allele's aligned forward reads"""
+    shown = []
+    for allele in (sample.get_primaryallele(), sample.get_secondaryallele()):
+        if allele is None or not allele.get_fwassembly() or not allele.get_reflabel():
+            continue
+        try:
+            shown.append(_allele_reads(allele))
+        except (OSError, ValueError) as error:
+            label = allele.get_reflabel()
+            shown.append({"allele": label, "notes": [f"couldn't read its alignment: {error}"]})
+    return shown
+
+
+def _allele_reads(allele: Any) -> dict[str, Any]:
+    pysam: Any = importlib.import_module("pysam")
+    similar = importlib.import_module("ScaleHD.align").similar
+
+    contig = allele.get_reflabel()
+    # An atypical allele's reads are against the reference 1.x made for it.
+    if allele.get_allelestatus() == "Atypical":
+        contig = f"{contig}_CAG{allele.get_cag()}_CCG{allele.get_ccg()}_CCT{allele.get_cct()}"
+    notes = []
+    with pysam.AlignmentFile(allele.get_fwassembly(), "rb") as assembly:
+        if contig not in assembly.references:
+            wanted = contig
+            contig = sorted(
+                ((name, similar(wanted, name)) for name in assembly.references),
+                key=lambda pair: pair[1],
+                reverse=True,
+            )[0][0]
+            notes.append(f"no reference {wanted}: these reads are from the closest, {contig}")
+        count = assembly.count(reference=contig)
+        sequences = []
+        for n, read in enumerate(assembly.fetch(reference=contig), start=1):
+            if n in SHOWN_READS:
+                sequences.append(read.query_alignment_sequence or "")
+            elif n > SHOWN_READS[-1]:
+                break
+    if count < 100:
+        notes.append(f"only {count} reads aligned here, so the alignment may not have worked")
+    return {
+        "allele": allele.get_reflabel(),
+        "contig": contig,
+        "reads": count,
+        "sequences": sequences,
+        "notes": notes,
+    }
 
 
 def _text(path: Path) -> str | None:
@@ -452,6 +587,8 @@ def main(argv: list[str] | None = None) -> int:
             "sample": None,
             "instance_report": None,
             "aligned_distributions": None,
+            "quality_control": None,
+            "aligned_reads": [],
         }
     result = {
         "schema": SCHEMA,
@@ -466,6 +603,8 @@ def main(argv: list[str] | None = None) -> int:
         "sample": found["sample"],
         "instance_report": found["instance_report"],
         "aligned_distributions": found["aligned_distributions"],
+        "quality_control": found["quality_control"],
+        "aligned_reads": found["aligned_reads"],
     }
     write_json(out_dir / "result.json", result)
     return 0 if result["status"] == "complete" else 1

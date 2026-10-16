@@ -421,3 +421,66 @@ def test_a_bad_request_stops_before_anything_runs(
     assert runner.main([str(request), str(tmp_path / "out")]) == 2
     assert "threads" in capsys.readouterr().err
     assert not (tmp_path / "out").exists()
+
+
+# legacy hmtl report data test
+
+TRIMMING_REPORT = """This is cutadapt 4.9 with Python 3.12.8
+Command line parameters: -e 0.39 -a GATCGGAAGAGCACACGTCTGAACTCCAGTCAC in.fastq -o out.fq
+Processing single-end reads on 1 core ...
+Finished in 0.163 s (16.295 µs/read; 3.68 M reads/minute).
+
+=== Summary ===
+
+Total reads processed:                  10,000
+Reads with adapters:                     9,948 (99.5%)
+Reads written (passing filters):        10,000 (100.0%)
+
+Total basepairs processed:     3,007,912 bp
+Total written (filtered):      2,049,967 bp (68.2%)
+
+=== Adapter 1 ===
+
+Sequence: GATCGGAAGAGCACACGTCTGAACTCCAGTCAC; Type: regular 3'; Length: 33; Trimmed: 9948 times
+
+Minimum overlap: 3
+"""
+
+
+def test_a_trimming_report_is_read_as_cutadapt_wrote_it(tmp_path: Path) -> None:
+    path = tmp_path / "DMPX_s1_R2_TrimmingReport.txt"
+    path.write_text(TRIMMING_REPORT)
+
+    found = runner._trimming(path)
+
+    assert found == {
+        "read": "R2",
+        "summary": [
+            ["Total reads processed", "10,000"],
+            ["Reads with adapters", "9,948 (99.5%)"],
+            ["Reads written (passing filters)", "10,000 (100.0%)"],
+            ["Total basepairs processed", "3,007,912 bp"],
+            ["Total written (filtered)", "2,049,967 bp (68.2%)"],
+        ],
+        "adapter": [
+            ["Sequence", "GATCGGAAGAGCACACGTCTGAACTCCAGTCAC"],
+            ["Type", "regular 3'"],
+            ["Length", "33"],
+            ["Trimmed", "9948 times"],
+        ],
+    }
+
+
+def test_a_missing_trimming_report_is_left_out(tmp_path: Path) -> None:
+    assert runner._trimming(tmp_path / "s1_R1_TrimmingReport.txt") is None
+
+
+@pytest.mark.parametrize("row", [["pass", "Basic Statistics"], ["Basic Statistics", "pass"]])
+def test_a_fastqc_module_whichever_way_round(row: list[str]) -> None:
+    assert runner._module(row) == {"module": "Basic Statistics", "status": "pass"}
+
+
+def test_fastqcs_figures_are_numbers_or_nothing() -> None:
+    assert runner._figure("33.7997") == 33.7997
+    assert runner._figure("NaN") is None
+    assert runner._figure("") is None

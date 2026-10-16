@@ -28,8 +28,10 @@ from .schemas import (
 )
 from .workspace import sample_folders
 
-# LEGACY: 1.x's result.json, its PDF of graphs, and its log.
-FileKind = Literal["call", "counts", "r1", "r2", "legacy-result", "legacy-graphs", "legacy-log"]
+# LEGACY: 1.x's result.json, its PDF of graphs, FastQC's own report, and its log.
+FileKind = Literal[
+    "call", "counts", "r1", "r2", "legacy-result", "legacy-graphs", "legacy-fastqc", "legacy-log"
+]
 FILE_KINDS: tuple[FileKind, ...] = (
     "call",
     "counts",
@@ -37,6 +39,7 @@ FILE_KINDS: tuple[FileKind, ...] = (
     "r2",
     "legacy-result",
     "legacy-graphs",
+    "legacy-fastqc",
     "legacy-log",
 )
 # 1.x failed in these after genotyping: its genotype stands.
@@ -140,11 +143,13 @@ def sample_file(job: Job, sample: Sample, kind: FileKind) -> Path | None:
         return folder / legacy.FOLDER / legacy.RESULT
     if kind == "legacy-log":
         return folder / legacy.LOG
-    if kind == "legacy-graphs":
+    if kind in ("legacy-graphs", "legacy-fastqc"):
         result = legacy.read_result(folder)
-        graphs = legacy.graphs(result) if result else None
+        found = None
+        if result:
+            found = legacy.graphs(result) if kind == "legacy-graphs" else legacy.fastqc(result)
         # Only ever a file in the sample's own folder.
-        return graphs if graphs and graphs.resolve().is_relative_to(folder.resolve()) else None
+        return found if found and found.resolve().is_relative_to(folder.resolve()) else None
     read = 1 if kind == "r1" else 2
     if sample.simulation is not None:
         return folder / "input" / f"{folder.name}_R{read}.fastq.gz"
@@ -206,6 +211,8 @@ def legacy_sample(folder: Path) -> LegacySample | None:
         call=legacy.call(result) if called else None,
         cag_charts=_legacy_cag_charts(alleles) if called else [],
         ccg_charts=_legacy_ccg_charts(alleles) if called else [],
+        quality_control=result.get("quality_control"),
+        aligned_reads=result.get("aligned_reads") or [],
     )
 
 
