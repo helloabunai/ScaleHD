@@ -254,7 +254,7 @@ def test_a_legacy_sample_is_run_through_the_runner(tmp_path: Path) -> None:
     progress = read_progress(task.folder)
     assert progress is not None
     assert progress.stage is SampleStage.GENOTYPING
-    assert progress.share == legacy.stage_progress(LegacySettings())[SampleStage.GENOTYPING]
+    assert progress.share == legacy.stage_progress(LegacySettings(), 3)[SampleStage.GENOTYPING]
 
 
 def test_an_earlier_attempts_output_is_cleared_first(tmp_path: Path) -> None:
@@ -318,9 +318,27 @@ def test_progress_counts_only_the_stages_the_job_runs() -> None:
     assert SampleStage.QUALITY_CONTROL not in done
     assert SampleStage.SNP_CALLING not in done
     # Genotyping is then the last stage, so has the rest to itself.
-    parts = legacy.STAGE_PARTS
-    total = sum(parts[stage] for stage in done if stage is not SampleStage.REALIGNMENT)
-    assert done[SampleStage.GENOTYPING] == pytest.approx(1 - parts[SampleStage.GENOTYPING] / total)
+    seconds = {
+        stage: legacy.stage_seconds(stage, 1)
+        for stage in done
+        if stage is not SampleStage.REALIGNMENT
+    }
+    genotyping = seconds[SampleStage.GENOTYPING]
+    assert done[SampleStage.GENOTYPING] == pytest.approx(1 - genotyping / sum(seconds.values()))
+
+
+def test_progress_follows_the_cores_a_sample_gets() -> None:
+    alignment, scanning = SampleStage.ALIGNMENT, SampleStage.ATYPICAL_SCANNING
+
+    assert legacy.stage_seconds(alignment, 4) < legacy.stage_seconds(alignment, 1) / 3
+    assert legacy.stage_seconds(scanning, 2) == legacy.stage_seconds(scanning, 1)
+    assert legacy.stage_seconds(scanning, 8) == legacy.stage_seconds(scanning, 3)
+    assert legacy.stage_seconds(scanning, 3) < legacy.stage_seconds(scanning, 1)
+    one, many = (
+        legacy.stage_progress(LegacySettings(), 1),
+        legacy.stage_progress(LegacySettings(), 8),
+    )
+    assert one[SampleStage.GENOTYPING] > many[SampleStage.GENOTYPING]
 
 
 def test_names_1x_can_use_are_kept(tmp_path: Path) -> None:

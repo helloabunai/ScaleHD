@@ -70,17 +70,17 @@ FLAGS = (
 PASS_FLAG = "Heuristic Filtering Success"
 # 1.x's forward distribution is aligned reads per reference, CAG 1-200 for each CCG in turn.
 CAG_LENGTHS = 200
-# Roughly how long each 1.x stage takes, as parts of a sample's run
-# Timed on simulated data for rough progress bar feedback from the wrapper to UI
+# How long each 1.x stage takes, as parts of a sample's run
+# Timed on simulated and real data for rough progress bar feedback from the wrapper to UI
 STAGE_PARTS = {
-    SampleStage.PREPARING: 3,
-    SampleStage.INDEXING: 1,
-    SampleStage.DEMULTIPLEXING: 2,
-    SampleStage.QUALITY_CONTROL: 10,
-    SampleStage.ALIGNMENT: 21,
-    SampleStage.ATYPICAL_SCANNING: 28,
-    SampleStage.GENOTYPING: 15,
-    SampleStage.SNP_CALLING: 5,
+    SampleStage.PREPARING: (1.1, 0.0),
+    SampleStage.INDEXING: (0.2, 0.0),
+    SampleStage.DEMULTIPLEXING: (0.3, 0.0),
+    SampleStage.QUALITY_CONTROL: (2.7, 0.0),
+    SampleStage.ALIGNMENT: (31.9, 31.7),
+    SampleStage.ATYPICAL_SCANNING: (9.6, 7.2),
+    SampleStage.GENOTYPING: (4.3, 0.0),
+    SampleStage.SNP_CALLING: (1.9, 0.0),
 }
 
 
@@ -119,7 +119,7 @@ def run_sample(
         "config": settings.config(),
     }
     (folder / REQUEST).write_text(json.dumps(request, indent=2) + "\n")
-    done = stage_progress(settings)
+    done = stage_progress(settings, threads)
     with open(folder / LOG, "w") as log:
         process = subprocess.Popen(
             [str(runner), str(folder / REQUEST), str(out_dir)],
@@ -142,9 +142,9 @@ def run_sample(
     return result
 
 
-def stage_progress(settings: LegacySettings) -> dict[SampleStage, float]:
+def stage_progress(settings: LegacySettings, cores: int = 1) -> dict[SampleStage, float]:
     """How much of a sample's run is done as each stage starts, for the stages these
-    settings run."""
+    settings run, on this many cores."""
     flags = settings.instance_flags
     left_out = {
         SampleStage.DEMULTIPLEXING: not flags.demultiplex,
@@ -152,15 +152,25 @@ def stage_progress(settings: LegacySettings) -> dict[SampleStage, float]:
         SampleStage.SNP_CALLING: not flags.snp_calling,
     }
     stages = [stage for stage in STAGE_PARTS if not left_out.get(stage, False)]
-    total = sum(STAGE_PARTS[stage] for stage in stages)
+    seconds = {stage: stage_seconds(stage, cores) for stage in stages}
+    total = sum(seconds.values())
     done: dict[SampleStage, float] = {}
-    so_far = 0
+    so_far = 0.0
     for stage in stages:
         done[stage] = so_far / total
-        so_far += STAGE_PARTS[stage]
+        so_far += seconds[stage]
     # Between atypical scanning and genotyping.
     done[SampleStage.REALIGNMENT] = done[SampleStage.GENOTYPING]
     return done
+
+
+def stage_seconds(stage: SampleStage, cores: int) -> float:
+    """Roughly how long a stage takes on this many cores."""
+    one_core, shared = STAGE_PARTS[stage]
+    shared_by = cores
+    if stage is SampleStage.ATYPICAL_SCANNING:
+        shared_by = 3 if cores >= 3 else 1
+    return one_core - shared + shared / shared_by
 
 
 def _stage(line: str) -> SampleStage | None:
