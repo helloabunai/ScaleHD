@@ -100,7 +100,7 @@ def test_settings_are_written_as_1x_reads_them() -> None:
 
 
 def test_the_error_tolerances_refused_are_those_1x_refuses() -> None:
-    # 1.x's check (legacy/ScaleHD/__backend.py), on every hundredth from 0 to 1.
+    # 1.x's check (its __backend.py), on every hundredth from 0 to 1.
     allowed = np.arange(0, 1.1, 0.01)
     refused = {i / 100 for i in range(101) if float(f"{i / 100:.2f}") not in allowed}
 

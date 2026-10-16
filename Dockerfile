@@ -22,21 +22,33 @@ RUN npm run build
 
 FROM ghcr.io/astral-sh/uv:${UV} AS uv
 
-# ScaleHD 1.x, as maintained upstream (legacy/), with its own Python in /opt/legacy/python and
-# the programs it uses in /opt/legacy/tools. Versions are pinned in apps/legacy-runner/.
+# ScaleHD 1.x as maintained upstream, with its own Python in /opt/legacy/python and the
+# programs it uses in /opt/legacy/tools. Versions are pinned in apps/legacy-runner/.
+# Clone exact scaleHD legacy commit so as to not store code twice in the new repo
 FROM mambaorg/micromamba:${MICROMAMBA} AS legacy
 USER root
 COPY apps/legacy-runner/environment-tools.yml apps/legacy-runner/environment-python.yml /tmp/env/
 RUN micromamba create -y -p /opt/legacy/tools -f /tmp/env/environment-tools.yml \
  && micromamba create -y -p /opt/legacy/python -f /tmp/env/environment-python.yml \
+ && micromamba create -y -p /tmp/git -c conda-forge git \
  && micromamba clean -a -y
 COPY apps/legacy-runner/requirements.txt /tmp/env/
 RUN /opt/legacy/python/bin/pip install --no-cache-dir --no-deps -r /tmp/env/requirements.txt
-COPY legacy /tmp/legacy
-RUN /opt/legacy/python/bin/pip install --no-cache-dir --no-deps /tmp/legacy \
+# Legacy ScaleHD @ pinned commit, no changes
+COPY apps/legacy-runner/UPSTREAM /opt/legacy/UPSTREAM
+RUN url=$(sed -n 's/^url=//p' /opt/legacy/UPSTREAM) \
+ && commit=$(sed -n 's/^commit=//p' /opt/legacy/UPSTREAM) \
+ && mkdir /opt/legacy/upstream && cd /opt/legacy/upstream \
+ && /tmp/git/bin/git init -q \
+ && /tmp/git/bin/git fetch -q --depth 1 "$url" "$commit" \
+ && /tmp/git/bin/git checkout -q FETCH_HEAD \
+ && test "$(/tmp/git/bin/git rev-parse HEAD)" = "$commit" \
+ && rm -rf .git /tmp/git
+RUN cp -r /opt/legacy/upstream/src /tmp/legacy-src \
+ && /opt/legacy/python/bin/pip install --no-cache-dir --no-deps /tmp/legacy-src \
+ && rm -rf /tmp/legacy-src \
  && mkdir -p /opt/legacy/references \
- && cp /tmp/legacy/ScaleHD/config/*.fasta /opt/legacy/references/ \
- && cp /tmp/legacy/UPSTREAM /opt/legacy/UPSTREAM
+ && cp /opt/legacy/upstream/src/ScaleHD/config/*.fasta /opt/legacy/references/
 COPY apps/legacy-runner/picard /opt/legacy/bin/picard
 
 # The Python environment: scalehd and scalehd-server, installed into /app/.venv.

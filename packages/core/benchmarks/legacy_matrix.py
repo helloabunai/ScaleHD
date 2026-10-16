@@ -1,6 +1,6 @@
 """Genotype the ScaleHD 1.x labelled training matrix and compare with its labels.
 
-Each row of ``legacy/ScaleHD/train/raw_matrix.csv`` is one MiSeq sample: read counts
+Each row of ScaleHD 1.x's ``train/raw_matrix.csv`` is one MiSeq sample: read counts
 for CAG 1-100 x CCG 1-20, as aligned by ScaleHD 1.x, and a label such as
 ``CAG43CCG7-CAG19CCG10`` that was probably curated by hand. The matrix has no
 intervening-sequence information, so every structure is taken as n_1_1_m_2. Atypical
@@ -10,7 +10,9 @@ The stutter priors were calibrated on this same matrix. That is four smooth curv
 fitted to thousands of alleles, so the effect on this comparison is small but not
 zero.
 
-Run with ``uv run python packages/core/benchmarks/legacy_matrix.py``.
+Run with ``uv run python packages/core/benchmarks/legacy_matrix.py``. The matrix is
+downloaded from the pinned 1.x commit (apps/legacy-runner/UPSTREAM) the first time, into
+``benchmarks/.cache/``, unless ``--matrix`` names a copy.
 """
 
 from __future__ import annotations
@@ -19,6 +21,8 @@ import argparse
 import csv
 import json
 import re
+import sys
+import urllib.request
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
@@ -30,7 +34,10 @@ from scalehd.counts import SampleCounts
 from scalehd.genotype import CallerSettings, call_genotype
 from scalehd.structure import AlleleStructure
 
-DEFAULT_MATRIX = Path(__file__).parents[3] / "legacy/ScaleHD/train/raw_matrix.csv"
+# ScaleHD 1.x isn't kept in this repository anymore
+UPSTREAM = Path(__file__).parents[3] / "apps" / "legacy-runner" / "UPSTREAM"
+CACHE = Path(__file__).parent / ".cache"
+MATRIX = "src/ScaleHD/train/raw_matrix.csv"
 LABEL = re.compile(r"^CAG(\d+)CCG(\d+)-CAG(\d+)CCG(\d+)$")
 
 
@@ -158,9 +165,26 @@ def _match(r: Result, how: str) -> bool:
     return all(abs(t - c) <= 1 for t, c in zip(truth, called, strict=True))
 
 
+def pinned_matrix() -> Path:
+    """The matrix at the pinned 1.x commit, downloaded once."""
+    pin = dict(line.split("=", 1) for line in UPSTREAM.read_text().splitlines())
+    path = CACHE / f"raw_matrix-{pin['commit'][:7]}.csv"
+    if not path.is_file():
+        repo = pin["url"].removeprefix("https://github.com/")
+        url = f"https://raw.githubusercontent.com/{repo}/{pin['commit']}/{MATRIX}"
+        print(f"Downloading ScaleHD 1.x's training matrix from {url}", file=sys.stderr)
+        with urllib.request.urlopen(url) as response:
+            data = response.read()
+        CACHE.mkdir(exist_ok=True)
+        aside = path.with_suffix(".part")
+        aside.write_bytes(data)
+        aside.replace(path)
+    return path
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
+    parser.add_argument("--matrix", type=Path, help="default: the pinned 1.x commit's")
     parser.add_argument("--limit", type=int)
     parser.add_argument("--workers", type=int)
     parser.add_argument("--window", help="stutter window as BELOW,ABOVE, e.g. 8,12")
@@ -170,7 +194,7 @@ def main() -> None:
     if options.window:
         below, above = (int(v) for v in options.window.split(","))
         settings = CallerSettings(stutter_window=(below, above))
-    samples = load(options.matrix)[: options.limit]
+    samples = load(options.matrix or pinned_matrix())[: options.limit]
     with ProcessPoolExecutor(options.workers) as pool:
         results = list(pool.map(partial(genotype, settings=settings), samples, chunksize=4))
     if options.dump:

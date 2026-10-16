@@ -27,8 +27,6 @@ scalehd-server = { workspace = true }
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-# ScaleHD 1.x, exactly as upstream code exists (see tools/update-legacy.sh).
-extend-exclude = ["legacy"]
 # specific python 3.12 for 1.x legacy version
 per-file-target-version = { "apps/legacy-runner/**" = "py312" }
 

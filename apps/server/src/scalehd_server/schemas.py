@@ -104,7 +104,7 @@ class GenotypeMethod(StrEnum):
 
 
 # ScaleHD 1.x's settings: the attributes of its configuration XML
-# (legacy/ScaleHD/config/config.dtd), element by element, under the XML's own names.
+# (its config/config.dtd), element by element, under the XML's own names.
 # Defaults are scraped from 1.x's documented configuration.
 
 

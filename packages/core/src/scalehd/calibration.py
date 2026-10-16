@@ -11,7 +11,7 @@ N+1 step followed by a long, flatter somatic tail, which one geometric cannot fo
 In blood DNA the expansion side includes ordinary somatic expansion.
 
 The default curve is the per-length median of these ratios around the labelled alleles
-in the ScaleHD 1.x training matrix (``legacy/ScaleHD/train/raw_matrix.csv``, 594 MiSeq
+in the ScaleHD 1.x training matrix (ScaleHD 1.x's ``train/raw_matrix.csv``, 594 MiSeq
 samples aligned by ScaleHD 1.x). Alleles closer than eight CAG to their partner in the
 same CCG were dropped, and so were alleles with fewer than 500 reads at N.
 """

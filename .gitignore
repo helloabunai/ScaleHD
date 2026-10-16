@@ -16,3 +16,5 @@ node_modules/
 .env
 /data/
 /workspace/
+# Legacy scaleHD training matrix
+packages/core/benchmarks/.cache/
