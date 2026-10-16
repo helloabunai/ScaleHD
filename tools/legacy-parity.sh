@@ -11,5 +11,4 @@ if [[ -z "$IMAGE" ]]; then
     IMAGE=scalehd:dev
     docker build -t "$IMAGE" "$REPO_ROOT"
 fi
-docker run --rm -v "$REPO_ROOT/apps/legacy-runner:/parity:ro" \
-    -v "$REPO_ROOT/legacy/ContinuousTesting:/lab-test:ro" "$IMAGE" python /parity/parity.py
+docker run --rm -v "$REPO_ROOT/apps/legacy-runner:/parity:ro" "$IMAGE" python /parity/parity.py

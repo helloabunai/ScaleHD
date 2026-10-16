@@ -5,11 +5,9 @@ The runner here is a stand-in. The real one only runs in the Docker image.
 """
 
 import json
-import re
 import shutil
 import sys
 import time
-import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -37,8 +35,6 @@ from scalehd_server.workspace import sample_folder_names
 from sqlalchemy.orm import Session, sessionmaker
 
 DATA = Path(__file__).parent / "data"
-LEGACY = Path(__file__).resolve().parents[3] / "legacy"
-SHERPA = (LEGACY / "ScaleHD" / "sherpa.py").read_text()
 LEGACY_JOB = JobSettings(method=GenotypeMethod.LEGACY).for_job()
 
 
@@ -50,41 +46,6 @@ def result(name: str = "atypical") -> dict[str, Any]:
 
 
 # Settings
-
-
-def _documented_config() -> dict[str, dict[str, str]]:
-    """The configuration in 1.x's documentation (docs/ProvidingInput.rst)."""
-    text = (LEGACY / "docs" / "ProvidingInput.rst").read_text()
-    root = ET.fromstring(text[text.index("<config") : text.index("</config>") + len("</config>")])
-    return {child.tag: dict(child.attrib) for child in root}
-
-
-def _same(written: str, documented: str) -> bool:
-    try:
-        return float(written) == float(documented)
-    except ValueError:
-        return written == documented
-
-
-def test_the_defaults_are_1xs_documented_configuration() -> None:
-    config = LegacySettings().config()
-    documented = _documented_config()
-
-    assert list(config) == list(documented)
-    for element, attributes in documented.items():
-        assert config[element].keys() == attributes.keys(), element
-        for name, value in attributes.items():
-            assert _same(config[element][name], value), (element, name)
-
-
-def test_the_config_has_every_attribute_1xs_dtd_requires() -> None:
-    dtd = (LEGACY / "ScaleHD" / "config" / "config.dtd").read_text()
-    required = re.findall(r"<!ATTLIST (\w+)\s+(\w+) CDATA #REQUIRED>", dtd)
-    config = LegacySettings().config()
-
-    for element, name in required:
-        if element != "config":
-            assert name in config[element], (element, name)
 
 
 def test_settings_are_written_as_1x_reads_them() -> None:
@@ -143,29 +104,6 @@ def test_a_job_keeps_1xs_settings_only_when_it_runs_1x() -> None:
     assert legacy_job.legacy is not None
     assert legacy_job.legacy.cores_per_sample == 4
     assert JobSettings(method=GenotypeMethod.LEGACY).for_job().legacy == LegacySettings()
-
-
-# What the server relies on in 1.x, checked against legacy/ so an update can't break it.
-
-
-def test_the_flags_are_1xs_report_columns_in_order() -> None:
-    header = SHERPA[SHERPA.index("'Exception Raised'") : SHERPA.index("'Low Peak Reads'")]
-    columns = [*re.findall(r"'([^']+)'", header)[1:], "Low Peak Reads"]
-
-    assert [column for column, _ in legacy.FLAGS] == columns
-
-
-def test_the_flags_come_from_the_values_1xs_report_reads() -> None:
-    listed = SHERPA[SHERPA.index("'get_exceptionraised'") : SHERPA.index("report_string =")]
-    getters = re.findall(r"'get_(\w+)'", listed)[1:]
-
-    assert [key for _, key in legacy.FLAGS] == getters
-
-
-def test_every_stage_1x_can_fail_in_has_words() -> None:
-    stages = set(re.findall(r"set_exceptionraised\('([^']+)'\)", SHERPA)) - {"N/A"}
-
-    assert stages == set(legacy.FAILED_STAGES)
 
 
 # The call

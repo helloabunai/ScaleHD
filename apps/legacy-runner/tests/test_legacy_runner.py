@@ -7,7 +7,6 @@ import importlib.util
 import io
 import json
 import logging
-import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from types import ModuleType
@@ -17,7 +16,6 @@ import numpy as np
 import pytest
 
 RUNNER_FILE = Path(__file__).resolve().parents[1] / "scalehd_legacy_run.py"
-LEGACY = Path(__file__).resolve().parents[3] / "legacy" / "ScaleHD"
 
 
 def _load() -> ModuleType:
@@ -146,14 +144,6 @@ def test_the_config_is_written_as_given_in_the_dtds_order() -> None:
     assert [child.tag for child in root] == list(runner.ELEMENTS)
     assert [child.attrib for child in root] == [config[element] for element in runner.ELEMENTS]
     assert "\t<demultiplex_flags/>\n" in xml
-
-
-def test_the_elements_are_in_the_order_1x_dtd_has_them() -> None:
-    dtd = (LEGACY / "config" / "config.dtd").read_text()
-    declared = re.search(r"<!ELEMENT config\s+\(([^)]*)\)>", dtd)
-
-    assert declared is not None
-    assert tuple(name.strip() for name in declared.group(1).split(",")) == runner.ELEMENTS
 
 
 def test_reads_are_copied_under_the_names_1x_pairs(tmp_path: Path) -> None:
@@ -431,43 +421,3 @@ def test_a_bad_request_stops_before_anything_runs(
     assert runner.main([str(request), str(tmp_path / "out")]) == 2
     assert "threads" in capsys.readouterr().err
     assert not (tmp_path / "out").exists()
-
-
-# What the runner relies on in 1.x, checked against legacy/ so an update can't break the
-# wrapper quietly
-
-SHERPA = (LEGACY / "sherpa.py").read_text()
-
-
-@pytest.mark.parametrize(("start", "stage"), runner.STAGES)
-def test_1x_still_logs_each_stage_starting(start: str, stage: str) -> None:
-    assert f"'{start}" in SHERPA
-
-
-def test_1x_still_says_why_a_sample_failed_the_same_way() -> None:
-    failures = [line for line in SHERPA.splitlines() if "failure on " in line]
-
-    assert len(failures) == 7
-    for line in failures:
-        assert ".format(clr.red" in line
-        assert re.search(r"failure on ',\s*seqpair_lbl,\s*str\(e\)\)", line), line
-
-
-def test_threads_are_only_set_where_the_runner_sets_them() -> None:
-    modules = {
-        "ScaleHD." + ".".join(path.relative_to(LEGACY).with_suffix("").parts)
-        for path in LEGACY.rglob("*.py")
-        if re.search(r"\bTHREADS\b|cpu_count", path.read_text())
-    }
-
-    assert modules == {*runner.THREAD_MODULES, "ScaleHD.sherpa"}
-    # sherpa's own THREADS is only the range of its -t option
-    assert not any("args.threads" in path.read_text() for path in LEGACY.rglob("*.py"))
-
-
-def test_1x_still_has_the_methods_the_runner_wraps() -> None:
-    assert "\tdef sequence_workflow(self):" in SHERPA
-    assert "\tdef html_workflow(self):" in SHERPA
-    assert "self.sequence_workflow()" in SHERPA
-    assert "self.html_workflow()" in SHERPA
-    assert "self.instance_objects.append(current_seqpair)" in SHERPA

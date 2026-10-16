@@ -46,6 +46,7 @@ files = [
     "apps/server/src",
     "apps/legacy-runner/scalehd_legacy_run.py",
     "apps/legacy-runner/parity.py",
+    "apps/legacy-runner/contract.py",
 ]
 plugins = ["pydantic.mypy"]
 disallow_untyped_defs = true

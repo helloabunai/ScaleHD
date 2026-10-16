@@ -2,7 +2,9 @@
 on its own, for simulated samples. First go is all as a batch via CLI ScaleHD. Then, run one
 at a time through the wrapper (as would happen when called by the web frontend).
 All of it runs two times, once with demultiplexing and once without. Also run
-legacy/ContinuousTesting sample file through to verify (same test file as from 1.3 legacy)
+the lab's ContinuousTesting sample file through to verify (same test file as from 1.3 legacy).
+
+Before any of that, contract.py checks 1.x still has what the new code relies on.
 
     python apps/legacy-runner/parity.py [--work DIR]
 """
@@ -22,6 +24,7 @@ from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
 
+import contract
 import scalehd_legacy_run as runner
 from scalehd.simulate import SimAllele, SimulationSpec, simulate
 from scalehd.structure import AlleleStructure
@@ -29,8 +32,7 @@ from scalehd.structure import AlleleStructure
 LEGACY_ROOT = Path("/opt/legacy")
 RUNNER = LEGACY_ROOT / "bin" / "scalehd-legacy-run"
 SCALEHD_1X = LEGACY_ROOT / "python" / "bin" / "ScaleHD"
-# legacy/ContinuousTesting, mounted by tools/legacy-parity.sh.
-LAB_TEST = Path("/lab-test")
+LAB_TEST = contract.UPSTREAM / "ContinuousTesting"
 
 # label: (alleles, read pairs)
 SAMPLES = {
@@ -204,18 +206,17 @@ def main() -> int:
     work = args.work or Path(tempfile.mkdtemp(prefix="legacy-parity-"))
     work.mkdir(parents=True, exist_ok=True)
 
-    print(f"Simulating {len(SAMPLES)} samples in {work}", flush=True)
+    print(f"What the runner and server rely on in 1.x ({contract.UPSTREAM})", flush=True)
+    failures = [f"contract, {failure}" for failure in contract.check()]
+
+    print(f"\nSimulating {len(SAMPLES)} samples in {work}", flush=True)
     reads = simulate_samples(work / "reads")
-    failures = []
     for folder, (title, config) in CONFIGS.items():
         print(f"\nWith {title}", flush=True)
         failures += [f"{folder}, {failure}" for failure in check(reads, config, work / folder)]
 
-    if LAB_TEST.is_dir():
-        print("\nThe Monckton lab's own test sample", flush=True)
-        failures += [f"lab test, {failure}" for failure in check_lab_test(work / "lab-test")]
-    else:
-        print(f"\n{LAB_TEST} isn't there, so the lab's own test is left out")
+    print("\nThe Monckton lab's own test sample", flush=True)
+    failures += [f"lab test, {failure}" for failure in check_lab_test(work / "lab-test")]
 
     print()
     for failure in failures:
