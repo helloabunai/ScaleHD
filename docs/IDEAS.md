@@ -3,8 +3,7 @@
 - GPU processing for data?
 - ollama based model calling?
 - report exporting (PDF). A job's results already export as CSV
-- admin features needed (changing users passwords done, others???)
-- sequence struct hover details improvement
+- admin features needed (changing users passwords done, add tags from admin settings UI, others???)
 - user specified primers/flanking sequences for genotyping jobs (model version)
 - user specified PCR stutter/slippage models? (model version)
 - expose algorithm settings to allow user to tweak parameters for jobs (model version)
