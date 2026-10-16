@@ -1,11 +1,11 @@
 # ScaleHD
 
 > [!WARNING] 
-> I'm re-writing ScaleHD as a hobby project. If you are looking for the original ScaleHD, it's either been forked by others, or check the legacy folder within the repository. The legacy genotyping method (ScaleHD 1.x itself, unchanged) can also be picked for jobs in the web interface of this version, see [docs/LEGACY.md](docs/LEGACY.md).
+> I'm re-writing ScaleHD as a hobby project. If you are looking for the original ScaleHD, it's maintained by the Monckton lab at [MoncktonLab/ScaleHD](https://github.com/MoncktonLab/ScaleHD). The legacy genotyping method (ScaleHD 1.x itself, unchanged) can also be picked for jobs in the web interface of this version, see [docs/LEGACY.md](docs/LEGACY.md).
 
 Genotyping of the Huntington disease *HTT* CAG/CCG repeat from paired-end amplicon
 sequencing. This is a ground-up rewrite. The previous ScaleHD implementation
-is kept for reference in [`legacy/`](legacy/). Looking back at old work is embarrassing
+is maintained at [MoncktonLab/ScaleHD](https://github.com/MoncktonLab/ScaleHD). Looking back at old work is embarrassing
 but everyone starts their professional journey somewhere. Hopefully this implementation
 is more professional.
 

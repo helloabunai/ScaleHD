@@ -41,9 +41,9 @@ tools/new-migration.sh "add a notes column to jobs"
 
 ### ScaleHD 1.x
 
-`legacy/` is ScaleHD 1.x as maintained upstream (github: MoncktonLab), unmodified. A test checks each
-file against `legacy/UPSTREAM.sha256`. `tools/update-legacy.sh <commit>` swaps in another
-upstream commit.
+ScaleHD 1.x isn't kept in this repository. `apps/legacy-runner/UPSTREAM` pins it to one commit of
+the upstream repository (github: MoncktonLab), and the Docker image fetches exactly that commit,
+unmodified, into `/opt/legacy/upstream`. `tools/update-legacy.sh <commit>` can pin another commit.
 
 The docker image has 1.x installed in `/opt/legacy`, with its own Python (3.12) and the binaries it
 runs. `apps/legacy-runner/scalehd_legacy_run.py` (`scalehd-legacy-run` in the image) runs it
@@ -51,12 +51,17 @@ on one sample and saves everything 1.x knew about the sample as JSON, so we can 
 front-end. The docstring at the top says what goes in and what comes out. 
 To check it gets exactly what 1.x gets when run on its
 own, with and without demultiplexing, and that the lab's own test sample
-(`legacy/ContinuousTesting`) gives the reports the lab expects (this builds the image
-first, then takes about 6 minutes):
+(`ContinuousTesting` in 1.x's repository) gives the reports the lab expects (this builds the
+image first, then takes about 6 minutes):
 
 ```sh
 tools/legacy-parity.sh
 ```
+
+It first checks 1.x still has what the runner and new server rely on, such as its log messages,
+where it sets `THREADS`, its report's columns and its documented settings
+(`apps/legacy-runner/contract.py`). Pinning a commit that changes any of it fails there so legacy
+implementation into the web interface will not start.
 
 ## Layout
 
@@ -76,5 +81,4 @@ tools/                check.sh, dev.sh, refresh.sh, new-migration.sh, update-leg
 Dockerfile            one image with the server, the core and the built frontend
 compose.yaml          runs the docker image with a database volume, the data (input) folder read-only and
                       the workspace (job results) read-write
-legacy/               ScaleHD 1.x as maintained upstream, unmodified (see legacy/UPSTREAM)
 ```

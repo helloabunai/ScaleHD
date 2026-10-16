@@ -2,10 +2,10 @@
 
 Pick "Legacy ScaleHD" as a job's genotyping method and each sample runs through
 ScaleHD 1.x itself, completely unchanged. Version 1.3 as maintained by the Monckton lab
-(MoncktonLab on GitHub, the copy in [`legacy/`](../legacy/), see `legacy/UPSTREAM`), on the
-Python and libraries its `setup.py` pins. A sample gets what 1.x would give it when run on its
+(MoncktonLab on GitHub, at the commit `apps/legacy-runner/UPSTREAM` pins, which the Docker
+image fetches), on the Python and libraries its `setup.py` pins. A sample gets what 1.x would give it when run on its
 own, and `tools/legacy-parity.sh` checks that it does (see [DEVELOPMENT.md](DEVELOPMENT.md)).
-That includes the lab's own test sample (`legacy/ContinuousTesting`), which gives exactly the
+That includes the lab's own test sample (`ContinuousTesting` in 1.x's repository), which gives exactly the
 reports the lab expects.
 
 1.x needs its own Python (3.12) and the programs it runs (bwa, samtools, cutadapt, FastQC,
@@ -59,7 +59,9 @@ can't use (anything but letters, digits, `_` and `-`). Demultiplexing renames it
 1.x itself isn't changed. Around it, the runner (`apps/legacy-runner/scalehd_legacy_run.py`)
 only sets `THREADS` to the cores per sample, skips the HTML report at the end (the web
 interface shows the same and more), follows 1.x's log to report each stage as it starts,
-and reads every value 1.x holds for the sample and its two alleles once it has finished.
+and reads every value 1.x holds for the sample and its two alleles once it has finished. It
+also reads what 1.x's HTML report showed from its output i.e. each read file's trimming summary,
+the FastQC results, and some of each allele's aligned reads.
 
 ## Results
 
@@ -73,8 +75,10 @@ and reads every value 1.x holds for the sample and its two alleles once it has f
   Filtering Success", which says something went right and so isn't counted as a flag.
 - The sample's page has each allele's values from 1.x's InstanceReport, the CAG and CCG
   read distributions 1.x charted, how the reads aligned, and the run (stages, time,
-  cores, 1.x's version). Its files are there to download: everything 1.x knew about the
-  sample (JSON), 1.x's PDF of graphs, and its log.
+  cores, 1.x's version). As 1.x's own report did, it also has the aligned reads it showed,
+  cutadapt's trimming summary for each read file,
+  and FastQC's results for the forward reads. Its files are there to download: everything
+  1.x knew about the sample (JSON), 1.x's PDF of graphs, FastQC's own report, and its log.
 - A job's page has 1.x's InstanceReport.csv and AlignedDistributions.csv for the whole job,
   as 1.x writes them for a batch, with the samples in the job's order. The usual results
   export fills the columns 1.x has values for.
