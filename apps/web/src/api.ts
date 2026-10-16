@@ -329,6 +329,7 @@ export type SampleFile =
   | "r2"
   | "legacy-result"
   | "legacy-graphs"
+  | "legacy-fastqc"
   | "legacy-log";
 
 /** One allele of ScaleHD 1.x values from InstanceReport. */
@@ -392,6 +393,45 @@ export interface LegacySample {
   call: LegacyCall | null;
   cag_charts: LegacyCagChart[];
   ccg_charts: LegacyCcgChart[];
+  quality_control: LegacyQualityControl | null;
+  aligned_reads: LegacyAlignedReads[];
+}
+
+export interface LegacyTrimming {
+  read: "R1" | "R2";
+  summary: [string, string][];
+  adapter: [string, string][];
+}
+
+export interface LegacyBaseQuality {
+  base: string;
+  mean: number | null;
+  median: number | null;
+  lower_quartile: number | null;
+  upper_quartile: number | null;
+  /** The 10th and 90th percentiles. */
+  low: number | null;
+  high: number | null;
+}
+
+export interface LegacyFastqc {
+  modules: { module: string; status: "pass" | "warn" | "fail" | "" }[];
+  basic_statistics: [string, string][];
+  per_base_quality: LegacyBaseQuality[];
+  lengths: { length: string; reads: number | null }[];
+}
+
+export interface LegacyQualityControl {
+  trimming: LegacyTrimming[];
+  fastqc: LegacyFastqc | null;
+}
+
+export interface LegacyAlignedReads {
+  allele: string;
+  contig: string | null;
+  reads: number | null;
+  sequences: string[];
+  notes: string[];
 }
 
 export interface SampleDetail {

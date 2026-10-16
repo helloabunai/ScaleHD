@@ -1,13 +1,18 @@
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
 import type {
+  LegacyAlignedReads,
   LegacyAllele,
   LegacyCagChart,
   LegacyCall,
   LegacyCcgChart,
+  LegacyFastqc,
+  LegacyQualityControl,
   LegacySample,
+  LegacyTrimming,
   SampleDetail,
 } from "../api";
 import { type Bar, BarChart, type Scale } from "../charts/BarChart";
+import { BaseKey, ReadBlocks } from "../charts/ReadBlocks";
 import { LEGACY_FAILED_STAGES, LEGACY_FLAGS, legacyConfidenceInWords } from "../legacyFlags";
 import { ScaleToggle } from "./SampleResults";
 
@@ -58,6 +63,10 @@ export function LegacyResults({
           <Mapping alleles={distinct(legacy.call.alleles)} />
           <Flags call={legacy.call} />
         </>
+      )}
+      {legacy.aligned_reads.length > 0 && <AlignedReads shown={legacy.aligned_reads} />}
+      {legacy.quality_control && (
+        <QualityControl checks={legacy.quality_control} scale={scale} />
       )}
       <Run legacy={legacy} />
     </>
@@ -115,8 +124,8 @@ function Summary({ detail, call }: Readonly<{ detail: SampleDetail; call: Legacy
       </dl>
       <p className="muted">
         Legacy ScaleHD lists its primary allele (the one with most reads) first. Its confidence is a
-        percentage: over 80% is good, over 60% believable, and less may justify manual
-        inspection.
+        linear percentage based on iterative development. Over 80% is good, over 60% believable,
+        and less may justify manual inspection.
       </p>
     </section>
   );
@@ -323,6 +332,178 @@ function Run({ legacy }: Readonly<{ legacy: LegacySample }>) {
       </dl>
     </section>
   );
+}
+
+/** Subsection visualisation of alignments in-app */
+function AlignedReads({ shown }: Readonly<{ shown: LegacyAlignedReads[] }>) {
+  const alleles = shown.filter((a, i) => shown.findIndex((b) => b.allele === a.allele) === i);
+  return (
+    <section>
+      <h2>Aligned reads</h2>
+      <p className="muted">
+        Forward reads aligned to each allele's reference, one read to a row and a block for each
+        base. Scroll over the reads to zoom in and out, drag to move about once zoomed in.
+      </p>
+      <BaseKey />
+      {alleles.map((allele) => (
+        <figure key={allele.allele}>
+          <figcaption>
+            {allele.allele}{" "}
+            {allele.reads !== null && (
+              <span className="muted">
+                A subsection of reads (of {allele.reads.toLocaleString()} total) reads aligned to{" "}
+                {allele.contig}
+              </span>
+            )}
+          </figcaption>
+          {allele.notes.map((note) => (
+            <p key={note} className="note">
+              {note}
+            </p>
+          ))}
+          {allele.sequences.length > 0 && (
+            <ReadBlocks
+              sequences={allele.sequences}
+              label={`${allele.sequences.length} aligned reads for ${allele.allele}`}
+            />
+          )}
+        </figure>
+      ))}
+    </section>
+  );
+}
+
+/** Trimming (cutadapt) and FastQC, as legacy ScaleHD ran. */
+function QualityControl({
+  checks,
+  scale,
+}: Readonly<{ checks: LegacyQualityControl; scale: Scale }>) {
+  return (
+    <section>
+      <h2>Quality control</h2>
+      {checks.trimming.length > 0 && <Trimming trimming={checks.trimming} />}
+      {checks.fastqc && <Fastqc fastqc={checks.fastqc} scale={scale} />}
+    </section>
+  );
+}
+
+function Trimming({ trimming }: Readonly<{ trimming: LegacyTrimming[] }>) {
+  const byRead = trimming.map(
+    (read) =>
+      new Map([
+        ...read.summary,
+        ...read.adapter.map(([what, value]): [string, string] => [
+          `Adapter ${what.toLowerCase()}`,
+          value,
+        ]),
+      ]),
+  );
+  const labels = [...new Set(byRead.flatMap((values) => [...values.keys()]))];
+  return (
+    <>
+      <h3>Trimming</h3>
+      <p className="muted">cutadapt's summary for each read file.</p>
+      <table>
+        <thead>
+          <tr>
+            <th />
+            {trimming.map((read) => (
+              <th key={read.read}>
+                {read.read === "R1" ? "Forward reads (R1)" : "Reverse reads (R2)"}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {labels.map((label) => (
+            <tr key={label}>
+              <td>{label}</td>
+              {byRead.map((values, i) => (
+                <td
+                  key={trimming[i].read}
+                  className={label === "Adapter sequence" ? "bases" : undefined}
+                >
+                  {values.get(label) ?? "–"}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
+function Fastqc({ fastqc, scale }: Readonly<{ fastqc: LegacyFastqc; scale: Scale }>) {
+  const quality = useMemo<Bar[]>(
+    () =>
+      fastqc.per_base_quality.map((bin) => ({
+        label: bin.base,
+        value: bin.mean ?? 0,
+        tooltip: [
+          `Base ${bin.base}`,
+          `mean ${figure(bin.mean)}, median ${figure(bin.median)}`,
+          `middle half ${figure(bin.lower_quartile)}-${figure(bin.upper_quartile)}`,
+          `10th-90th percentile ${figure(bin.low)}-${figure(bin.high)}`,
+        ],
+      })),
+    [fastqc],
+  );
+  const lengths = useMemo<Bar[]>(
+    () =>
+      fastqc.lengths.map((bin) => ({
+        label: bin.length,
+        value: bin.reads ?? 0,
+        tooltip: [`${bin.length} bases`, aligned(bin.reads ?? 0)],
+      })),
+    [fastqc],
+  );
+  return (
+    <>
+      <h3>FastQC</h3>
+      <p className="muted">On the forward reads after trimming, as per legacy ScaleHD.</p>
+      <ul className="fastqc-modules">
+        {fastqc.modules.map((module) => (
+          <li key={module.module}>
+            <span className={`fastqc-status ${module.status}`}>{module.status || "–"}</span>{" "}
+            {module.module}
+          </li>
+        ))}
+      </ul>
+      <dl className="job-facts">
+        {fastqc.basic_statistics.map(([what, value]) => (
+          <Fragment key={what}>
+            <dt>{what}</dt>
+            <dd>{value}</dd>
+          </Fragment>
+        ))}
+      </dl>
+      <figure>
+        <figcaption>Quality along the reads</figcaption>
+        <BarChart
+          bars={quality}
+          scale="linear"
+          xTitle="position in read (bases)"
+          yTitle="mean Phred quality"
+          label="FastQC quality along the reads"
+        />
+      </figure>
+      <figure>
+        <figcaption>Read lengths</figcaption>
+        <BarChart
+          bars={lengths}
+          scale={scale}
+          xTitle="read length (bases)"
+          yTitle="reads"
+          label="FastQC read lengths"
+        />
+      </figure>
+    </>
+  );
+}
+
+function figure(value: number | null): string {
+  return value === null ? "–" : String(Math.round(value * 10) / 10);
 }
 
 function shown(reads: number[], called: number[]): [number, number] {

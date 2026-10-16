@@ -26,6 +26,7 @@ const FILE_NAMES: Record<SampleFile, string> = {
   r2: "R2 FASTQ",
   "legacy-result": "Everything legacy ScaleHD knew about the sample (JSON)",
   "legacy-graphs": "Legacy ScaleHD's graphs (PDF)",
+  "legacy-fastqc": "FastQC's report on the forward reads (HTML)",
   "legacy-log": "Legacy ScaleHD's log",
 };
 
