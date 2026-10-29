@@ -2,10 +2,16 @@
 // apps/server/src/scalehd_server/schemas.py by hand. TODO: generate them from
 // /api/openapi.json (e.g. openapi-typescript) once the API settles.
 
-export type JobStatus = "queued" | "running" | "finished" | "failed" | "cancelled";
+export type JobStatus =
+  | "queued"
+  | "running"
+  | "cancelling"
+  | "finished"
+  | "failed"
+  | "cancelled";
 /** Light or dark pages, or "system" */
 export type Theme = "system" | "light" | "dark";
-export type SampleStatus = "queued" | "running" | "finished" | "failed";
+export type SampleStatus = "queued" | "running" | "finished" | "failed" | "cancelled";
 
 export interface Health {
   status: "ok";
@@ -119,6 +125,14 @@ export interface Sample {
   truth: string | null;
   matches_truth: boolean | null;
   error: string | null;
+  progress: SampleProgress | null;
+}
+
+export type SampleStage = "simulating" | "counting" | "calling";
+
+export interface SampleProgress {
+  stage: SampleStage;
+  share: number | null;
 }
 
 export interface JobSummary {
@@ -322,6 +336,8 @@ export const api = {
     request<SampleDetail>(`/jobs/${jobId}/samples/${sampleId}`),
   sampleFileUrl: (jobId: number, sampleId: number, file: SampleFile) =>
     `/api/jobs/${jobId}/samples/${sampleId}/files/${file}`,
+  jobResultsUrl: (jobId: number) => `/api/jobs/${jobId}/results.csv`,
+  jobValidationUrl: (jobId: number) => `/api/jobs/${jobId}/validation.csv`,
   createJob: (job: JobCreate) => request<Job>("/jobs", post(job)),
   createDemoJob: () => request<Job>("/jobs/demo", post()),
   cancelJob: (id: number) => request<Job>(`/jobs/${id}/cancel`, post()),
@@ -340,6 +356,11 @@ export const api = {
     request<User>(`/admin/users/${userId}/admin`, {
       method: "PUT",
       body: JSON.stringify({ is_admin: isAdmin }),
+    }),
+  setPassword: (userId: number, password: string) =>
+    request<void>(`/admin/users/${userId}/password`, {
+      method: "PUT",
+      body: JSON.stringify({ password }),
     }),
 
   getSettings: () => request<JobSettings>("/settings"),

@@ -12,9 +12,10 @@ from starlette.exceptions import HTTPException
 from starlette.responses import Response
 from starlette.types import Scope
 
-from . import __version__, models
+from . import __version__
 from .config import ServerSettings
-from .db import OutdatedDatabaseError, check_schema, make_engine
+from .db import make_engine
+from .migrate import migrate
 from .routes import api
 from .runner import ExecutorFactory, JobRunner, process_pool
 
@@ -39,14 +40,9 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings.database_dir.mkdir(parents=True, exist_ok=True)
+        # Make the database/update it
+        migrate(settings.database)
         engine = make_engine(settings.database)
-        try:
-            check_schema(engine)
-        except OutdatedDatabaseError:
-            engine.dispose()
-            raise
-        # TODO: Alembic migrations once the tables settle.
-        models.Base.metadata.create_all(engine)
         sessions = sessionmaker(engine)
         runner = JobRunner(sessions, settings.workers, executor_factory)
         runner.start()

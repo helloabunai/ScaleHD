@@ -19,6 +19,8 @@ def _now() -> datetime:
 class JobStatus(StrEnum):
     QUEUED = "queued"
     RUNNING = "running"
+    # Cancelled while samples were running
+    CANCELLING = "cancelling"
     FINISHED = "finished"  # every sample has run, though some may have failed
     FAILED = "failed"  # the job itself could not run
     CANCELLED = "cancelled"
@@ -37,6 +39,7 @@ class SampleStatus(StrEnum):
     RUNNING = "running"
     FINISHED = "finished"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class User(Base):

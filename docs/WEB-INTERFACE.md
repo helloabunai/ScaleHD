@@ -14,19 +14,26 @@ An admin user can see jobs from every user account. Individual regular users can
 What has been implemented so far:
 
 - Accounts: register and log in (the first account is made admin), change password,
-  and a light/dark setting per account. Any admin can promote regular users to have admin rights.
+  and a light/dark setting per account. Any admin can promote regular users to have admin rights,
+  and set a new password for a user who has forgotten theirs (which logs them out everywhere).
 - "Run demo" on the home page genotypes thirteen simulated samples with known
   genotypes, end to end, with the model-based caller.
 - Jobs: launch genotyping jobs. Browse running jobs (and progress), and previous jobs
-  with their genotyping results / analysis flags.
+  with their genotyping results / analysis flags. Cancel a job which you started. Samples not
+  yet started don't continue after cancellation, those running finish. Jobs cancelled can also be deleted.
+  Users only see their own jobs.
 - A results page per sample with each allele's repeat structure rendered,
   the CAG and CCG distributions, instability figures, alternative genotypes,
   unexplained peaks and how its reads fared, with its counts and call JSON and its FASTQ
-  files to download. No results exporting yet (e.g. PDF file or something).
+  files to download.
+- Export a job's results as CSV from its page once it has finished or been cancelled. One row
+  per sample, with both alleles side by side, for opening in a spreadsheet (like ScaleHD 1.x's
+  InstanceReport.csv). Or the [validation export](VALIDATION-EXPORT.md), no sample names or
+  file paths, plus what checking and re-tuning/development the model needs.
 - Settings: the default genotyping method and thresholds new jobs start with. Only basic settings
   present for now.
 
-Not yet: Cancelling a job isn't working, and exporting reports. API docs are at `/api/docs`. See
-[`apps/server/README.md`](apps/server/README.md) for what is real and what's a stub.
+Not yet: PDF reports. API docs are at `/api/docs`. See
+[`apps/server/README.md`](../apps/server/README.md) for what is real and what's a stub.
 
 Things will move around a lot as development proceeds.

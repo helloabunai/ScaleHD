@@ -16,6 +16,7 @@ from scalehd.genotype import GenotypeCall, call_genotype
 from scalehd.simulate import SimAllele, SimulationSpec, call_matches, simulate
 from scalehd.structure import AlleleStructure
 
+from .progress import ProgressReporter, SampleStage
 from .schemas import GenotypeMethod, JobSettings
 
 # Methods jobs can use. SHD 1.x joins once it is extracted from legacy/.
@@ -48,7 +49,11 @@ class SampleResult:
 
 
 def run_sample(
-    r1: Path, r2: Path | None, out_dir: Path, settings: JobSettings
+    r1: Path,
+    r2: Path | None,
+    out_dir: Path,
+    settings: JobSettings,
+    progress: ProgressReporter | None = None,
 ) -> GenotypeCall | None:
     """Count one sample's molecules and call its genotype.
 
@@ -58,10 +63,15 @@ def run_sample(
     if settings.method not in RUNNABLE_METHODS:
         raise ValueError(f"{settings.method} genotyping is not available yet")
     out_dir.mkdir(parents=True, exist_ok=True)
-    counts = count_fastq(r1, r2, policy=settings.discordant)
+    if progress is not None:
+        progress.stage(SampleStage.COUNTING, 0.0)
+    counted = progress.counted if progress is not None else None
+    counts = count_fastq(r1, r2, policy=settings.discordant, progress=counted)
     counts.write_json(out_dir / "counts.json")
     if not settings.call:
         return None
+    if progress is not None:
+        progress.stage(SampleStage.CALLING)
     call = call_genotype(counts, settings.caller_settings())
     (out_dir / "call.json").write_text(json.dumps(call.to_dict(), indent=2) + "\n")
     return call
@@ -69,12 +79,14 @@ def run_sample(
 
 def run_task(task: SampleTask) -> SampleResult:
     """Simulate the sample if it is simulated, then count and call it."""
+    progress = ProgressReporter(task.folder)
     r1, r2 = task.r1, task.r2
     if task.simulation is not None:
+        progress.stage(SampleStage.SIMULATING)
         r1, r2 = _simulate(task.folder, task.simulation)
     if r1 is None:
         raise ValueError(f"sample {task.name} has no input files")
-    call = run_sample(r1, r2, task.folder, task.settings)
+    call = run_sample(r1, r2, task.folder, task.settings, progress)
     if call is None:
         return SampleResult(task.sample_id, None, None, None, [], None)
     matches = None

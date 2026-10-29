@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 from scalehd.simulate import SimAllele, SimulationSpec, simulate
 from scalehd.structure import AlleleStructure
+from scalehd_server import worker
+from scalehd_server.progress import ProgressReporter, SampleProgress, SampleStage, read_progress
 from scalehd_server.schemas import GenotypeMethod, JobSettings
 from scalehd_server.worker import SampleTask, run_sample, run_task
 
@@ -71,6 +73,34 @@ def test_run_task_simulates_calls_and_checks_the_truth(tmp_path: Path) -> None:
     assert (folder / "input" / "expanded_R1.fastq.gz").exists()
     assert (folder / "counts.json").exists()
     assert json.loads((folder / "call.json").read_text()) == result.call
+
+
+def test_run_task_reports_each_stage_as_it_goes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    written: list[SampleProgress] = []
+
+    class EveryReport(ProgressReporter):
+        def __init__(self, folder: Path) -> None:
+            super().__init__(folder, every=0)
+
+        def _write(self, progress: SampleProgress) -> None:
+            written.append(progress)
+            super()._write(progress)
+
+    monkeypatch.setattr(worker, "ProgressReporter", EveryReport)
+    run_task(_task(tmp_path, "17_1_1_7_2/43_1_1_7_2"))
+    stages = [progress.stage for progress in written]
+    counting = len(stages) - 2
+    assert stages == [SampleStage.SIMULATING] + [SampleStage.COUNTING] * counting + [
+        SampleStage.CALLING
+    ]
+    shares = [progress.share for progress in written if progress.stage is SampleStage.COUNTING]
+    assert len(shares) == 4
+    assert shares[0] == 0.0
+    assert shares[-1] == 1.0
+    assert shares == sorted(shares)
+    assert read_progress(tmp_path / "expanded") == SampleProgress(stage=SampleStage.CALLING)
 
 
 def test_run_task_reports_a_call_that_misses_the_truth(tmp_path: Path) -> None:

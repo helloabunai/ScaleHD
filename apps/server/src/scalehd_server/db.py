@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any, ClassVar
 
 from fastapi import Depends, Request
-from sqlalchemy import DateTime, Dialect, Engine, TypeDecorator, create_engine, event, inspect
+from sqlalchemy import DateTime, Dialect, Engine, MetaData, TypeDecorator, create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session
 
 
@@ -25,7 +25,18 @@ class UTCDateTime(TypeDecorator[datetime]):
         return None if value is None else value.replace(tzinfo=UTC)
 
 
+# constraints for migrations
+NAMING_CONVENTION = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
+
+
 class Base(DeclarativeBase):
+    metadata = MetaData(naming_convention=NAMING_CONVENTION)
     type_annotation_map: ClassVar[dict[Any, Any]] = {datetime: UTCDateTime}
 
 
@@ -50,30 +61,7 @@ def make_engine(url: str) -> Engine:
 
 
 class OutdatedDatabaseError(RuntimeError):
-    """The database was made by an older ScaleHD and lacks columns this version needs."""
-
-
-def check_schema(engine: Engine) -> None:
-    """Stop with a clear message if existing tables lack columns the models have.
-
-    create_all only creates missing tables; it can't add columns to old ones.
-    TODO: Alembic migrations before releasing.
-    """
-    inspector = inspect(engine)
-    for table in Base.metadata.sorted_tables:
-        if not inspector.has_table(table.name):
-            continue
-        existing = {column["name"] for column in inspector.get_columns(table.name)}
-        if any(column.name not in existing for column in table.columns):
-            where = (
-                engine.url.database
-                if engine.url.get_backend_name() == "sqlite"
-                else engine.url.render_as_string(hide_password=True)
-            )
-            raise OutdatedDatabaseError(
-                f"database at {where} is from an older ScaleHD version: "
-                "delete it and restart (all accounts will be lost)"
-            )
+    """The database was made by a ScaleHD version too old for migrations to apply successfully."""
 
 
 def get_session(request: Request) -> Iterator[Session]:

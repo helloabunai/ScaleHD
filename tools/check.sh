@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# Run every check CI runs: lint, formatting, types, the web build, then the tests.
+# Checks for CI
+# --quick arg for git hook
+# no arg for full incl slow pytests
 #
-# Stops at the first failure. The git pre-push hook runs this, and it can be run by
-# hand before committing. Checks the working tree as it is, uncommitted changes
-# included.
-#
-#   tools/check.sh
+#   tools/check.sh [--quick]
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+quick=false
+if [[ "${1:-}" == "--quick" ]]; then
+    quick=true
+fi
 
 cd "$REPO_ROOT"
 
@@ -29,6 +31,12 @@ uv run mypy
 
 echo "==> web type-check and build"
 (cd apps/web && npm run build)
+
+if [[ "$quick" == true ]]; then
+    echo
+    echo "Quick checks passed (tests not run: tools/check.sh runs them)."
+    exit 0
+fi
 
 echo "==> pytest"
 uv run pytest -q

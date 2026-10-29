@@ -1,6 +1,12 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { api, type Job, type Sample, type SampleStatus as Stage } from "../api";
+import {
+  api,
+  type Job,
+  type Sample,
+  type SampleStage,
+  type SampleStatus as Stage,
+} from "../api";
 import { useUser } from "../auth";
 import { useApi } from "../useApi";
 import { DemoTag, formatTime, isActive, JobTags } from "./jobDisplay";
@@ -9,10 +15,6 @@ import { ServerFolders } from "./ServerFolders";
 import { Status } from "./Status";
 import { type PickedTag, TagPicker, tagIds } from "./TagPicker";
 
-// TODO: a cancel button, and a page per sample with its full call (alleles, stutter,
-// alternatives) and molecule-count plot, reachable as soon as that sample finishes.
-// TODO: consider large samples may take time to generate results even if the job
-// is finished processing/genotyping.
 export function JobDetail() {
   const id = Number(useParams().jobId);
   const user = useUser();
@@ -59,10 +61,26 @@ export function JobDetail() {
           </dl>
           <JobProgress samples={job.samples} />
           <div className="job-actions">
-            <button type="button" disabled title="Coming soon">
-              Export job results
-            </button>
-            <span className="muted">coming soon</span>
+            <ExportLink
+              job={job}
+              href={api.jobResultsUrl(job.id)}
+              title="A row per sample, for a spreadsheet"
+            >
+              Export results (CSV)
+            </ExportLink>
+            <ExportLink
+              job={job}
+              href={api.jobValidationUrl(job.id)}
+              title="No sample names or file paths, plus the model's inner workings for development purposes."
+            >
+              Validation export (CSV)
+            </ExportLink>
+            {(job.status === "queued" || job.status === "running") && (
+              <CancelJob job={job} onCancelled={() => setVersion((v) => v + 1)} />
+            )}
+            {job.status === "cancelling" && (
+              <span className="muted">Cancelling.. waiting for samples already processing to finish.</span>
+            )}
             {!isActive(job.status) && <DeleteJob job={job} />}
           </div>
           <table>
@@ -92,7 +110,7 @@ export function JobDetail() {
                     <SampleStatus sample={sample} />
                   </td>
                   <td>
-                    <SampleProgress stage={sample.status} />
+                    <SampleProgress sample={sample} />
                   </td>
                   <td>{sample.genotype ?? "–"}</td>
                   <td>{sample.confidence?.toFixed(1) ?? "–"}</td>
@@ -169,15 +187,74 @@ function EditJobTags({ job, onSaved }: Readonly<{ job: Job; onSaved: () => void 
   );
 }
 
+const STAGE_NAMES: Record<SampleStage, string> = {
+  simulating: "simulating reads",
+  counting: "counting reads",
+  calling: "calling genotype",
+};
+
 function SampleStatus({ sample }: { sample: Sample }) {
   if (sample.status === "failed") return <span className="error">{sample.error ?? "failed"}</span>;
-  if (sample.status === "running") return <>running…</>;
+  if (sample.status === "running") {
+    return <>{sample.progress ? STAGE_NAMES[sample.progress.stage] : "starting"}…</>;
+  }
   return <>{sample.status}</>;
 }
 
 function Match({ matches }: { matches: boolean | null }) {
   if (matches === null) return <>–</>;
   return matches ? <span className="success">✓</span> : <span className="error">✗</span>;
+}
+
+function CancelJob({ job, onCancelled }: Readonly<{ job: Job; onCancelled: () => void }>) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function cancel() {
+    const running = count(job.samples, "running");
+    const note =
+      running > 0
+        ? `\n\nSamples not started yet won't run. The ${running} running will finish gracefully.`
+        : "\n\nNone of its samples have started, so none will run.";
+    if (!window.confirm(`Cancel "${job.name}"?${note}`)) return;
+    setBusy(true);
+    try {
+      await api.cancelJob(job.id);
+      onCancelled();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setBusy(false);
+  }
+
+  return (
+    <>
+      <button type="button" className="danger" onClick={() => void cancel()} disabled={busy}>
+        Cancel job
+      </button>
+      {error && <span className="error">{error}</span>}
+    </>
+  );
+}
+
+function ExportLink({
+  job,
+  href,
+  title,
+  children,
+}: Readonly<{ job: Job; href: string; title: string; children: ReactNode }>) {
+  if (isActive(job.status)) {
+    return (
+      <button type="button" disabled title="Available once the job has finished or been cancelled">
+        {children}
+      </button>
+    );
+  }
+  return (
+    <a className="button" href={href} download title={title}>
+      {children}
+    </a>
+  );
 }
 
 function DeleteJob({ job }: { job: Job }) {
@@ -212,22 +289,24 @@ function count(samples: Sample[], stage: Stage): number {
   return samples.filter((sample) => sample.status === stage).length;
 }
 
-/** e.g. "4 of 9 done, 1 failed, 2 running". Failures are technically 'done'. */
+/** e.g. "4 of 9 done, 1 failed, 2 running, 2 cancelled". Failures are technically 'done'. */
 function samplesDone(samples: Sample[]): string {
   const failed = count(samples, "failed");
   const running = count(samples, "running");
+  const cancelled = count(samples, "cancelled");
   const done = count(samples, "finished") + failed;
   return [
     `${done} of ${samples.length} done`,
     ...(failed ? [`${failed} failed`] : []),
     ...(running ? [`${running} running`] : []),
+    ...(cancelled ? [`${cancelled} cancelled`] : []),
   ].join(", ");
 }
 
 /** overall progress bar for job */
 function JobProgress({ samples }: Readonly<{ samples: Sample[] }>) {
   const total = Math.max(samples.length, 1);
-  const parts: Stage[] = ["finished", "failed", "running"];
+  const parts: Stage[] = ["finished", "failed", "running", "cancelled"];
   return (
     <div
       className="progress"
@@ -247,12 +326,31 @@ function JobProgress({ samples }: Readonly<{ samples: Sample[] }>) {
   );
 }
 
-// TODO: real progress for running samples (stage and share of reads counted) once
-// jobs read real FASTQ files; until then a running sample shows a moving bar.
-function SampleProgress({ stage }: Readonly<{ stage: Stage }>) {
+/** Real per-stage progress bars */
+function SampleProgress({ sample }: Readonly<{ sample: Sample }>) {
+  const stage = sample.status;
+  const share = stage === "running" ? (sample.progress?.share ?? null) : null;
+  if (share === null) {
+    return (
+      <div className="progress small" aria-label={stage}>
+        {stage !== "queued" && <span className={`segment ${stage}`} style={{ width: "100%" }} />}
+      </div>
+    );
+  }
+  const percent = Math.floor(share * 100);
   return (
-    <div className="progress small" aria-label={stage}>
-      {stage !== "queued" && <span className={`segment ${stage}`} style={{ width: "100%" }} />}
+    <div className="sample-progress">
+      <div
+        className="progress small"
+        role="progressbar"
+        aria-label="reads counted"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+      >
+        <span className="segment running" style={{ width: `${percent}%` }} />
+      </div>
+      <span className="muted">{percent}%</span>
     </div>
   );
 }

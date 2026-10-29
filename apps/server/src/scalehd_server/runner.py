@@ -22,13 +22,15 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from .models import Job, JobStatus, Sample, SampleStatus
+from .progress import clear_progress
 from .schemas import JobSettings
 from .worker import SampleResult, SampleTask, run_task
 from .workspace import sample_folders
 
 ExecutorFactory = Callable[[int], Executor]
 
-_DONE = (SampleStatus.FINISHED, SampleStatus.FAILED)
+# "final" statuses i.e. won't change from these once set
+_DONE = (SampleStatus.FINISHED, SampleStatus.FAILED, SampleStatus.CANCELLED)
 
 
 def process_pool(workers: int) -> Executor:
@@ -55,8 +57,17 @@ class JobRunner:
         self._stopped = False
 
     def start(self) -> None:
-        """Pick up where the last run stopped. Samples left running are re-queued."""
+        """Pick up where the last run stopped. Samples left running are re-queued, unless
+        their job was being cancelled."""
         with self._sessions() as session:
+            cancelling = session.scalars(
+                select(Job).where(Job.status == JobStatus.CANCELLING)
+            ).all()
+            for job in cancelling:
+                for sample in job.samples:
+                    if sample.status not in _DONE:
+                        sample.status = SampleStatus.CANCELLED
+                _update_job(job)
             session.execute(
                 update(Sample)
                 .where(Sample.status == SampleStatus.RUNNING)
@@ -84,6 +95,25 @@ class JobRunner:
         with self._lock:
             self._queue.extend(queued)
         self._fill()
+
+    def cancel(self, job_id: int) -> None:
+        """Stop a queued or running job. Job samples not yet started won't be.
+        Those already in the processor pool finish and are recorded as usual, and the job is
+        cancelled once they have (messing with pools is bad smell)."""
+        with self._lock:
+            with self._sessions() as session:
+                job = session.get(Job, job_id)
+                if job is None or job.status not in (JobStatus.QUEUED, JobStatus.RUNNING):
+                    return
+                dropped = set()
+                for sample in job.samples:
+                    if sample.status == SampleStatus.QUEUED:
+                        sample.status = SampleStatus.CANCELLED
+                        dropped.add(sample.id)
+                job.status = JobStatus.CANCELLING
+                _update_job(job)
+                session.commit()
+            self._queue = deque(i for i in self._queue if i not in dropped)
 
     def shutdown(self) -> None:
         """Stop handing out samples and drop those not started.
@@ -142,10 +172,13 @@ class JobRunner:
             sample.status = SampleStatus.RUNNING
             if job.status == JobStatus.QUEUED:
                 job.status, job.started_at = JobStatus.RUNNING, datetime.now(UTC)
+            folder = sample_folders(job)[sample.id]
+            # Left by an earlier attempt/cancelled job/easier to clean + go fresh
+            clear_progress(folder)
             task = SampleTask(
                 sample_id=sample.id,
                 name=sample.name,
-                folder=sample_folders(job)[sample.id],
+                folder=folder,
                 settings=JobSettings.model_validate(job.settings),
                 r1=Path(sample.r1) if sample.r1 else None,
                 r2=Path(sample.r2) if sample.r2 else None,
@@ -160,6 +193,7 @@ class JobRunner:
             sample = session.get(Sample, sample_id)
             if sample is None:
                 return
+            clear_progress(sample_folders(sample.job)[sample.id])
             if result is None:
                 sample.status, sample.error = SampleStatus.FAILED, error
             else:
@@ -167,9 +201,7 @@ class JobRunner:
                 sample.call, sample.genotype = result.call, result.genotype
                 sample.confidence, sample.flags = result.confidence, result.flags
                 sample.matches_truth = result.matches_truth
-            job = sample.job
-            if all(other.status in _DONE for other in job.samples):
-                job.status, job.finished_at = JobStatus.FINISHED, datetime.now(UTC)
+            _update_job(sample.job)
             session.commit()
 
     def _executor(self) -> Executor:
@@ -184,6 +216,15 @@ class JobRunner:
         if self._pool is pool:
             self._pool = None
             pool.shutdown(wait=False)
+
+
+def _update_job(job: Job) -> None:
+    """Finish a job whose samples are all done."""
+    if any(sample.status not in _DONE for sample in job.samples):
+        return
+    cancelled = job.status == JobStatus.CANCELLING
+    job.status = JobStatus.CANCELLED if cancelled else JobStatus.FINISHED
+    job.finished_at = datetime.now(UTC)
 
 
 def get_runner(request: Request) -> JobRunner:

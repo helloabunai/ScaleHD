@@ -19,8 +19,9 @@ Settings are `SCALEHD_*` environment variables (`config.py`): `DATABASE_DIR`,
 - `SCALEHD_DATABASE_DIR`: the SQLite database, kept apart from the workspace.
 
 In Docker the first two are mounted at the same path as on the host, so paths in the
-web interface and in result files are host paths. A database made by an older version
-stops startup with a message naming it: delete it (accounts are lost) and restart.
+web interface and in result files are host paths. The server updates databases with migrations
+at boot via alembic. Copies are made incase of failure so reversion is easy. SQLite only
+for now. For adding a migration, see `docs/DEVELOPMENT.md`.
 
 ### Accounts
 
@@ -38,13 +39,26 @@ stops startup with a message naming it: delete it (accounts are lost) and restar
   `PUT /api/auth/theme`. Other routes take the logged-in user from the `CurrentUser`
   dependency in `auth.py`, or an admin from `AdminUser` (403 for anyone else).
 - Admins: `GET /api/admin/users` and `PUT /api/admin/users/{id}/admin` for giving
-  existing users admin rights.
+  existing users admin rights. `PUT /api/admin/users/{id}/password` is for resetting passwords.
 
 ### Jobs from the data folder
 
 - `GET /api/inputs?folder=` lists directories within `SCALEHD_DATA_ROOT` and samples within
   those directories.
 - `POST /api/jobs` queues selected samples as a job for genotyping.
+- `POST /api/jobs/{id}/cancel` cancels one of your jobs. Samples in that job not yet started
+  are marked cancelled and don't start. Any already running finish and keep their results, so
+  as to not break any worker pools. The job is `cancelling` until they have finished, then
+  the status changes to `cancelled`. `DELETE /api/jobs/{id}` then
+  removes it (refused while anything still running). Jobs are private for each user, someone 
+  else's job answers 404, like a missing one.
+- While a sample runs, its worker writes `progress.json` in the sample's folder containing the stage
+  (`simulating`, `counting`, `calling`). `GET /api/jobs/{id}` returns each sample's
+  `progress`. Progress files are automatically deleted upon completion.
+- `GET /api/jobs/{id}/results.csv` downloads a job's results. It contains a row per sample, both alleles
+  side by side, built from the stored calls (samples not yet called have their results blank).
+  `GET /api/jobs/{id}/validation.csv` is the same without names or paths, plus the model's
+  workings, for sharing with developers (see `docs/VALIDATION-EXPORT.md`).
 - Also included UI tags for easy assignment of jobs to e.g. projects / data cohorts.
   Tags can be made on the job page by any user by needs an admin to edit/delete them
 
@@ -54,10 +68,11 @@ We plan to allow users to pick between the legacy genotyping method used in Scal
 
 Each job runs one of two methods (`JobSettings.method`):
 
-- `legacy`: ScaleHD 1.x, aligning reads to a user provided reference library, then use the 1.x genotyper. The default for new users, but not runnable yet: it still has to be
+- `legacy`: ScaleHD 1.x, aligning reads to a user provided reference library, then use the 1.x genotyper. Not runnable yet: it still has to be
   extracted from `legacy/`, alignment included. Until then, jobs using it are refused when submitted ("legacy genotyping is not available yet").
 - `model`: reads the repeat structure straight from each read, then the model-based
-  caller. Shown in the web interface as "New (model-based)", marked Beta.
+  caller. Shown in the web interface as "New (model-based)", marked Beta. The default
+  for users until legacy can run (no idea when this will be done).
 
 `GET`/`PUT /api/settings` hold each user's default (stored in `users.default_settings`).
 A new job uses its own `settings` if given, otherwise the user's default.
@@ -73,11 +88,14 @@ Gets some simulated data from the simulator and runs the new genotyping (only on
 |---|---|---|
 | `app.py` | app factory: database, runner, `/api` routes, frontend at `/` | works |
 | `config.py` | settings from the environment | works |
-| `db.py`, `models.py` | SQLAlchemy engine, sessions; users, login sessions, jobs, samples, tags tables | works, tables created at startup (no migrations yet) |
+| `db.py`, `models.py` | SQLAlchemy engine, sessions; users, login sessions, jobs, samples, tags tables | works |
+| `migrate.py`, `migrations/` | alembic migrations to create/update DB | works |
 | `schemas.py` | API request and response bodies, job settings → `CallerSettings` | works |
 | `runner.py`, `worker.py` | the job runner (queue, worker pool, recording) and one sample's work | works |
+| `progress.py` | sample progress monitoring | works |
 | `workspace.py` | job folders and `job.json` in the workspace | works |
+| `export.py` | a job's results as CSV, and the validation export | works |
 | `demo.py` | the demo job's simulated samples | works |
 | `inputs.py` | browsing the data folder, pairing FASTQ files, truth files of simulated runs | works |
 | `auth.py` | password hashing, session cookie, current user | works |
-| `routes/` | `health`, `accounts`, `admin`, `folders`, `inputs`, `jobs`, `settings`, `tags` | all but the cancel/report `jobs` routes work |
+| `routes/` | `health`, `accounts`, `admin`, `folders`, `inputs`, `jobs`, `settings`, `tags` | all but the `jobs` report route work |

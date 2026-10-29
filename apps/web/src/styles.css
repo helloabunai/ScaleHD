@@ -109,6 +109,16 @@ button:disabled {
   cursor: default;
 }
 
+a.button {
+  display: inline-block;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.3rem;
+  background: var(--accent);
+  color: var(--on-accent);
+  text-decoration: none;
+}
+
 button.link {
   padding: 0;
   border: none;
@@ -578,6 +588,48 @@ button.link.danger {
   margin-left: 1rem;
 }
 
+.set-password {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-left: 1rem;
+}
+
+.set-password input {
+  width: 14rem;
+}
+
+.set-password button + button {
+  margin-left: 0;
+}
+
+.row-actions .own-password {
+  margin-left: 1rem;
+}
+
+.forgot-password {
+  font-size: 0.9rem;
+}
+
+.forgot-password > summary {
+  list-style: none;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.forgot-password > summary::-webkit-details-marker {
+  display: none;
+}
+
+.forgot-password > p {
+  margin: 0.4rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  animation: unfold 0.2s ease-out;
+}
+
 .card button {
   margin-top: 0.75rem;
 }
@@ -648,12 +700,30 @@ button.danger {
   transition: width 0.3s ease;
 }
 
+.sample-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sample-progress > span {
+  min-width: 4ch;
+  text-align: right;
+}
+
 .segment.finished {
   background: var(--success);
 }
 
 .segment.failed {
   background: var(--error);
+}
+
+.segment.cancelled {
+  background: var(--muted);
+  opacity: 0.5;
 }
 
 .segment.running {
@@ -683,7 +753,8 @@ button.danger {
 
 @media (prefers-reduced-motion: reduce) {
   .segment.running,
-  .file-group[open] > :not(summary) {
+  .file-group[open] > :not(summary),
+  .forgot-password > p {
     animation: none;
   }
 

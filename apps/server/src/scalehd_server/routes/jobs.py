@@ -16,6 +16,7 @@ from ..auth import AdminUser, CurrentUser
 from ..config import ServerConfig
 from ..db import DbSession
 from ..errors import not_implemented
+from ..export import results_csv, results_filename, validation_csv, validation_filename
 from ..inputs import InputError, read_truth, resolve_file
 from ..models import Job, JobStatus, Sample, Tag, User
 from ..results import FileKind, sample_detail, sample_file
@@ -140,6 +141,29 @@ def get_job(job_id: int, user: CurrentUser, session: DbSession) -> JobOut:
     return job_out(_own_job(session, user, job_id))
 
 
+@router.get("/{job_id}/results.csv", response_class=Response)
+def get_job_results(job_id: int, user: CurrentUser, session: DbSession) -> Response:
+    """The job's results as CSV, a row per sample."""
+    job = _own_job(session, user, job_id)
+    return _csv(results_csv(job), results_filename(job))
+
+
+def _csv(content: str, filename: str) -> Response:
+    return Response(
+        content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{job_id}/validation.csv", response_class=Response)
+def get_job_validation(job_id: int, user: CurrentUser, session: DbSession) -> Response:
+    """The job's results for developing/checking the model, without names or paths
+    (see export.py)."""
+    job = _own_job(session, user, job_id)
+    return _csv(validation_csv(job), validation_filename(job))
+
+
 @router.put("/{job_id}/tags")
 def set_job_tags(job_id: int, change: JobTags, admin: AdminUser, session: DbSession) -> JobOut:
     """Only an admin can change job tags once the job has been made."""
@@ -151,7 +175,13 @@ def set_job_tags(job_id: int, change: JobTags, admin: AdminUser, session: DbSess
 
 @router.post("/{job_id}/cancel")
 def cancel_job(job_id: int, user: CurrentUser, session: DbSession, runner: Runner) -> JobOut:
-    raise not_implemented("jobs")
+    """Cancel one of your own jobs."""
+    job = _own_job(session, user, job_id)
+    if job.status not in (JobStatus.QUEUED, JobStatus.RUNNING, JobStatus.CANCELLING):
+        raise HTTPException(status.HTTP_409_CONFLICT, "the job has already stopped")
+    runner.cancel(job.id)
+    session.expire_all()  # the runner changed it in its own session
+    return job_out(_own_job(session, user, job_id))
 
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -162,6 +192,10 @@ def delete_job(job_id: int, user: CurrentUser, session: DbSession, config: Serve
     job = _own_job(session, user, job_id)
     if job.status in (JobStatus.QUEUED, JobStatus.RUNNING):
         raise HTTPException(status.HTTP_409_CONFLICT, "the job is still running")
+    if job.status == JobStatus.CANCELLING:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "the job is waiting for already-processing samples to finish"
+        )
     if job.output_dir is not None:
         try:
             remove_job_folder(config.workspace, user.username, Path(job.output_dir))

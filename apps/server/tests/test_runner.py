@@ -11,12 +11,14 @@ from pathlib import Path
 from typing import Any
 
 from scalehd_server.models import Job, JobStatus, Sample, SampleStatus, User
+from scalehd_server.progress import ProgressReporter, SampleStage, read_progress
 from scalehd_server.runner import JobRunner
 from scalehd_server.schemas import GenotypeMethod, JobSettings
 from scalehd_server.worker import SampleResult
 from sqlalchemy.orm import Session, sessionmaker
 
 Q, R, F, X = SampleStatus.QUEUED, SampleStatus.RUNNING, SampleStatus.FINISHED, SampleStatus.FAILED
+C = SampleStatus.CANCELLED
 
 
 def make_job(
@@ -161,6 +163,22 @@ def test_samples_left_running_are_run_again_on_start(
     assert statuses(sessions, job_id) == (JobStatus.RUNNING, [R, R])
 
 
+def test_a_progress_file_is_removed_when_its_sample_starts_and_when_it_is_recorded(
+    sessions: sessionmaker[Session], tmp_path: Path, pools: Any
+) -> None:
+    job_id = make_job(sessions, tmp_path, 1, status=R)
+    folder = tmp_path / "ws" / "autotest-user" / "1-demo" / "s0"
+    # from old job/cancelled job/oopsy
+    ProgressReporter(folder).stage(SampleStage.CALLING)
+    JobRunner(sessions, workers=1, executor_factory=pools).start()
+    assert read_progress(folder) is None
+    task, future = pools.submitted[0]
+    ProgressReporter(folder).counted(0.5)
+    future.set_result(result_for(task))
+    eventually(lambda: statuses(sessions, job_id)[0] == JobStatus.FINISHED)
+    assert not (folder / "progress.json").exists()
+
+
 def test_shutdown_drops_queued_samples_and_records_nothing_more(
     sessions: sessionmaker[Session], tmp_path: Path, pools: Any
 ) -> None:
@@ -174,6 +192,52 @@ def test_shutdown_drops_queued_samples_and_records_nothing_more(
     assert len(pools.submitted) == 1
     assert pools.made[0].shut_down
     assert statuses(sessions, job_id) == (JobStatus.RUNNING, [R, Q])
+
+
+def test_cancelling_drops_samples_not_started_and_lets_running_ones_finish(
+    sessions: sessionmaker[Session], tmp_path: Path, pools: Any
+) -> None:
+    job_id = make_job(sessions, tmp_path, 3)
+    runner = JobRunner(sessions, workers=1, executor_factory=pools)
+    runner.submit(job_id)
+    runner.cancel(job_id)
+    assert statuses(sessions, job_id) == (JobStatus.CANCELLING, [R, C, C])
+
+    task, future = pools.submitted[0]
+    future.set_result(result_for(task))
+    eventually(lambda: statuses(sessions, job_id)[0] == JobStatus.CANCELLED)
+    # The running sample's result is kept, no other samples made it to the cpu pool
+    assert statuses(sessions, job_id) == (JobStatus.CANCELLED, [F, C, C])
+    assert len(pools.submitted) == 1
+    with sessions() as session:
+        job = session.get(Job, job_id)
+        assert job is not None
+        assert job.finished_at is not None
+
+
+def test_cancelling_a_job_before_it_starts_stops_it_at_once(
+    sessions: sessionmaker[Session], tmp_path: Path, pools: Any
+) -> None:
+    job_id = make_job(sessions, tmp_path, 2)
+    runner = JobRunner(sessions, workers=1, executor_factory=pools)
+    runner.cancel(job_id)
+    assert statuses(sessions, job_id) == (JobStatus.CANCELLED, [C, C])
+    runner.submit(job_id)
+    assert pools.submitted == []
+
+
+def test_a_restart_finishes_cancelling_rather_than_running_again(
+    sessions: sessionmaker[Session], tmp_path: Path, pools: Any
+) -> None:
+    job_id = make_job(sessions, tmp_path, 2, status=R)
+    with sessions() as session:
+        job = session.get(Job, job_id)
+        assert job is not None
+        job.status = JobStatus.CANCELLING
+        session.commit()
+    JobRunner(sessions, workers=2, executor_factory=pools).start()
+    assert pools.submitted == []
+    assert statuses(sessions, job_id) == (JobStatus.CANCELLED, [C, C])
 
 
 # A real process pool whose every task kills its worker process. It runs in a

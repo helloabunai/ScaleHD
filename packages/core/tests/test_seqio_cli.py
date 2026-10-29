@@ -1,8 +1,10 @@
+import random
 from pathlib import Path
 
 import pytest
 from scalehd.cli import main
 from scalehd.seqio import (
+    PROGRESS_EVERY,
     FastqFormatError,
     FastqRecord,
     open_text,
@@ -29,6 +31,40 @@ def test_fastq_round_trip(tmp_path: Path, suffix: str) -> None:
     with open_text(path, "wt") as handle:
         write_fastq(handle, records)
     assert list(read_fastq(path)) == records
+
+
+@pytest.mark.parametrize("suffix", [".fastq", ".fastq.gz"])
+def test_reading_reports_the_share_of_the_file_read(tmp_path: Path, suffix: str) -> None:
+    rng = random.Random(1)
+    path = tmp_path / f"x{suffix}"
+    with open_text(path, "wt") as handle:
+        write_fastq(
+            handle,
+            (
+                FastqRecord(
+                    f"r{i}",
+                    "".join(rng.choices("ACGT", k=150)),
+                    "".join(rng.choices("#5:FI", k=150)),
+                )
+                for i in range(5500)
+            ),
+        )
+    shares: list[float] = []
+    assert len(list(read_fastq(path, shares.append))) == 5500
+    assert len(shares) == 5500 // PROGRESS_EVERY + 1
+    assert shares == sorted(shares)
+    assert 0 < shares[0] < 1
+    assert shares[-1] == 1.0
+
+
+def test_paired_reading_reports_progress_once_per_pair(tmp_path: Path) -> None:
+    for name in ("r1.fq", "r2.fq"):
+        with open_text(tmp_path / name, "wt") as handle:
+            write_fastq(handle, (FastqRecord(f"r{i}", "A", "I") for i in range(2000)))
+    shares: list[float] = []
+    list(read_pairs(tmp_path / "r1.fq", tmp_path / "r2.fq", shares.append))
+    assert len(shares) == 3
+    assert shares[-1] == 1.0
 
 
 def test_unsynced_read_base_pairings_rejected(tmp_path: Path) -> None:

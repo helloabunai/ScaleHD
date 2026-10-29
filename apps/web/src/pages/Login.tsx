@@ -47,6 +47,10 @@ export function Login() {
         Log in
       </button>
       {error && <p className="error">{error}</p>}
+      <details className="forgot-password">
+        <summary>Forgot your password?</summary>
+        <p>Contact your server administrator.</p>
+      </details>
       {registration.state === "done" && registration.data.open && (
         <p className="muted">
           No account? <Link to="/register">Create one.</Link>

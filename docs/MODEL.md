@@ -2,7 +2,7 @@
 
 This section explains the "New (model-based)" genotyping method i.e. how it turns a sample's
 molecule count into two called alleles, a confidence in the call, and analysis flags. The code is in
-[`packages/core/src/scalehd/genotype/model/`](packages/core/src/scalehd/genotype/model/),
+[`packages/core/src/scalehd/genotype/model/`](../packages/core/src/scalehd/genotype/model/),
 and every default below is in its `settings.py`. Users will eventually be able to fine-tune parameters
 from the web interface, but this is not implemented yet, because the model may already undergo
 significant changes when access to real data is received.
