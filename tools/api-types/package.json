@@ -1,0 +1,9 @@
+{
+  "name": "scalehd-api-types",
+  "private": true,
+  "description": "Makes apps/web/src/api.gen.ts from the API's OpenAPI description (tools/gen-api-types.sh). Not in apps/web: openapi-typescript needs the TypeScript 5 compiler API, which TypeScript 7 doesn't have.",
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  }
+}

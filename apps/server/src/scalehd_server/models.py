@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
+from scalehd.genotype import GenotypeCallJson
 from sqlalchemy import JSON, Column, ForeignKey, String, Table, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -153,7 +154,7 @@ class Sample(Base):
     genotype: Mapped[str | None]
     confidence: Mapped[float | None]
     flags: Mapped[list[str]] = mapped_column(JSON, default=list)
-    call: Mapped[dict[str, Any] | None] = mapped_column(JSON)  # scalehd.call/2
+    call: Mapped[GenotypeCallJson | None] = mapped_column(JSON)  # scalehd.call/2
     error: Mapped[str | None]
 
     job: Mapped[Job] = relationship(back_populates="samples")

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
+from typing import TypedDict
 
 import numpy as np
 
@@ -30,6 +31,17 @@ def logit(p: float) -> float:
 
 def expit(x: float) -> float:
     return float(1.0 / (1.0 + np.exp(-x)))
+
+
+class StutterJson(TypedDict):
+    """A ``Stutter`` as saved in a call's JSON."""
+
+    contraction: float
+    contraction_step: float
+    contraction_tail: float
+    expansion: float
+    expansion_step: float
+    expansion_tail: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,7 +76,7 @@ class Stutter:
         weights = self.heights(shifts)
         return shifts, weights / weights.sum()
 
-    def as_dict(self) -> dict[str, float]:
+    def as_dict(self) -> StutterJson:
         return {
             "contraction": self.contraction,
             "contraction_step": self.contraction_step,

@@ -19,6 +19,7 @@ npm run build      # type-check, then write dist/ for the server to serve
 ```
 
 Run the API alongside with `uv run scalehd-server --reload` from the repository root.
-The types in `src/api.ts` mirror `apps/server/src/scalehd_server/schemas.py` by hand.
+The API types in `src/api.gen.ts` are generated from the server's OpenAPI description. Run
+`tools/gen-api-types.sh` from the repository root after changing the server's schemas or routes.
 
 again wip wip wip

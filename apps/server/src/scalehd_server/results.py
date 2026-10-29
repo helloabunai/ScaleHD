@@ -4,30 +4,40 @@ from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path
-from typing import Any, Literal
+from typing import get_args
 
 from scalehd.counts import SampleCounts
+from scalehd.genotype import AlleleCallJson, GenotypeCallJson
 from scalehd.structure import FieldStatus
 
 from .models import Job, Sample
-from .schemas import CagBar, CagChart, CcgBar, Cell, JobTag, Reads, SampleDetail, SampleOut
+from .schemas import (
+    CagBar,
+    CagChart,
+    CcgBar,
+    Cell,
+    FileKind,
+    JobTag,
+    Reads,
+    SampleDetail,
+    SampleOut,
+)
 from .workspace import sample_folders
 
-FileKind = Literal["call", "counts", "r1", "r2"]
-FILE_KINDS: tuple[FileKind, ...] = ("call", "counts", "r1", "r2")
+FILE_KINDS: tuple[FileKind, ...] = get_args(FileKind)
 
 # Everything about a structure but its CAG count: CAACAG, CCGCCA, CCG, CCT.
 _Rest = tuple[int, int, int, int]
 
 
-def cag_charts(counts: SampleCounts, call: dict[str, Any] | None) -> list[CagChart]:
+def cag_charts(counts: SampleCounts, call: GenotypeCallJson | None) -> list[CagChart]:
     """A CAG distribution for each structure of the called alleles.
 
     Two alleles that differ only in CAG (i.e. same intervening/CCG) share one chart.
     """
     if call is None:
         return []
-    by_rest: dict[_Rest, list[dict[str, Any]]] = {}
+    by_rest: dict[_Rest, list[AlleleCallJson]] = {}
     for allele in call["alleles"]:
         rest = (allele["caacag"], allele["ccgcca"], allele["ccg"], allele["cct"])
         by_rest.setdefault(rest, []).append(allele)
@@ -55,7 +65,7 @@ def cag_tallies(counts: SampleCounts, rest: _Rest) -> tuple[Counter[int], Counte
     return exact, lower_bounds
 
 
-def _cag_chart(counts: SampleCounts, rest: _Rest, alleles: list[dict[str, Any]]) -> CagChart:
+def _cag_chart(counts: SampleCounts, rest: _Rest, alleles: list[AlleleCallJson]) -> CagChart:
     exact, lower_bounds = cag_tallies(counts, rest)
     called = sorted({allele["cag"] for allele in alleles})
     cags = set(exact) | set(lower_bounds) | set(called)

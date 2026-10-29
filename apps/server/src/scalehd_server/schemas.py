@@ -11,7 +11,7 @@ from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
-from scalehd.genotype import CallerSettings
+from scalehd.genotype import CallerSettings, Flag, GenotypeCallJson
 from scalehd.pairs import DiscordancePolicy
 
 from .models import Job, JobStatus, SampleStatus, Theme
@@ -216,7 +216,7 @@ class SampleOut(BaseModel):
     status: SampleStatus
     genotype: str | None
     confidence: float | None
-    flags: list[str]
+    flags: list[Flag]
     truth: str | None
     matches_truth: bool | None
     error: str | None
@@ -330,6 +330,10 @@ class Reads(BaseModel):
     discordant: dict[str, int]
 
 
+# A sample's files that can be downloaded.
+FileKind = Literal["call", "counts", "r1", "r2"]
+
+
 class SampleDetail(BaseModel):
     """All data needed in an indv sample result page"""
 
@@ -340,12 +344,12 @@ class SampleDetail(BaseModel):
     tags: list[JobTag]
     folder: str | None
     # The full call (scalehd.call/2), once the sample has been called.
-    call: dict[str, Any] | None
+    call: GenotypeCallJson | None
     cag_charts: list[CagChart]
     ccg: list[CcgBar]
     cells: list[Cell]
     reads: Reads | None
-    # Which files can be downloaded: "call", "counts", "r1", "r2".
-    files: list[str]
+    # Which files can be downloaded.
+    files: list[FileKind]
     previous_id: int | None
     next_id: int | None

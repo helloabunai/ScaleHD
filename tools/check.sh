@@ -29,6 +29,9 @@ uv run ruff format --check packages apps
 echo "==> mypy"
 uv run mypy
 
+echo "==> API types up to date"
+tools/gen-api-types.sh --check
+
 echo "==> web type-check and build"
 (cd apps/web && npm run build)
 

@@ -1,2 +1,4 @@
 # The original ScaleHD 1.x, kept for reference. Don't use in repo stats.
 legacy/** linguist-vendored
+# Made by tools/gen-api-types.sh
+apps/web/src/api.gen.ts linguist-generated

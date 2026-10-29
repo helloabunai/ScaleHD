@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from scalehd.counts import count_fastq
-from scalehd.genotype import GenotypeCall, call_genotype
+from scalehd.genotype import GenotypeCall, GenotypeCallJson, call_genotype
 from scalehd.simulate import SimAllele, SimulationSpec, call_matches, simulate
 from scalehd.structure import AlleleStructure
 
@@ -40,7 +40,7 @@ class SampleTask:
 @dataclass(frozen=True)
 class SampleResult:
     sample_id: int
-    call: dict[str, Any] | None
+    call: GenotypeCallJson | None
     genotype: str | None
     # The call's Phred-scaled confidence (GenotypeCall.quality).
     confidence: float | None
