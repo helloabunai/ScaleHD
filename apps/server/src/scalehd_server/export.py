@@ -13,6 +13,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -157,7 +158,7 @@ def _table(header: list[str], rows: Any) -> str:
 
 
 def _row(job: Job, sample: Sample) -> list[str]:
-    call = sample.call or {}
+    call: Mapping[str, Any] = sample.call or {}
     row = [
         _text(sample.name),
         validation_id(job, sample),
@@ -185,7 +186,7 @@ def _validation_row(
     versions: dict[str, str],
     batches: dict[str, str],
 ) -> list[str]:
-    call = sample.call or {}
+    call: Mapping[str, Any] = sample.call or {}
     row = [validation_id(job, sample), _batch(sample, batches), *([""] * len(LAB_COLUMNS))]
     row += [str(sample.status), *_call_summary(call)]
     alternatives = call.get("alternatives", [])[:3]
@@ -219,7 +220,7 @@ def _validation_row(
     return row
 
 
-def _call_summary(call: dict[str, Any]) -> list[str]:
+def _call_summary(call: Mapping[str, Any]) -> list[str]:
     return [
         call.get("genotype", ""),
         _number(call.get("quality"), 1),
@@ -228,13 +229,13 @@ def _call_summary(call: dict[str, Any]) -> list[str]:
     ]
 
 
-def _alleles(call: dict[str, Any]) -> list[dict[str, Any]]:
+def _alleles(call: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     """The call's two alleles, or blanks for a sample not called."""
-    alleles: list[dict[str, Any]] = call.get("alleles", [])
+    alleles: list[Mapping[str, Any]] = call.get("alleles", [])
     return [alleles[n] if n < len(alleles) else {} for n in (0, 1)]
 
 
-def _allele_value(allele: dict[str, Any], key: str) -> str:
+def _allele_value(allele: Mapping[str, Any], key: str) -> str:
     value = allele.get(key)
     if key == "cag_estimate":
         return f"{value[0]} ({value[1]}-{value[2]})" if value else ""
@@ -248,7 +249,7 @@ def _allele_value(allele: dict[str, Any], key: str) -> str:
     return _number(value, 3)
 
 
-def _peak_molecules(counts: SampleCounts | None, allele: dict[str, Any]) -> str:
+def _peak_molecules(counts: SampleCounts | None, allele: Mapping[str, Any]) -> str:
     """Molecules of the allele's structure at each CAG length around its peak, space
     separated. Blank for an allele beyond read length as its peak was never read."""
     if counts is None or not allele or allele.get("beyond_read_length"):

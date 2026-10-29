@@ -36,16 +36,27 @@ ratios its priors make implausible.
 
 from .call import call_genotype
 from .candidates import candidate_alleles
-from .results import SCHEMA, AlleleCall, Candidate, Flag, GenotypeCall, NoMoleculesError
+from .results import (
+    SCHEMA,
+    AlleleCall,
+    AlleleCallJson,
+    Candidate,
+    Flag,
+    GenotypeCall,
+    GenotypeCallJson,
+    NoMoleculesError,
+)
 from .settings import CallerSettings
 
 __all__ = [
     "SCHEMA",
     "AlleleCall",
+    "AlleleCallJson",
     "CallerSettings",
     "Candidate",
     "Flag",
     "GenotypeCall",
+    "GenotypeCallJson",
     "NoMoleculesError",
     "call_genotype",
     "candidate_alleles",

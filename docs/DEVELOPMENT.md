@@ -11,6 +11,7 @@ uv run ruff format packages apps     # format
 uv run mypy                          # types
 (cd apps/web && npm ci)              # frontend dependencies (initial, and after they change)
 (cd apps/web && npm run build)       # frontend type-check and build
+tools/gen-api-types.sh               # frontend API types, after changing the server's schemas or routes
 uv run python packages/core/benchmarks/parse_accuracy.py
 uv run python packages/core/benchmarks/genotype_simulated.py
 uv run python packages/core/benchmarks/legacy_matrix.py
@@ -19,7 +20,7 @@ uv run python packages/core/benchmarks/posterior_calibration.py # is a 0.99 call
 uv run python packages/core/benchmarks/prior_crossval.py        # priors from the other half
 ```
 
-`tools/check.sh` runs every check above in order (lint, format, types, frontend build, tests) and stops at the first failure. Run it before opening a PR: the tests take several minutes.
+`tools/check.sh` runs every check above in order (lint, format, types, API types up to date, frontend build, tests) and stops at the first failure. Run it before opening a PR: the tests take several minutes.
 A git pre-push hook runs the quick ones before each push (`tools/check.sh --quick`: everything but the tests, about 30 seconds)
 and blocks the push if any fails. Turn the hook on in your local clone (once per clone):
 
@@ -54,7 +55,8 @@ packages/core/        scalehd: pure-Python library and CLI (no web or DB depende
                       the model holds up when its assumptions are off (see MODEL.md)
 apps/server/          scalehd-server: FastAPI, job runner, SQLite database
 apps/web/             web interface: React, TypeScript, Vite
-tools/                check.sh, dev.sh, refresh.sh, new-migration.sh and the pre-push git hook
+tools/                check.sh, dev.sh, refresh.sh, new-migration.sh, gen-api-types.sh and the pre-push git hook
+  api-types/          openapi-typescript for gen-api-types.sh (TypeScript 5, apart from apps/web's 7)
 Dockerfile            one image with the server, the core and the built frontend
 compose.yaml          runs the docker image with a database volume, the data (input) folder read-only and
                       the workspace (job results) read-write

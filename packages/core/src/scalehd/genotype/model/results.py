@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any
+from typing import TypedDict
 
-from ...calibration import Stutter
+from ...calibration import Stutter, StutterJson
 from ...structure import AlleleStructure
 
 SCHEMA = "scalehd.call/2"
@@ -35,6 +35,60 @@ class Flag(StrEnum):
 
 class NoMoleculesError(ValueError):
     pass
+
+
+# The call as saved to call.json (SCHEMA). The server's API serves the same shape, and
+# the web app's types are generated from that.
+
+
+class AlleleCallJson(TypedDict):
+    """One allele of a saved call."""
+
+    structure: str
+    beyond_read_length: bool
+    cag: int
+    caacag: int
+    ccgcca: int
+    ccg: int
+    cct: int
+    typical: bool
+    polyglutamine_length: int | None
+    fraction: float
+    molecules: float
+    stutter: StutterJson
+    backward_slippage: float | None
+    somatic_mosaicism: float | None
+    expansion_index: float | None
+    contraction_index: float | None
+    # (most likely, lower, upper), as in AlleleCall.cag_estimate.
+    cag_estimate: tuple[int, int, int] | None
+
+
+class AlternativeJson(TypedDict):
+    genotype: str
+    posterior: float
+
+
+class UnexplainedJson(TypedDict):
+    structure: str
+    molecules: int
+
+
+class GenotypeCallJson(TypedDict):
+    """A sample's saved genotype call."""
+
+    schema: str
+    genotype: str
+    posterior: float
+    quality: float
+    flags: list[Flag]
+    alleles: list[AlleleCallJson]
+    alternatives: list[AlternativeJson]
+    molecules: int
+    background: float
+    ccg_slippage: float
+    misread: float
+    unexplained: list[UnexplainedJson]
 
 
 @dataclass(frozen=True, slots=True, order=True)
@@ -84,7 +138,7 @@ class AlleleCall:
     def label(self) -> str:
         return self.allele.label
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> AlleleCallJson:
         s = self.allele.structure
         return {
             "structure": self.label,
@@ -105,7 +159,7 @@ class AlleleCall:
             "somatic_mosaicism": self.somatic_mosaicism,
             "expansion_index": self.expansion_index,
             "contraction_index": self.contraction_index,
-            "cag_estimate": list(self.cag_estimate) if self.cag_estimate else None,
+            "cag_estimate": self.cag_estimate,
         }
 
 
@@ -131,13 +185,13 @@ class GenotypeCall:
     def homozygous(self) -> bool:
         return self.alleles[0].allele == self.alleles[1].allele
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> GenotypeCallJson:
         return {
             "schema": SCHEMA,
             "genotype": self.label,
             "posterior": self.posterior,
             "quality": self.quality,
-            "flags": [str(f) for f in self.flags],
+            "flags": list(self.flags),
             "alleles": [a.to_dict() for a in self.alleles],
             "alternatives": [{"genotype": g, "posterior": p} for g, p in self.alternatives],
             "molecules": self.molecules,

@@ -91,6 +91,7 @@ Gets some simulated data from the simulator and runs the new genotyping (only on
 | `db.py`, `models.py` | SQLAlchemy engine, sessions; users, login sessions, jobs, samples, tags tables | works |
 | `migrate.py`, `migrations/` | alembic migrations to create/update DB | works |
 | `schemas.py` | API request and response bodies, job settings → `CallerSettings` | works |
+| `openapi.py` | prints the OpenAPI description, for the web app's generated types | works |
 | `runner.py`, `worker.py` | the job runner (queue, worker pool, recording) and one sample's work | works |
 | `progress.py` | sample progress monitoring | works |
 | `workspace.py` | job folders and `job.json` in the workspace | works |

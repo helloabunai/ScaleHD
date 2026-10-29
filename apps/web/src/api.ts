@@ -1,265 +1,51 @@
-// Client for the ScaleHD HTTP API. The types mirror
-// apps/server/src/scalehd_server/schemas.py by hand. TODO: generate them from
-// /api/openapi.json (e.g. openapi-typescript) once the API settles.
+// Client for the ScaleHD HTTP API. The types gen by
+// tools/gen-api-types.sh from the server's OpenAPI desc.
+// Rerun after any spec changes.
 
-export type JobStatus =
-  | "queued"
-  | "running"
-  | "cancelling"
-  | "finished"
-  | "failed"
-  | "cancelled";
+import type { components } from "./api.gen";
+
+type Schemas = components["schemas"];
+
+export type JobStatus = Schemas["JobStatus"];
 /** Light or dark pages, or "system" */
-export type Theme = "system" | "light" | "dark";
-export type SampleStatus = "queued" | "running" | "finished" | "failed" | "cancelled";
+export type Theme = Schemas["Theme"];
+export type SampleStatus = Schemas["SampleStatus"];
+export type Health = Schemas["Health"];
+export type User = Schemas["UserOut"];
+export type Folders = Schemas["Folders"];
+export type Registration = Schemas["Registration"];
+export type GenotypeMethod = Schemas["GenotypeMethod"];
+export type JobSettings = Schemas["JobSettings"];
+export type InputPair = Schemas["InputPair"];
+export type InputSample = Schemas["InputSample"];
+export type InputSubfolder = Schemas["InputSubfolder"];
+export type InputFolder = Schemas["InputFolder"];
+export type JobCreate = Schemas["JobCreate"];
 
-export interface Health {
-  status: "ok";
-  version: string;
-  core_version: string;
-  python: string;
-  platform: string;
-  sqlite: string;
-  libraries: Record<string, string>;
-}
-
-export interface User {
-  id: number;
-  username: string;
-  is_admin: boolean;
-  created_at: string;
-  theme: Theme;
-}
-
-export interface Folders {
-  /** Sequencing data to pick from, read-only. Null when the server has none set. */
-  data_root: string | null;
-  /** Where every user's results go. */
-  workspace: string;
-  /** This user's folder in the workspace: their jobs are saved here. */
-  your_folder: string;
-}
-
-export interface Registration {
-  open: boolean;
-  first_account: boolean;
-}
-
-export type GenotypeMethod = "legacy" | "model";
-
-export interface JobSettings {
-  method: GenotypeMethod;
-  call: boolean;
-  discordant: "drop" | "prefer";
-  min_molecules: number | null;
-  min_posterior: number | null;
-  max_background: number | null;
-  max_dropped: number | null;
-}
-
-/** A sample's FASTQ files, as paths relative to the server's data folder. */
-export interface InputPair {
-  name: string;
-  r1: string;
-  r2: string | null;
-}
-
-/** A sample found in the data folder & its FASTQ files, paired by name. */
-export interface InputSample {
-  name: string;
-  files: string[];
-  r1: string | null;/** Null if not runnable for whatever reason */
-  r2: string | null; /** Null if not runnable for whatever reason */
-  size: number;
-  undetermined: boolean;
-  skipped: string | null;
-}
-
-/** A folder inside the open one, with what it contains (for tree) */
-export interface InputSubfolder {
-  name: string;
-  folders: number;
-  samples: number;
-}
-
-/** Subdir of the server data root, and the samples its FASTQ files make. */
-export interface InputFolder {
-  folder: string;
-  path: string;
-  folders: InputSubfolder[];
-  samples: InputSample[];
-  other_files: string[];
-}
-
-export interface JobCreate {
-  name: string;
-  samples: InputPair[];
-  /** Left out, the job uses the user's default settings. */
-  settings?: JobSettings;
-  tags?: number[];
-}
-
+// Also in schemas.py, as limits on the request bodies. OpenAPI has no constants.
 export const MAX_TAGS = 5;
 export const MAX_TAG_LENGTH = 15;
 
-export interface JobTag {
-  id: number;
-  name: string;
-}
-
-export interface Tag extends JobTag {
-  jobs: number;
-}
-
-export interface Sample {
-  id: number;
-  name: string;
-  r1: string | null;
-  r2: string | null;
-  status: SampleStatus;
-  genotype: string | null;
-  /** Phred-scaled confidence of the call (the call's quality). */
-  confidence: number | null;
-  flags: string[];
-  /** Simulated samples: the true genotype, and whether the call matched it. */
-  truth: string | null;
-  matches_truth: boolean | null;
-  error: string | null;
-  progress: SampleProgress | null;
-}
-
-export type SampleStage = "simulating" | "counting" | "calling";
-
-export interface SampleProgress {
-  stage: SampleStage;
-  share: number | null;
-}
-
-export interface JobSummary {
-  id: number;
-  name: string;
-  demo: boolean;
-  method: GenotypeMethod;
-  status: JobStatus;
-  created_at: string;
-  started_at: string | null;
-  finished_at: string | null;
-  /** The job's folder in the workspace, a path on the server machine. */
-  output_dir: string | null;
-  sample_count: number;
-  samples_done: number;
-  tags: JobTag[];
-}
-
-export interface Job extends JobSummary {
-  settings: JobSettings;
-  samples: Sample[];
-  error: string | null;
-}
-
-export interface Stutter {
-  contraction: number;
-  contraction_step: number;
-  contraction_tail: number;
-  expansion: number;
-  expansion_step: number;
-  expansion_tail: number;
-}
-
+export type JobTag = Schemas["JobTag"];
+export type Tag = Schemas["TagOut"];
+export type Sample = Schemas["SampleOut"];
+export type SampleStage = Schemas["SampleStage"];
+export type SampleProgress = Schemas["SampleProgress"];
+export type JobSummary = Schemas["JobSummary"];
+export type Job = Schemas["JobOut"];
+export type Flag = Schemas["Flag"];
+export type Stutter = Schemas["StutterJson"];
 /** One allele of a saved call (scalehd.call/2). */
-export interface CalledAllele {
-  structure: string;
-  beyond_read_length: boolean;
-  cag: number;
-  caacag: number;
-  ccgcca: number;
-  ccg: number;
-  cct: number;
-  typical: boolean;
-  polyglutamine_length: number | null;
-  fraction: number;
-  molecules: number;
-  stutter: Stutter;
-  backward_slippage: number | null;
-  somatic_mosaicism: number | null;
-  expansion_index: number | null;
-  contraction_index: number | null;
-  /** For an allele beyond read length: [best, low, high] estimate of its CAG. */
-  cag_estimate: [number, number, number] | null;
-}
-
+export type CalledAllele = Schemas["AlleleCallJson"];
 /** A sample's saved genotype call (scalehd.call/2). */
-export interface GenotypeCall {
-  genotype: string;
-  posterior: number;
-  quality: number;
-  flags: string[];
-  alleles: CalledAllele[];
-  alternatives: { genotype: string; posterior: number }[];
-  molecules: number;
-  background: number;
-  ccg_slippage: number;
-  misread: number;
-  unexplained: { structure: string; molecules: number }[];
-}
-
-export interface CagBar {
-  cag: number;
-  molecules: number;
-  /** Molecules only known to be at least this long. */
-  lower_bound: number;
-}
-
-export interface CagChart {
-  caacag: number;
-  ccgcca: number;
-  ccg: number;
-  cct: number;
-  alleles: string[];
-  /** The called alleles' CAG lengths, ascending (lower bounds for alleles beyond read length). */
-  called: number[];
-  bars: CagBar[];
-}
-
-export interface CcgBar {
-  ccg: number;
-  molecules: number;
-}
-
-export interface Cell {
-  cag: number;
-  ccg: number;
-  molecules: number;
-}
-
-export interface Reads {
-  molecules: number;
-  complete: number;
-  partial: number;
-  dropped: number;
-  unusable: number;
-  read_outcomes: Record<string, number>;
-  discordant: Record<string, number>;
-}
-
-export type SampleFile = "call" | "counts" | "r1" | "r2";
-
-export interface SampleDetail {
-  sample: Sample;
-  job_id: number;
-  job_name: string;
-  demo: boolean;
-  tags: JobTag[];
-  folder: string | null;
-  call: GenotypeCall | null;
-  cag_charts: CagChart[];
-  ccg: CcgBar[];
-  cells: Cell[];
-  reads: Reads | null;
-  files: SampleFile[];
-  previous_id: number | null;
-  next_id: number | null;
-}
+export type GenotypeCall = Schemas["GenotypeCallJson"];
+export type CagBar = Schemas["CagBar"];
+export type CagChart = Schemas["CagChart"];
+export type CcgBar = Schemas["CcgBar"];
+export type Cell = Schemas["Cell"];
+export type Reads = Schemas["Reads"];
+export type SampleDetail = Schemas["SampleDetail"];
+export type SampleFile = SampleDetail["files"][number];
 
 export class ApiError extends Error {
   readonly status: number;

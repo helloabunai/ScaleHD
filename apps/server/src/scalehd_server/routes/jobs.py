@@ -19,9 +19,10 @@ from ..errors import not_implemented
 from ..export import results_csv, results_filename, validation_csv, validation_filename
 from ..inputs import InputError, read_truth, resolve_file
 from ..models import Job, JobStatus, Sample, Tag, User
-from ..results import FileKind, sample_detail, sample_file
+from ..results import sample_detail, sample_file
 from ..runner import Runner
 from ..schemas import (
+    FileKind,
     JobCreate,
     JobOut,
     JobSettings,
