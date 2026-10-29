@@ -7,10 +7,11 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from scalehd.calibration import HTT_MISEQ
+from scalehd.calibration import HTT_MISEQ, StutterCurve, logit
 from scalehd.cli import main
 from scalehd.counts import SampleCounts, count_reads
 from scalehd.genotype import CallerSettings, Candidate, Flag, NoMoleculesError, call_genotype
+from scalehd.genotype.model.call import _same_configuration
 from scalehd.genotype.model.kernel import _log_kernel, _log_survival
 from scalehd.genotype.model.likelihood import (
     _LONG_ALLELE_SPAN,
@@ -25,14 +26,45 @@ from scalehd.simulate import SimAllele, SimulationSpec, simulate
 from scalehd.structure import AlleleStructure
 from scipy.special import logsumexp
 
+# A sample's stutter moved this far, on each of the six scales of a StutterCurve, from
+# the priors' curve.
+DRIFT_36 = (0.0336, 0.3961, -1.4568, 2.0608, -1.3735, 0.2539)
+DRIFT_131 = (0.029, -0.4377, 0.3564, 0.4743, -0.4999, 1.3539)
+
+
+def drifted(offsets: tuple[float, ...]) -> StutterCurve:
+    """HTT_MISEQ moved by ``offsets``. (N-1)/N and (N+1)/N stay at most 0.95, so N is still
+    its allele's tallest peak, and the step and tail ratios stay within 0.001 to 0.97."""
+    columns = (
+        HTT_MISEQ.log_contraction,
+        HTT_MISEQ.logit_contraction_step,
+        HTT_MISEQ.logit_contraction_tail,
+        HTT_MISEQ.log_expansion,
+        HTT_MISEQ.logit_expansion_step,
+        HTT_MISEQ.logit_expansion_tail,
+    )
+    moved = []
+    for k, (column, offset) in enumerate(zip(columns, offsets, strict=True)):
+        low, high = (-math.inf, math.log(0.95)) if k in (0, 3) else (logit(1e-3), logit(0.97))
+        moved.append(tuple(float(min(max(v + offset, low), high)) for v in column))
+    return StutterCurve(HTT_MISEQ.cag_lengths, *moved, spread=HTT_MISEQ.spread)
+
 
 @cache
-def sample(*labels: str, pairs: int = 3000, seed: int = 5, abundance: float = 1.0) -> SampleCounts:
-    """Counts for simulated alleles; the last allele's abundance can be lowered."""
+def sample(
+    *labels: str,
+    pairs: int = 3000,
+    seed: int = 5,
+    abundance: float = 1.0,
+    drift: tuple[float, ...] | None = None,
+) -> SampleCounts:
+    """Counts for simulated alleles. The last allele's abundance can be lowered, and the
+    stutter expected by the model (for CAG length X) can be modified with ``drift``."""
     alleles = [SimAllele(AlleleStructure.from_label(label)) for label in labels]
     if abundance != 1.0:
         alleles[-1] = SimAllele(alleles[-1].structure, abundance)
-    simulated = simulate(SimulationSpec(tuple(alleles), pairs=pairs, seed=seed))
+    stutter = HTT_MISEQ if drift is None else drifted(drift)
+    simulated = simulate(SimulationSpec(tuple(alleles), pairs=pairs, stutter=stutter, seed=seed))
     return count_reads(
         (a.sequence, b.sequence) for a, b in zip(simulated.r1, simulated.r2, strict=True)
     )
@@ -83,6 +115,60 @@ def test_flags_describe_the_genotype() -> None:
     atypical = call_genotype(sample("42_0_1_7_2", "19_2_1_10_2"))
     assert Flag.ATYPICAL in atypical.flags
     assert Flag.HOMOZYGOUS not in atypical.flags
+
+
+def _candidate(label: str) -> Candidate:
+    return Candidate(AlleleStructure.from_label(label))
+
+
+def test_lengths_settled_by_their_own_peak_may_differ_others_must_match() -> None:
+    called = _Model.of(_candidate("44_1_1_7_2"), _candidate("46_1_1_7_2"))
+    other = _Model.of(_candidate("43_1_1_7_2"), _candidate("45_1_1_7_2"))
+    assert _same_configuration(other, called, (2, 2))
+    assert not _same_configuration(other, called, (2, 0))
+    assert not _same_configuration(other, called, (0, 0))
+
+
+def test_close_alleles_are_only_as_sure_as_their_own_lengths() -> None:
+    """Two expanded alleles two CAG apart, PCR stutter not as expected in model.
+    assert appropriate caution in genotyping and what the calls are"""
+    call = call_genotype(sample("43_1_1_7_2", "45_1_1_7_2", pairs=1519, seed=36, drift=DRIFT_36))
+    assert call.posterior < 0.99
+    genotypes = [call.label] + [label for label, _ in call.alternatives]
+    assert "43_1_1_7_2/45_1_1_7_2" in genotypes
+
+
+def test_exact_length_is_not_pulled_by_the_edge_of_its_peak() -> None:
+    """Stutter different to model again. For long alleles test that effect on genotype.
+    Only the reads near the peak decide N, and leaving the rest out shouldn't favour e.g. N+1"""
+    call = call_genotype(sample("18_1_1_7_2", "57_1_1_7_2", pairs=2545, seed=131, drift=DRIFT_131))
+    assert call.label == "18_1_1_7_2/57_1_1_7_2"
+
+
+@pytest.mark.parametrize(
+    ("labels", "close"),
+    [
+        # Long alleles stutter more, slippage could be a fair % of another peak candidate
+        (("44_1_1_7_2", "46_1_1_7_2"), True),
+        # Short alleles stutter little, so two apart their peaks barely overlap.
+        (("17_1_1_7_2", "19_1_1_7_2"), False),
+        (("19_1_1_7_2", "44_1_1_7_2"), False),
+        # Different CCG keeps each allele's molecules apart.
+        (("17_1_1_7_2", "19_1_1_10_2"), False),
+    ],
+)
+def test_close_alleles_are_flagged_when_their_stutter_overlaps(
+    labels: tuple[str, ...], close: bool
+) -> None:
+    flags = call_genotype(sample(*labels)).flags
+    assert (Flag.CLOSE_ALLELES in flags) is close
+    assert Flag.NEIGHBOURING not in flags
+
+
+def test_neighbouring_alleles_are_not_also_close() -> None:
+    flags = call_genotype(sample("17_1_1_7_2", "18_1_1_7_2")).flags
+    assert Flag.NEIGHBOURING in flags
+    assert Flag.CLOSE_ALLELES not in flags
 
 
 def test_allele_beyond_read_length_is_a_lower_bound() -> None:
